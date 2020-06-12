@@ -6,7 +6,19 @@ using BizHawk.Common;
 
 namespace BizHawk.Emulation.Common
 {
-	public class GameInfo
+	public interface IGameInfo
+	{
+		string Name { get; }
+		string System { get; }
+		string Hash { get; }
+		string Region { get; }
+		RomStatus Status { get; }
+		bool NotInDatabase { get; }
+		string FirmwareHash { get; }
+		string ForcedCore { get; }
+	}
+
+	public class GameInfo : IGameInfo
 	{
 		public string Name { get; set; }
 		public string System { get; set; }
@@ -165,12 +177,12 @@ namespace BizHawk.Emulation.Common
 
 	public static class GameInfoExtensions
 	{
-		public static bool IsNullInstance(this GameInfo game)
+		public static bool IsNullInstance(this IGameInfo game)
 		{
 			return game == null || game.System == "NULL";
 		}
 
-		public static bool IsRomStatusBad(this GameInfo game)
+		public static bool IsRomStatusBad(this IGameInfo game)
 		{
 			return game.Status == RomStatus.BadDump || game.Status == RomStatus.Overdump;
 		}

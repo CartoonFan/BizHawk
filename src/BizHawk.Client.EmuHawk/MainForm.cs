@@ -275,6 +275,7 @@ namespace BizHawk.Client.EmuHawk
 		public MainForm(string[] args)
 		{
 			GlobalWin.MainForm = this;
+			GlobalWin.ClientApi = new EmuClientApi(Config, DisplayManager, Emulator, Game, InputManager, this);
 
 			//do this threaded stuff early so it has plenty of time to run in background
 			Database.InitializeDatabase(Path.Combine(PathUtils.ExeDirectoryPath, "gamedb", "gamedb.txt"));
@@ -298,7 +299,7 @@ namespace BizHawk.Client.EmuHawk
 			_throttle = new Throttle();
 
 			Emulator = new NullEmulator();
-			GlobalWin.Tools = new ToolManager(this, Config, Emulator, MovieSession);
+			GlobalWin.Tools = new ToolManager(this, Config, Emulator, MovieSession, Game);
 
 			UpdateStatusSlots();
 			UpdateKeyPriorityIcon();
@@ -371,6 +372,40 @@ namespace BizHawk.Client.EmuHawk
 				Sound?.StartSound();
 			};
 
+			Input.Instance.MainFormInputAllowedCallback = yieldAlt => {
+				// the main form gets input
+				if (ActiveForm == this)
+				{
+					return Input.AllowInput.All;
+				}
+
+				// even more special logic for TAStudio:
+				// TODO - implement by event filter in TAStudio
+				if (ActiveForm is TAStudio maybeTAStudio)
+				{
+					if (yieldAlt || maybeTAStudio.IsInMenuLoop)
+					{
+						return Input.AllowInput.None;
+					}
+				}
+
+				// modals that need to capture input for binding purposes get input, of course
+				if (ActiveForm is HotkeyConfig
+					|| ActiveForm is ControllerConfig
+					|| ActiveForm is TAStudio
+					|| ActiveForm is VirtualpadTool)
+				{
+					return Input.AllowInput.All;
+				}
+
+				// if no form is active on this process, then the background input setting applies
+				if (ActiveForm == null && Config.AcceptBackgroundInput)
+				{
+					return Config.AcceptBackgroundInputControllerOnly ? Input.AllowInput.OnlyController : Input.AllowInput.All;
+				}
+
+				return Input.AllowInput.None;
+			};
 			Input.Instance.Adapter.FirstInitAll(Handle);
 			InitControls();
 
@@ -797,45 +832,6 @@ namespace BizHawk.Client.EmuHawk
 			AddOnScreenMessage("Core reboot needed for this setting");
 		}
 
-		/// <summary>
-		/// Controls whether the app generates input events. should be turned off for most modal dialogs
-		/// </summary>
-		public Input.AllowInput AllowInput(bool yieldAlt)
-		{
-			// the main form gets input
-			if (ActiveForm == this)
-			{
-				return Input.AllowInput.All;
-			}
-
-			// even more special logic for TAStudio:
-			// TODO - implement by event filter in TAStudio
-			if (ActiveForm is TAStudio maybeTAStudio)
-			{
-				if (yieldAlt || maybeTAStudio.IsInMenuLoop)
-				{
-					return Input.AllowInput.None;
-				}
-			}
-
-			// modals that need to capture input for binding purposes get input, of course
-			if (ActiveForm is HotkeyConfig
-				|| ActiveForm is ControllerConfig
-				|| ActiveForm is TAStudio
-				|| ActiveForm is VirtualpadTool)
-			{
-				return Input.AllowInput.All;
-			}
-
-			// if no form is active on this process, then the background input setting applies
-			if (ActiveForm == null && Config.AcceptBackgroundInput)
-			{
-				return Config.AcceptBackgroundInputControllerOnly ? Input.AllowInput.OnlyController : Input.AllowInput.All;
-			}
-
-			return Input.AllowInput.None;
-		}
-
 		// TODO: make these actual properties
 		// This is a quick hack to reduce the dependency on Globals
 		public IEmulator Emulator
@@ -844,7 +840,7 @@ namespace BizHawk.Client.EmuHawk
 
 			private set
 			{
-				GlobalWin.Emulator = value;
+				GlobalWin.ClientApi.Emulator = GlobalWin.Emulator = value;
 				_currentVideoProvider = GlobalWin.Emulator.AsVideoProviderOrDefault();
 				_currentSoundProvider = GlobalWin.Emulator.AsSoundProviderOrDefault();
 			}
@@ -874,7 +870,7 @@ namespace BizHawk.Client.EmuHawk
 		private GameInfo Game
 		{
 			get => GlobalWin.Game;
-			set => GlobalWin.Game = value;
+			set => GlobalWin.ClientApi.Game = GlobalWin.Game = value;
 		}
 
 		private Sound Sound => GlobalWin.Sound;
@@ -2862,8 +2858,6 @@ namespace BizHawk.Client.EmuHawk
 			PressFrameAdvance = false;
 		}
 
-		public bool IsLagFrame => Emulator.CanPollInput() && Emulator.AsInputPollable().IsLagFrame;
-
 		private void StepRunLoop_Core(bool force = false)
 		{
 			var runFrame = false;
@@ -2873,7 +2867,7 @@ namespace BizHawk.Client.EmuHawk
 			double frameAdvanceTimestampDeltaMs = (double)(currentTimestamp - _frameAdvanceTimestamp) / Stopwatch.Frequency * 1000.0;
 			bool frameProgressTimeElapsed = frameAdvanceTimestampDeltaMs >= Config.FrameProgressDelayMs;
 
-			if (Config.SkipLagFrame && IsLagFrame && frameProgressTimeElapsed && Emulator.Frame > 0)
+			if (Config.SkipLagFrame && Emulator.CanPollInput() && Emulator.AsInputPollable().IsLagFrame && frameProgressTimeElapsed && Emulator.Frame > 0)
 			{
 				runFrame = true;
 			}
@@ -3014,12 +3008,12 @@ namespace BizHawk.Client.EmuHawk
 
 				CheatList.Pulse();
 
-				if (IsLagFrame && Config.AutofireLagFrames)
+				if (Emulator.CanPollInput() && Emulator.AsInputPollable().IsLagFrame && Config.AutofireLagFrames)
 				{
 					InputManager.AutoFireController.IncrementStarts();
 				}
 
-				GlobalWin.InputManager.AutofireStickyXorAdapter.IncrementLoops(IsLagFrame);
+				GlobalWin.InputManager.AutofireStickyXorAdapter.IncrementLoops(Emulator.CanPollInput() && Emulator.AsInputPollable().IsLagFrame);
 
 				PressFrameAdvance = false;
 
@@ -3673,7 +3667,7 @@ namespace BizHawk.Client.EmuHawk
 				var oldGame = GlobalWin.Game;
 				var result = loader.LoadRom(path, nextComm, ioaRetro?.CorePath);
 
-				GlobalWin.Game = result ? loader.Game : oldGame;
+				GlobalWin.ClientApi.Game = GlobalWin.Game = result ? loader.Game : oldGame;
 
 				// we need to replace the path in the OpenAdvanced with the canonical one the user chose.
 				// It can't be done until loader.LoadRom happens (for CanonicalFullPath)
@@ -3792,7 +3786,7 @@ namespace BizHawk.Client.EmuHawk
 						}
 					}
 
-					Tools.Restart(Emulator);
+					Tools.Restart(Emulator, Game);
 
 					if (Config.Cheats.LoadFileByGame && Emulator.HasMemoryDomains())
 					{
@@ -3954,9 +3948,9 @@ namespace BizHawk.Client.EmuHawk
 			{
 				CloseGame(clearSram);
 				Emulator = new NullEmulator();
-				GlobalWin.Game = GameInfo.NullInstance;
+				GlobalWin.ClientApi.Game = GlobalWin.Game = GameInfo.NullInstance;
 				CreateRewinder();
-				Tools.Restart(Emulator);
+				Tools.Restart(Emulator, Game);
 				RewireSound();
 				ClearHolds();
 				Tools.UpdateCheatRelatedTools(null, null);

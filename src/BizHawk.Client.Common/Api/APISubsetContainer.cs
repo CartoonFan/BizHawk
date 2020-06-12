@@ -7,15 +7,15 @@ namespace BizHawk.Client.Common
 	{
 		public Dictionary<Type, IExternalApi> Libraries { get; set; }
 
-		public IEmu Emu => (IEmu) Libraries[typeof(IEmu)];
-		public IGameInfo GameInfo => (IGameInfo) Libraries[typeof(IGameInfo)];
-		public IJoypad Joypad => (IJoypad) Libraries[typeof(IJoypad)];
-		public IMem Mem => (IMem) Libraries[typeof(IMem)];
-		public IMemEvents MemEvents => (IMemEvents) Libraries[typeof(IMemEvents)];
-		public IMemorySaveState MemorySaveState => (IMemorySaveState) Libraries[typeof(IMemorySaveState)];
-		public IInputMovie Movie => (IInputMovie) Libraries[typeof(IInputMovie)];
-		public ISql Sql => (ISql) Libraries[typeof(ISql)];
-		public IUserData UserData => (IUserData) Libraries[typeof(IUserData)];
+		public IEmulationApi Emulation => (IEmulationApi) Libraries[typeof(IEmulationApi)];
+		public IGameInfoApi GameInfo => (IGameInfoApi) Libraries[typeof(IGameInfoApi)];
+		public IJoypadApi Joypad => (IJoypadApi) Libraries[typeof(IJoypadApi)];
+		public IMemoryApi Memory => (IMemoryApi) Libraries[typeof(IMemoryApi)];
+		public IMemoryEventsApi MemoryEvents => (IMemoryEventsApi) Libraries[typeof(IMemoryEventsApi)];
+		public IMemorySaveStateApi MemorySaveState => (IMemorySaveStateApi) Libraries[typeof(IMemorySaveStateApi)];
+		public IMovieApi Movie => (IMovieApi) Libraries[typeof(IMovieApi)];
+		public ISQLiteApi SQLite => (ISQLiteApi) Libraries[typeof(ISQLiteApi)];
+		public IUserDataApi UserData => (IUserDataApi) Libraries[typeof(IUserDataApi)];
 
 		public ApiSubsetContainer(Dictionary<Type, IExternalApi> libs)
 		{

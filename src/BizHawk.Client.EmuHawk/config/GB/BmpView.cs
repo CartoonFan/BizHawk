@@ -1,29 +1,24 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Drawing.Imaging;
-using System.IO;
 using System.Drawing;
 using System.Windows.Forms;
 
-using BizHawk.Client.Common;
 using BizHawk.Common;
-using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
 	public class BmpView : Control
 	{
 		[Browsable(false)]
-		public Bitmap BMP { get; private set; }
+		public Bitmap Bmp { get; private set; }
 
 		private bool _scaled;
 
 		public BmpView()
 		{
-			if (Process.GetCurrentProcess().ProcessName == "devenv")
+			if (DesignMode)
 			{
-				// in the designer
 				SetStyle(ControlStyles.SupportsTransparentBackColor, true);
 			}
 			else
@@ -42,7 +37,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void BmpView_SizeChanged(object sender, EventArgs e)
 		{
-			_scaled = !(BMP.Width == Width && BMP.Height == Height);
+			_scaled = !(Bmp.Width == Width && Bmp.Height == Height);
 		}
 
 		private void BmpView_Paint(object sender, PaintEventArgs e)
@@ -51,88 +46,45 @@ namespace BizHawk.Client.EmuHawk
 			{
 				e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
 				e.Graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-				e.Graphics.DrawImage(BMP, 0, 0, Width, Height);
+				e.Graphics.DrawImage(Bmp, 0, 0, Width, Height);
 			}
 			else
 			{
-				e.Graphics.DrawImageUnscaled(BMP, 0, 0);
+				e.Graphics.DrawImageUnscaled(Bmp, 0, 0);
 			}
 		}
 
-		public void ChangeBitmapSize(Size s)
-		{
-			ChangeBitmapSize(s.Width, s.Height);
-		}
+		public void ChangeBitmapSize(Size s) => ChangeBitmapSize(s.Width, s.Height);
 
 		public void ChangeBitmapSize(int w, int h)
 		{
-			if (BMP != null)
+			if (Bmp != null)
 			{
-				if (w == BMP.Width && h == BMP.Height)
+				if (w == Bmp.Width && h == Bmp.Height)
 				{
 					return;
 				}
 
-				BMP.Dispose();
+				Bmp.Dispose();
 			}
 
 
-			BMP = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+			Bmp = new Bitmap(w, h, PixelFormat.Format32bppArgb);
 			BmpView_SizeChanged(null, null);
 			Refresh();
 		}
 
 		public void Clear()
 		{
-			var lockBits = BMP.LockBits(new Rectangle(0, 0, BMP.Width, BMP.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+			var lockBits = Bmp.LockBits(new Rectangle(0, 0, Bmp.Width, Bmp.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
 			Win32Imports.MemSet(lockBits.Scan0, 0xff, (uint)(lockBits.Height * lockBits.Stride));
-			BMP.UnlockBits(lockBits);
+			Bmp.UnlockBits(lockBits);
 			Refresh();
 		}
 
 		public void SaveFile()
 		{
-			string path = GlobalWin.Config.PathEntries.ScreenshotAbsolutePathFor(GlobalWin.Emulator.SystemId);
-
-			var di = new DirectoryInfo(path);
-
-			if (!di.Exists)
-			{
-				di.Create();
-			}
-
-			using var sfd = new SaveFileDialog
-			{
-				FileName = $"{GlobalWin.Game.FilesystemSafeName()}-Palettes",
-				InitialDirectory = path,
-				Filter = FilesystemFilterSet.Screenshots.ToString(),
-				RestoreDirectory = true
-			};
-
-			var result = sfd.ShowHawkDialog();
-			if (result != DialogResult.OK)
-			{
-				return;
-			}
-
-			var file = new FileInfo(sfd.FileName);
-			var b = BMP;
-
-			ImageFormat i;
-			string extension = file.Extension.ToUpper();
-
-			switch (extension)
-			{
-				default:
-				case ".PNG":
-					i = ImageFormat.Png;
-					break;
-				case ".BMP":
-					i = ImageFormat.Bmp;
-					break;
-			}
-
-			b.Save(file.FullName, i);
+			Bmp.SaveAsFile(GlobalWin.Game, "Palettes", GlobalWin.Emulator.SystemId, GlobalWin.Config.PathEntries);
 		}
 	}
 }
