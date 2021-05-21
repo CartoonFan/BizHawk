@@ -1,16 +1,11 @@
-﻿using BizHawk.Common;
-using BizHawk.Emulation.Common;
+﻿using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Waterbox;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Runtime.InteropServices;
 
 namespace BizHawk.Emulation.Cores.Consoles.SNK
 {
-	[Core("NeoPop", "Thomas Klausner, Mednafen Team", true, true, "1.24.3",
-		"https://mednafen.github.io/releases/", false)]
+	[PortedCore(CoreNames.NeoPop, "Thomas Klausner, Mednafen Team", "1.26.1", "https://mednafen.github.io/releases/")]
 	public class NeoGeoPort : NymaCore,
 		ISaveRam // NGP provides its own saveram interface
 	{
@@ -52,9 +47,9 @@ namespace BizHawk.Emulation.Cores.Consoles.SNK
 			_exe.RemoveTransientFile("SAV:flash");
 		}
 
-		protected override IDictionary<string, string> SettingsOverrides { get; } = new Dictionary<string, string>
+		protected override IDictionary<string, SettingOverride> SettingOverrides { get; } = new Dictionary<string, SettingOverride>
 		{
-			{ "nyma.constantfb", null }, // TODO: Couldn't we just autodetect this whenever lcm == max == nominal?
+			{ "nyma.constantfb", new() { Hide = true } }, // TODO: Couldn't we just autodetect this whenever lcm == max == nominal?
 		};
 	}
 }

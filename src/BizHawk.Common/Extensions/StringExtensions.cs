@@ -5,11 +5,26 @@ namespace BizHawk.Common.StringExtensions
 {
 	public static class StringExtensions
 	{
+		public static bool Contains(this string haystack, string needle, StringComparison comparisonType)
+			=> haystack.IndexOf(needle, comparisonType) != -1;
+
 		/// <returns>
 		/// <see langword="true"/> if <paramref name="str"/> appears in <paramref name="options"/> (case-insensitive)
 		/// </returns>
 		public static bool In(this string str, params string[] options) =>
 			options.Any(opt => string.Equals(opt, str, StringComparison.InvariantCultureIgnoreCase));
+
+		/// <returns>
+		/// <paramref name="str"/> with the first char removed, or
+		/// the original <paramref name="str"/> if the first char of <paramref name="str"/> is not <paramref name="prefix"/>
+		/// </returns>
+		public static string RemovePrefix(this string str, char prefix) => str.RemovePrefix(prefix, notFoundValue: str);
+
+		/// <returns>
+		/// <paramref name="str"/> with the first char removed, or
+		/// <paramref name="notFoundValue"/> if the first char of <paramref name="str"/> is not <paramref name="prefix"/>
+		/// </returns>
+		public static string RemovePrefix(this string str, char prefix, string notFoundValue) => str.Length != 0 && str[0] == prefix ? str.Substring(1, str.Length - 1) : notFoundValue;
 
 		/// <returns>
 		/// <paramref name="str"/> with the last char removed, or

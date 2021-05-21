@@ -5,13 +5,10 @@ using NLua;
 // ReSharper disable UnusedMember.Global
 namespace BizHawk.Client.Common
 {
-	public sealed class MovieLuaLibrary : DelegatingLuaLibrary
+	public sealed class MovieLuaLibrary : LuaLibraryBase
 	{
-		public MovieLuaLibrary(Lua lua)
-			: base(lua) { }
-
-		public MovieLuaLibrary(Lua lua, Action<string> logOutputCallback)
-			: base(lua, logOutputCallback) { }
+		public MovieLuaLibrary(IPlatformLuaLibEnv luaLibsImpl, ApiContainer apiContainer, Action<string> logOutputCallback)
+			: base(luaLibsImpl, apiContainer, logOutputCallback) {}
 
 		public override string Name => "movie";
 
@@ -29,7 +26,7 @@ namespace BizHawk.Client.Common
 
 		[LuaMethodExample("local nlmovget = movie.getinput( 500 );")]
 		[LuaMethod("getinput", "Returns a table of buttons pressed on a given frame of the loaded movie")]
-		public LuaTable GetInput(int frame, int? controller = null) => APIs.Movie.GetInput(frame, controller).ToLuaTable(Lua);
+		public LuaTable GetInput(int frame, int? controller = null) => _th.DictToTable(APIs.Movie.GetInput(frame, controller));
 
 		[LuaMethodExample("local stmovget = movie.getinputasmnemonic( 500 );")]
 		[LuaMethod("getinputasmnemonic", "Returns the input of a given frame of the loaded movie in a raw inputlog string")]
@@ -85,30 +82,14 @@ namespace BizHawk.Client.Common
 
 		[LuaMethodExample("local nlmovget = movie.getheader( );")]
 		[LuaMethod("getheader", "If a movie is active, will return the movie header as a lua table")]
-		public LuaTable GetHeader()
-		{
-			
-			return APIs.Movie
-				.GetHeader()
-				.ToLuaTable(Lua);
-		}
+		public LuaTable GetHeader() => _th.DictToTable(APIs.Movie.GetHeader());
 
 		[LuaMethodExample("local nlmovget = movie.getcomments( );")]
 		[LuaMethod("getcomments", "If a movie is active, will return the movie comments as a lua table")]
-		public LuaTable GetComments()
-		{
-			return APIs.Movie
-				.GetComments()
-				.ToLuaTable(Lua);
-		}
+		public LuaTable GetComments() => _th.ListToTable(APIs.Movie.GetComments());
 
 		[LuaMethodExample("local nlmovget = movie.getsubtitles( );")]
 		[LuaMethod("getsubtitles", "If a movie is active, will return the movie subtitles as a lua table")]
-		public LuaTable GetSubtitles()
-		{
-			return APIs.Movie
-				.GetSubtitles()
-				.ToLuaTable(Lua);
-		}
+		public LuaTable GetSubtitles() => _th.ListToTable(APIs.Movie.GetSubtitles());
 	}
 }

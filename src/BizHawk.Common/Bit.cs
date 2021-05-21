@@ -1,11 +1,10 @@
-#nullable disable
-
+using System;
 using System.Diagnostics;
 
 namespace BizHawk.Common
 {
 	// I think this is a little faster with uint than with byte
-	public struct Bit
+	public readonly struct Bit
 	{
 		private readonly uint _val;
 
@@ -16,7 +15,7 @@ namespace BizHawk.Common
 		
 		public static implicit operator Bit(int rhs)
 		{
-			Debug.Assert((rhs & ~1) == 0); 
+			Debug.Assert((rhs & ~1) == 0);
 			return new Bit((uint)rhs);
 		}
 
@@ -82,9 +81,9 @@ namespace BizHawk.Common
 			return _val.GetHashCode();
 		}
 
-		public override bool Equals(object obj)
+		public override bool Equals(object? obj)
 		{
-			return this == (Bit)obj;  // this is probably wrong
+			return obj is Bit b && this == b;
 		}
 	}
 }

@@ -4,16 +4,18 @@ using System.Linq;
 using System.Windows.Forms;
 
 using BizHawk.Emulation.Common;
-using BizHawk.Client.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
 	public partial class FileExtensionPreferencesPicker : UserControl
 	{
-		public FileExtensionPreferencesPicker()
+		private readonly IDictionary<string, string> _preferredPlatformsForExtensions;
+
+		public FileExtensionPreferencesPicker(IDictionary<string, string> preferredPlatformsForExtensions)
 		{
-			InitializeComponent();
+			_preferredPlatformsForExtensions = preferredPlatformsForExtensions;
 			_availableSystems = new SystemLookup().AllSystems.ToList();
+			InitializeComponent();
 		}
 
 		private readonly List<SystemLookup.SystemInfo> _availableSystems;
@@ -48,14 +50,14 @@ namespace BizHawk.Client.EmuHawk
 		{
 			PopulatePlatforms();
 
-			var selectedSystemId = GlobalWin.Config.PreferredPlatformsForExtensions[FileExtension];
+			var selectedSystemId = _preferredPlatformsForExtensions[FileExtension];
 			if (!string.IsNullOrEmpty(selectedSystemId))
 			{
 				var selectedSystem = _availableSystems.FirstOrDefault(s => s.SystemId == selectedSystemId);
 
 				var selectedItem = PlatformDropdown.Items
 					.OfType<string>()
-					.FirstOrDefault(item => item == (selectedSystem != null ? selectedSystem.FullName : ""));
+					.FirstOrDefault(item => item == (selectedSystem?.FullName ?? ""));
 
 				if (selectedItem != null)
 				{

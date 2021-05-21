@@ -10,6 +10,7 @@ using BizHawk.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
+	[SpecializedTool("VDP Viewer")]
 	public partial class GenVdpViewer : ToolFormBase, IToolFormAutoConfig
 	{
 		[RequiredService]
@@ -24,6 +25,8 @@ namespace BizHawk.Client.EmuHawk
 			// Returning the current location prevents the panel from scrolling to the active control when the panel loses and regains focus
 			return DisplayRectangle.Location;
 		}
+
+		protected override string WindowTitleStatic => "VDP Viewer";
 
 		public GenVdpViewer()
 		{
@@ -79,7 +82,7 @@ namespace BizHawk.Client.EmuHawk
 			bv.Refresh();
 		}
 
-		unsafe void DrawPalettes(int* pal)
+		private unsafe void DrawPalettes(int* pal)
 		{
 			var lockData = bmpViewPal.Bmp.LockBits(new Rectangle(0, 0, 16, 4), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
 			int pitch = lockData.Stride / sizeof(int);
@@ -95,7 +98,7 @@ namespace BizHawk.Client.EmuHawk
 			bmpViewPal.Refresh();
 		}
 
-		unsafe void DrawTiles()
+		private unsafe void DrawTiles()
 		{
 			var lockData = bmpViewTiles.Bmp.LockBits(new Rectangle(0, 0, 512, 256), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
 			int pitch = lockData.Stride / sizeof(int);
@@ -140,12 +143,12 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			GeneralUpdate();
 		}
 
-		private void bmpViewPal_MouseClick(object sender, MouseEventArgs e)
+		private void BmpViewPal_MouseClick(object sender, MouseEventArgs e)
 		{
 			int idx = e.Y / 16;
 			idx = Math.Min(3, Math.Max(idx, 0));
@@ -176,7 +179,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SaveAsFile(Bitmap bitmap, string suffix)
 		{
-			bitmap.SaveAsFile(Game, suffix, Emu.SystemId, Config.PathEntries);
+			bitmap.SaveAsFile(Game, suffix, Emu.SystemId, Config.PathEntries, this);
 		}
 
 		private void SaveBGAScreenshotToolStripMenuItem_Click(object sender, EventArgs e)
@@ -186,27 +189,22 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SaveBGBScreenshotToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			SaveAsFile(bmpViewNTA.Bmp, "NTB");
+			SaveAsFile(bmpViewNTB.Bmp, "NTB");
 		}
 
 		private void SaveTilesScreenshotToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			SaveAsFile(bmpViewNTA.Bmp, "Tiles");
+			SaveAsFile(bmpViewTiles.Bmp, "Tiles");
 		}
 
 		private void SaveWindowScreenshotToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			SaveAsFile(bmpViewNTA.Bmp, "Window");
+			SaveAsFile(bmpViewNTW.Bmp, "Window");
 		}
 
 		private void SavePaletteScreenshotToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			SaveAsFile(bmpViewNTA.Bmp, "Palettes");
-		}
-
-		private void CloseMenuItem_Click(object sender, EventArgs e)
-		{
-			Close();
+			SaveAsFile(bmpViewPal.Bmp, "Palettes");
 		}
 	}
 }

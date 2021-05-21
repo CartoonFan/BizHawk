@@ -1,6 +1,8 @@
 using System;
 
 using BizHawk.Bizware.BizwareGL;
+using BizHawk.Bizware.DirectX;
+using BizHawk.Bizware.OpenTK3;
 
 namespace BizHawk.Client.EmuHawk
 {
@@ -8,9 +10,9 @@ namespace BizHawk.Client.EmuHawk
 	{
 		public static IGuiRenderer CreateRenderer(this IGL gl) => gl switch
 		{
-			IGL_GdiPlus _ => (IGuiRenderer) new GDIPlusGuiRenderer(gl),
-			IGL_SlimDX9 _ => new GuiRenderer(gl),
-			IGL_TK _ => new GuiRenderer(gl),
+			IGL_GdiPlus => new GDIPlusGuiRenderer(gl),
+			IGL_SlimDX9 => new GuiRenderer(gl),
+			IGL_TK => new GuiRenderer(gl),
 			_ => throw new NotSupportedException()
 		};
 	}

@@ -2,14 +2,16 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
-
 using BizHawk.Client.Common;
+using BizHawk.Emulation.Common;
+using BizHawk.Client.EmuHawk.Properties;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class BookmarksBranchesBox : UserControl
+	public partial class BookmarksBranchesBox : UserControl, IDialogParent
 	{
 		private const string BranchNumberColumnName = "BranchNumberColumn";
 		private const string FrameColumnName = "FrameColumn";
@@ -20,7 +22,7 @@ namespace BizHawk.Client.EmuHawk
 		private ITasMovie Movie => Tastudio.CurrentTasMovie;
 		private ITasBranchCollection Branches => Movie.Branches;
 
-		private MainForm MainForm => Tastudio.MainForm;
+		private IMainFormForTools MainForm => Tastudio.MainForm;
 		private TasBranch _backupBranch;
 		private BranchUndo _branchUndo = BranchUndo.None;
 
@@ -43,9 +45,25 @@ namespace BizHawk.Client.EmuHawk
 			set => BranchView.HoverInterval = value;
 		}
 
+		public IDialogController DialogController => Tastudio.MainForm;
+
 		public BookmarksBranchesBox()
 		{
 			InitializeComponent();
+			UndoBranchButton.Image = Resources.Undo;
+			JumpToBranchButton.Image = Resources.JumpTo;
+			UpdateBranchButton.Image = Resources.Reboot;
+			AddWithTextBranchButton.Image = Resources.AddEdit;
+			AddBranchButton.Image = Resources.Add;
+			LoadBranchButton.Image = Resources.Debugger;
+			AddBranchContextMenu.Image = Resources.Add;
+			AddBranchWithTextContextMenuItem.Image = Resources.AddEdit;
+			LoadBranchContextMenuItem.Image = Resources.Debugger;
+			UpdateBranchContextMenuItem.Image = Resources.Reboot;
+			EditBranchTextContextMenuItem.Image = Resources.Pencil;
+			JumpToBranchContextMenuItem.Image = Resources.JumpTo;
+			UndoBranchToolStripMenuItem.Image = Resources.Undo;
+			RemoveBranchContextMenuItem.Image = Resources.Delete;
 			SetupColumns();
 			BranchView.QueryItemText += QueryItemText;
 			BranchView.QueryItemBkColor += QueryItemBkColor;
@@ -60,19 +78,22 @@ namespace BizHawk.Client.EmuHawk
 				{
 					Name = BranchNumberColumnName,
 					Text = "#",
-					UnscaledWidth = 30
+					UnscaledWidth = 30,
+					Type = ColumnType.Text
 				},
 				new RollColumn
 				{
 					Name = FrameColumnName,
 					Text = "Frame",
-					UnscaledWidth = 64
+					UnscaledWidth = 64,
+					Type = ColumnType.Text
 				},
 				new RollColumn
 				{
 					Name = UserTextColumnName,
 					Text = "UserText",
-					UnscaledWidth = 90
+					UnscaledWidth = 90,
+					Type = ColumnType.Text
 				}
 			});
 		}
@@ -81,7 +102,8 @@ namespace BizHawk.Client.EmuHawk
 		{
 			text = "";
 
-			if (index >= Branches.Count)
+			// This could happen if the control is told to redraw while Tastudio is rebooting, as we would not have a TasMovie just yet
+			if (Tastudio.CurrentTasMovie == null)
 			{
 				return;
 			}
@@ -97,6 +119,12 @@ namespace BizHawk.Client.EmuHawk
 
 		private void QueryItemBkColor(int index, RollColumn column, ref Color color)
 		{
+			// This could happen if the control is told to redraw while Tastudio is rebooting, as we would not have a TasMovie just yet
+			if (Tastudio.CurrentTasMovie == null)
+			{
+				return;
+			}
+
 			var branch = Branches[index];
 			if (branch != null)
 			{
@@ -116,13 +144,16 @@ namespace BizHawk.Client.EmuHawk
 			// Highlight the branch cell a little, if hovering over it
 			if (BranchView.CurrentCell.IsDataCell()
 				&& BranchView.CurrentCell.Column.Name == BranchNumberColumnName &&
-				column.Name == BranchNumberColumnName && 
+				column.Name == BranchNumberColumnName &&
 				index == BranchView.CurrentCell.RowIndex)
 			{
 				color = Color.FromArgb((byte)(color.A - 24), (byte)(color.R - 24), (byte)(color.G - 24), (byte)(color.B - 24));
 			}
 		}
 
+		/// <summary>
+		/// Add a new branch.
+		/// </summary>
 		public void Branch()
 		{
 			var branch = CreateBranch();
@@ -132,6 +163,7 @@ namespace BizHawk.Client.EmuHawk
 			Branches.Current = Branches.Count - 1;
 			Movie.TasSession.UpdateValues(Tastudio.Emulator.Frame, Branches.Current);
 			BranchView.ScrollToIndex(Branches.Current);
+			BranchView.DeselectAll();
 			Select(Branches.Current, true);
 			BranchView.Refresh();
 			Tastudio.RefreshDialog();
@@ -147,7 +179,7 @@ namespace BizHawk.Client.EmuHawk
 			return new TasBranch
 			{
 				Frame = Tastudio.Emulator.Frame,
-				CoreData = (byte[])Tastudio.StatableEmulator.SaveStateBinary().Clone(),
+				CoreData = Tastudio.StatableEmulator.CloneSavestate(),
 				InputLog = Movie.GetLogEntries().Clone(),
 				CoreFrameBuffer = MainForm.MakeScreenshotImage(),
 				OSDFrameBuffer = MainForm.CaptureOSD(),
@@ -167,21 +199,14 @@ namespace BizHawk.Client.EmuHawk
 			}
 
 			Movie.LoadBranch(branch);
-			var stateInfo = new KeyValuePair<int, byte[]>(branch.Frame, branch.CoreData);
-			Tastudio.LoadState(stateInfo);
-			Movie.TasStateManager.Capture(true);
-			QuickBmpFile.Copy(new BitmapBufferVideoProvider(branch.CoreFrameBuffer), Tastudio.VideoProvider);
+			Tastudio.LoadState(new KeyValuePair<int, Stream>(branch.Frame, new MemoryStream(branch.CoreData, false)));
+			Movie.TasStateManager.Capture(Tastudio.Emulator.Frame, Tastudio.Emulator.AsStatable());
+			Tastudio.MainForm.QuickBmpFile.Copy(new BitmapBufferVideoProvider(branch.CoreFrameBuffer), Tastudio.VideoProvider);
 
 			if (Tastudio.Settings.OldControlSchemeForBranches && Tastudio.TasPlaybackBox.RecordingMode)
 				Movie.Truncate(branch.Frame);
 
 			MainForm.PauseOnFrame = null;
-			Tastudio.RefreshDialog();
-		}
-
-		private void UpdateBranch(TasBranch branch)
-		{
-			Branches.Replace(branch, CreateBranch());
 			Tastudio.RefreshDialog();
 		}
 
@@ -199,12 +224,13 @@ namespace BizHawk.Client.EmuHawk
 
 		private void BranchesContextMenu_Opening(object sender, CancelEventArgs e)
 		{
+			RemoveBranchContextMenuItem.Enabled = SelectedBranch != null;
+
 			UpdateBranchContextMenuItem.Enabled =
-			RemoveBranchContextMenuItem.Enabled =
 			LoadBranchContextMenuItem.Enabled =
 			EditBranchTextContextMenuItem.Enabled =
-			JumpToBranchContextMenuItem.Enabled = 
-				SelectedBranch != null;
+			JumpToBranchContextMenuItem.Enabled =
+				BranchView.SelectedRows.Count() == 1;
 		}
 
 		private void AddBranchToolStripMenuItem_Click(object sender, EventArgs e)
@@ -260,7 +286,9 @@ namespace BizHawk.Client.EmuHawk
 			toolTip1.SetToolTip(UndoBranchButton, "Undo Branch Update");
 			_branchUndo = BranchUndo.Update;
 
-			UpdateBranch(SelectedBranch);
+			BranchView.ScrollToIndex(Branches.Current);
+			Branches.Replace(SelectedBranch, CreateBranch());
+			Tastudio.RefreshDialog();
 			SavedCallback?.Invoke(Branches.Current);
 			Tastudio.MainForm.AddOnScreenMessage($"Saved branch {Branches.Current}");
 		}
@@ -290,7 +318,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void JumpToBranchToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			if (SelectedBranch == null)
+			if (!BranchView.AnyRowsSelected)
 			{
 				return;
 			}
@@ -302,39 +330,37 @@ namespace BizHawk.Client.EmuHawk
 
 		private void RemoveBranchToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			if (SelectedBranch == null)
+			if (!BranchView.AnyRowsSelected)
 			{
 				return;
 			}
 
-			int index = BranchView.SelectedRows.First();
-			if (index == Branches.Current)
+			var indices = BranchView.SelectedRows.ToList();
+			var branches = Branches.ToList();
+			foreach (var index in indices)
 			{
-				Branches.Current = -1;
-			}
-			else if (index < Branches.Current)
-			{
-				Branches.Current--;
+				_backupBranch =  branches[index].Clone();
+				Branches.Remove(branches[index]);
+				RemovedCallback?.Invoke(index);
+				Tastudio.MainForm.AddOnScreenMessage($"Removed branch {index}");
+
+				if (index == Branches.Current)
+				{
+					Branches.Current = -1;
+				}
+				else if (index < Branches.Current)
+				{
+					Branches.Current--;
+				}
 			}
 
-			_backupBranch = SelectedBranch.Clone();
 			UndoBranchToolStripMenuItem.Enabled = UndoBranchButton.Enabled = true;
 			UndoBranchToolStripMenuItem.Text = "Undo Branch Removal";
 			toolTip1.SetToolTip(UndoBranchButton, "Undo Branch Removal");
 			_branchUndo = BranchUndo.Remove;
 
-			Branches.Remove(SelectedBranch);
 			BranchView.RowCount = Branches.Count;
-
-			if (index == Branches.Count)
-			{
-				BranchView.DeselectAll();
-				Select(Branches.Count - 1, true);
-			}
-
-			RemovedCallback?.Invoke(index);
-			Tastudio.RefreshDialog();
-			Tastudio.MainForm.AddOnScreenMessage($"Removed branch {index}");
+			Tastudio.RefreshDialog(refreshBranches: false);
 			MainForm.UpdateStatusSlots();
 		}
 
@@ -382,8 +408,6 @@ namespace BizHawk.Client.EmuHawk
 		public void AddBranchExternal()
 		{
 			AddBranchToolStripMenuItem_Click(null, null);
-			Select(Branches.Current, true);
-			BranchView.Refresh();
 		}
 
 		public void LoadBranchExternal(int slot = -1)
@@ -397,6 +421,7 @@ namespace BizHawk.Client.EmuHawk
 			{
 				if (Branches[slot] != null)
 				{
+					BranchView.DeselectAll();
 					Select(slot, true);
 				}
 				else
@@ -420,6 +445,7 @@ namespace BizHawk.Client.EmuHawk
 			{
 				if (Branches[slot] != null)
 				{
+					BranchView.DeselectAll();
 					Select(slot, true);
 				}
 				else
@@ -491,7 +517,7 @@ namespace BizHawk.Client.EmuHawk
 			UpdateBranchButton.Enabled =
 			LoadBranchButton.Enabled =
 			JumpToBranchButton.Enabled =
-				SelectedBranch != null;
+				BranchView.SelectedRows.Count() == 1;
 		}
 
 		private void Select(int index, bool value)
@@ -502,7 +528,7 @@ namespace BizHawk.Client.EmuHawk
 
 		public void NonExistentBranchMessage(int slot)
 		{
-			string binding = GlobalWin.Config.HotkeyBindings.First(x => x.DisplayName == "Add Branch").Bindings;
+			string binding = Tastudio.Config.HotkeyBindings.First(x => x.DisplayName == "Add Branch").Bindings;
 			Tastudio.MainForm.AddOnScreenMessage($"Branch {slot} does not exist");
 			Tastudio.MainForm.AddOnScreenMessage($"Use {binding} to add branches");
 		}
@@ -555,9 +581,10 @@ namespace BizHawk.Client.EmuHawk
 
 			var point = Cursor.Position;
 			point.Offset(i.Width / -2, i.Height / -2);
+			i.StartPosition = FormStartPosition.Manual;
+			i.Location = point;
 
-			var result = i.ShowHawkDialog(position: point);
-			if (result.IsOk())
+			if (this.ShowDialogWithTempMute(i).IsOk())
 			{
 				branch.UserText = i.PromptText;
 				UpdateTextColumnWidth();
@@ -570,9 +597,6 @@ namespace BizHawk.Client.EmuHawk
 
 		private void BranchView_MouseDown(object sender, MouseEventArgs e)
 		{
-			BranchesContextMenu.Close();
-			UpdateButtons();
-
 			if (e.Button == MouseButtons.Left)
 			{
 				if (BranchView.CurrentCell.IsDataCell()
@@ -665,6 +689,11 @@ namespace BizHawk.Client.EmuHawk
 			{
 				_screenshot.FadeOut();
 			}
+		}
+
+		private void BranchView_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			UpdateButtons();
 		}
 	}
 }

@@ -68,8 +68,6 @@ namespace BizHawk.Emulation.Cores.Atari.A7800Hawk
 				cpu.TraceCallback = null;
 			}
 
-			_frame++;
-
 			if (controller.IsPressed("Power"))
 			{
 				// it seems that theMachine.Reset() doesn't clear ram, etc
@@ -88,6 +86,8 @@ namespace BizHawk.Emulation.Cores.Atari.A7800Hawk
 			{
 				_lagCount++;
 			}
+
+			_frame++;
 
 			return true;
 		}
@@ -189,7 +189,7 @@ namespace BizHawk.Emulation.Cores.Atari.A7800Hawk
 			if (temp == 4)
 			{
 				// the pokey chip ticks at the nominal cpu speed, but is unaffected by cpu slowdown (I think)
-				if (is_pokey)
+				if (is_pokey || is_pokey_450)
 				{
 					pokey.Tick();
 					temp_s_pokey = pokey.sample();

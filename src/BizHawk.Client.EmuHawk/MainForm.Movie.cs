@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Windows.Forms;
 
 using BizHawk.Client.Common;
@@ -6,7 +7,7 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
-	partial class MainForm
+	public partial class MainForm
 	{
 		public bool StartNewMovie(IMovie movie, bool record)
 		{
@@ -15,22 +16,34 @@ namespace BizHawk.Client.EmuHawk
 				throw new ArgumentNullException($"{nameof(movie)} cannot be null.");
 			}
 
+			var oldPreferredCores = new Dictionary<string, string>(Config.PreferredCores);
 			try
 			{
-				MovieSession.QueueNewMovie(movie, record, Emulator.SystemId, Config.PreferredCores);
+				try
+				{
+					MovieSession.QueueNewMovie(movie, record, Emulator.SystemId, Config.PreferredCores);
+				}
+				catch (MoviePlatformMismatchException ex)
+				{
+					using var ownerForm = new Form { TopMost = true };
+					MessageBox.Show(ownerForm, ex.Message, "Movie/Platform Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return false;
+				}
+
+				if (!_isLoadingRom)
+				{
+					var rebootSucceeded = RebootCore();
+					if (!rebootSucceeded) return false;
+				}
+
+				Config.RecentMovies.Add(movie.Filename);
+
+				MovieSession.RunQueuedMovie(record, Emulator);
 			}
-			catch (MoviePlatformMismatchException ex)
+			finally
 			{
-				using var ownerForm = new Form { TopMost = true };
-				MessageBox.Show(ownerForm, ex.Message, "Movie/Platform Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Error);
-				return false;
+				Config.PreferredCores = oldPreferredCores;
 			}
-
-			RebootCore();
-
-			Config.RecentMovies.Add(movie.Filename);
-
-			MovieSession.RunQueuedMovie(record, Emulator, Config.PreferredCores);
 
 			SetMainformMovieInfo();
 
@@ -52,7 +65,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			else if (MovieSession.Movie.IsRecording())
 			{
-				PlayRecordStatusButton.Image = Properties.Resources.RecordHS;
+				PlayRecordStatusButton.Image = Properties.Resources.Record;
 				PlayRecordStatusButton.ToolTipText = "Movie is in record mode";
 				PlayRecordStatusButton.Visible = true;
 			}

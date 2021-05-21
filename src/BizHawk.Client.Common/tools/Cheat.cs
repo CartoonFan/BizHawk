@@ -79,7 +79,7 @@ namespace BizHawk.Client.Common
 
 		public char SizeAsChar => _watch.SizeAsChar;
 
-		public DisplayType Type => _watch.Type;
+		public WatchDisplayType Type => _watch.Type;
 
 		public char TypeAsChar => _watch.TypeAsChar;
 
@@ -176,6 +176,20 @@ namespace BizHawk.Client.Common
 							break;
 					}
 				}
+
+				// This will take effect only for NES, and will pulse the cheat with compare option directly to the core
+				// Only works for byte cheats currently
+				if (_watch.Size == WatchSize.Byte && _watch.Domain.Name == "System Bus")
+				{
+					if (Compare.HasValue)
+					{
+						_watch.Domain.SendCheatToCore((int)Address.Value, (byte)Value, Compare.Value, (int)ComparisonType);
+					}
+					else
+					{
+						_watch.Domain.SendCheatToCore((int)Address.Value, (byte)Value, -1, 0);
+					}
+				}
 			}
 		}
 
@@ -253,7 +267,7 @@ namespace BizHawk.Client.Common
 			}
 		}
 
-		public void SetType(DisplayType type)
+		public void SetType(WatchDisplayType type)
 		{
 			if (_watch.IsDisplayTypeAvailable(type))
 			{

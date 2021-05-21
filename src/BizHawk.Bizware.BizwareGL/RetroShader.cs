@@ -1,9 +1,6 @@
 using System;
 using System.Drawing;
 
-using OpenTK;
-using OpenTK.Graphics.OpenGL;
-
 namespace BizHawk.Bizware.BizwareGL
 {
 	/// <summary>
@@ -18,16 +15,16 @@ namespace BizHawk.Bizware.BizwareGL
 			Owner = owner;
 
 			VertexLayout = owner.CreateVertexLayout();
-			VertexLayout.DefineVertexAttribute("position", 0, 4, VertexAttribPointerType.Float, AttributeUsage.Position, false, 40, 0);
-			VertexLayout.DefineVertexAttribute("color", 1, 4, VertexAttribPointerType.Float, AttributeUsage.Color0, false, 40, 16); //just dead weight, i have no idea why this is here. but some old HLSL compilers (used in bizhawk for various reasons) will want it to exist here since it exists in the vertex shader
-			VertexLayout.DefineVertexAttribute("texCoord1", 2, 2, VertexAttribPointerType.Float, AttributeUsage.Texcoord0, false, 40, 32);
+			VertexLayout.DefineVertexAttribute("position", 0, 4, VertexAttribPointerType.Float, AttribUsage.Position, false, 40, 0);
+			VertexLayout.DefineVertexAttribute("color", 1, 4, VertexAttribPointerType.Float, AttribUsage.Color0, false, 40, 16); //just dead weight, i have no idea why this is here. but some old HLSL compilers (used in bizhawk for various reasons) will want it to exist here since it exists in the vertex shader
+			VertexLayout.DefineVertexAttribute("tex", 2, 2, VertexAttribPointerType.Float, AttribUsage.Texcoord0, false, 40, 32);
 			VertexLayout.Close();
 
-			string defines = "#define TEXCOORD TEXCOORD0\r\n"; //maybe not safe..
+			string defines = "";
 			string vsSource = $"#define VERTEX\r\n{defines}{source}";
 			string psSource = $"#define FRAGMENT\r\n{defines}{source}";
-			var vs = owner.CreateVertexShader(true, vsSource, "main_vertex", debug);
-			var ps = owner.CreateFragmentShader(true, psSource, "main_fragment", debug);
+			var vs = owner.CreateVertexShader(vsSource, "main_vertex", debug);
+			var ps = owner.CreateFragmentShader(psSource, "main_fragment", debug);
 			Pipeline = Owner.CreatePipeline(VertexLayout, vs, ps, debug, "retro");
 
 			if (!Pipeline.Available)
@@ -53,6 +50,7 @@ namespace BizHawk.Bizware.BizwareGL
 				}
 			}
 
+			//if a sampler isn't available, we can't do much, although this does interfere with debugging (shaders just returning colors will malfunction)
 			if (sampler0 == null)
 				return;
 
@@ -92,8 +90,7 @@ namespace BizHawk.Bizware.BizwareGL
 
 			var Projection = Owner.CreateGuiProjectionMatrix(OutputSize);
 			var Modelview = Owner.CreateGuiViewMatrix(OutputSize);
-			var mat = Modelview * Projection;
-			mat.Transpose();
+			var mat = Matrix4.Transpose(Modelview * Projection);
 			Pipeline["modelViewProj"].Set(mat, true);
 
 			Owner.SetTextureWrapMode(tex, true);
@@ -125,14 +122,14 @@ namespace BizHawk.Bizware.BizwareGL
 			pData[i++] = 1; pData[i++] = v1;
 
 			Owner.SetBlendState(Owner.BlendNoneCopy);
-			Owner.BindArrayData(pData);
+			Owner.BindArrayData(new(pData));
 			Owner.DrawArrays(PrimitiveType.TriangleStrip, 0, 4);
 		}
 
 
 		public IGL Owner { get; }
 
-		readonly VertexLayout VertexLayout;
+		private readonly VertexLayout VertexLayout;
 		public Pipeline Pipeline;
 	}
 }

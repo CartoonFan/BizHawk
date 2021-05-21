@@ -1,6 +1,6 @@
 ﻿namespace BizHawk.Emulation.Cores.Nintendo.SNES
 {
-	unsafe partial class LibsnesApi
+	public partial class LibsnesApi
 	{
 		public enum eMessage : int
 		{
@@ -68,7 +68,7 @@
 			eMessage_BRK_scanlineStart,
 		}
 
-		enum eStatus : int
+		private enum eStatus : int
 		{
 			eStatus_Idle,
 			eStatus_CMD,

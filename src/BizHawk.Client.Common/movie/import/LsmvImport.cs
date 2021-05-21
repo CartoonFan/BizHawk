@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using BizHawk.Common;
@@ -14,19 +15,26 @@ namespace BizHawk.Client.Common.movie.import
 	[ImporterFor("LSNES", ".lsmv")]
 	internal class LsmvImport : MovieImporter
 	{
+		private static readonly byte[] Zipheader = { 0x50, 0x4b, 0x03, 0x04 };
 		private LibsnesControllerDeck _deck;
 		protected override void RunImport()
 		{
 			Result.Movie.HeaderEntries[HeaderKeys.Core] = CoreNames.Bsnes;
 
-			var hf = new HawkFile(SourceFile.FullName);
-
 			// .LSMV movies are .zip files containing data files.
-			if (!hf.IsArchive)
+			using var fs = new FileStream(SourceFile.FullName, FileMode.Open, FileAccess.Read);
 			{
-				Result.Errors.Add("This is not an archive.");
-				return;
+				byte[] data = new byte[4];
+				fs.Read(data, 0, 4);
+				if (!data.SequenceEqual(Zipheader))
+				{
+					Result.Errors.Add("This is not a zip file.");
+					return;
+				}
+				fs.Position = 0;
 			}
+
+			using var zip = new ZipArchive(fs, ZipArchiveMode.Read, true);
 
 			var ss = new LibsnesCore.SnesSyncSettings
 			{
@@ -37,12 +45,11 @@ namespace BizHawk.Client.Common.movie.import
 
 			string platform = "SNES";
 
-			foreach (var item in hf.ArchiveItems)
+			foreach (var item in zip.Entries)
 			{
 				if (item.Name == "authors")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string authors = Encoding.UTF8.GetString(stream.ReadAllBytes());
 					string authorList = "";
 					string authorLast = "";
@@ -77,28 +84,22 @@ namespace BizHawk.Client.Common.movie.import
 					}
 
 					Result.Movie.HeaderEntries[HeaderKeys.Author] = authorList;
-					hf.Unbind();
 				}
 				else if (item.Name == "coreversion")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string coreVersion = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 					Result.Movie.Comments.Add($"CoreOrigin {coreVersion}");
-					hf.Unbind();
 				}
 				else if (item.Name == "gamename")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string gameName = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 					Result.Movie.HeaderEntries[HeaderKeys.GameName] = gameName;
-					hf.Unbind();
 				}
 				else if (item.Name == "gametype")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string gametype = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 
 					// TODO: Handle the other types.
@@ -120,12 +121,10 @@ namespace BizHawk.Client.Common.movie.import
 
 					bool pal = gametype == "snes_pal" || gametype == "sgb_pal";
 					Result.Movie.HeaderEntries[HeaderKeys.Pal] = pal.ToString();
-					hf.Unbind();
 				}
 				else if (item.Name == "input")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string input = Encoding.UTF8.GetString(stream.ReadAllBytes());
 
 					int lineNum = 0;
@@ -156,53 +155,43 @@ namespace BizHawk.Client.Common.movie.import
 							ImportTextFrame(line, platform);
 						}
 					}
-
-					hf.Unbind();
 				}
 				else if (item.Name.StartsWith("moviesram."))
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					byte[] movieSram = stream.ReadAllBytes();
 					if (movieSram.Length != 0)
 					{
+						// TODO:  Why don't we support this?
 						Result.Errors.Add("Movies that begin with SRAM are not supported.");
-						hf.Unbind();
 						return;
 					}
 				}
 				else if (item.Name == "port1")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string port1 = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 					Result.Movie.HeaderEntries["port1"] = port1;
 					ss.LeftPort = LibsnesControllerDeck.ControllerType.Gamepad;
 					_deck = new LibsnesControllerDeck(ss);
-					hf.Unbind();
 				}
 				else if (item.Name == "port2")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string port2 = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 					Result.Movie.HeaderEntries["port2"] = port2;
 					ss.RightPort = LibsnesControllerDeck.ControllerType.Gamepad;
 					_deck = new LibsnesControllerDeck(ss);
-					hf.Unbind();
 				}
 				else if (item.Name == "projectid")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string projectId = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 					Result.Movie.HeaderEntries["ProjectID"] = projectId;
-					hf.Unbind();
 				}
 				else if (item.Name == "rerecords")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string rerecords = Encoding.UTF8.GetString(stream.ReadAllBytes());
 					int rerecordCount;
 
@@ -217,17 +206,14 @@ namespace BizHawk.Client.Common.movie.import
 					}
 
 					Result.Movie.Rerecords = (ulong)rerecordCount;
-					hf.Unbind();
 				}
 				else if (item.Name.EndsWith(".sha256"))
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string rom = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 					int pos = item.Name.LastIndexOf(".sha256");
 					string name = item.Name.Substring(0, pos);
 					Result.Movie.HeaderEntries[$"SHA256_{name}"] = rom;
-					hf.Unbind();
 				}
 				else if (item.Name == "savestate")
 				{
@@ -236,8 +222,7 @@ namespace BizHawk.Client.Common.movie.import
 				}
 				else if (item.Name == "subtitles")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string subtitles = Encoding.UTF8.GetString(stream.ReadAllBytes());
 					using (var reader = new StringReader(subtitles))
 					{
@@ -251,38 +236,30 @@ namespace BizHawk.Client.Common.movie.import
 							}
 						}
 					}
-
-					hf.Unbind();
 				}
 				else if (item.Name == "starttime.second")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string startSecond = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 					Result.Movie.HeaderEntries["StartSecond"] = startSecond;
-					hf.Unbind();
 				}
 				else if (item.Name == "starttime.subsecond")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string startSubSecond = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 					Result.Movie.HeaderEntries["StartSubSecond"] = startSubSecond;
-					hf.Unbind();
 				}
 				else if (item.Name == "systemid")
 				{
-					hf.BindArchiveMember(item.Index);
-					var stream = hf.GetStream();
+					using var stream = item.Open();
 					string systemId = Encoding.UTF8.GetString(stream.ReadAllBytes()).Trim();
 					Result.Movie.Comments.Add($"{EmulationOrigin} {systemId}");
-					hf.Unbind();
 				}
 			}
 
 			Result.Movie.HeaderEntries[HeaderKeys.Platform] = platform;
 			Result.Movie.SyncSettingsJson = ConfigService.SaveWithType(ss);
-			Config.PreferredCores["SNES"] = CoreNames.Bsnes; // TODO: convert to snes9x if it is the user's preference
+			MaybeSetCorePreference(sysID: "SNES", CoreNames.Bsnes, fileExt: ".lsmv");
 		}
 
 		private IController EmptyLmsvFrame()

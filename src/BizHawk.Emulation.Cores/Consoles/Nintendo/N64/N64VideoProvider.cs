@@ -8,14 +8,13 @@ namespace BizHawk.Emulation.Cores.Nintendo.N64
 	{
 		private int[] frameBuffer;
 		private mupen64plusVideoApi api;
-		private mupen64plusApi coreAPI;
+		private readonly mupen64plusApi coreAPI;
 
 		public bool IsVIFrame;
 
 		/// <summary>
 		/// Creates N64 Video system with mupen64plus backend
 		/// </summary>
-		/// <param name="api">mupen64plus DLL that is used</param>
 		public N64VideoProvider(mupen64plusApi core, VideoPluginSettings videosettings)
 		{
 			this.api = new mupen64plusVideoApi(core, videosettings);

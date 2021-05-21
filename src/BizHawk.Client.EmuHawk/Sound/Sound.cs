@@ -1,41 +1,59 @@
 ﻿using System;
 using System.Threading;
 
+using BizHawk.Bizware.DirectX;
+using BizHawk.Bizware.OpenTK3;
 using BizHawk.Emulation.Common;
 using BizHawk.Client.Common;
 using BizHawk.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public class Sound : IDisposable
+	/// <remarks>TODO rename to <c>HostAudioManager</c></remarks>
+	public class Sound : IHostAudioManager, IDisposable
 	{
-		public const int SampleRate = 44100;
-		public const int BytesPerSample = 2;
-		public const int ChannelCount = 2;
-		public const int BlockAlign = BytesPerSample * ChannelCount;
+		public int SampleRate { get; } = 44100;
+
+		public int BytesPerSample { get; } = 2;
+
+		public int ChannelCount { get; } = 2;
+
+		public int BlockAlign { get; }
+
+		private readonly Func<double> _getCoreVsyncRateCallback;
 
 		private bool _disposed;
 		private readonly ISoundOutput _outputDevice;
-		private readonly SoundOutputProvider _outputProvider = new SoundOutputProvider(); // Buffer for Sync sources
+		private readonly SoundOutputProvider _outputProvider; // Buffer for Sync sources
 		private readonly BufferedAsync _bufferedAsync = new BufferedAsync(); // Buffer for Async sources
 		private IBufferedSoundProvider _bufferedProvider; // One of the preceding buffers, or null if no source is set
 
-		public Sound(IntPtr mainWindowHandle)
+		public Config Config;
+
+		public int ConfigBufferSizeMs => Config.SoundBufferSizeMs;
+
+		public Sound(IntPtr mainWindowHandle, Config config, Func<double> getCoreVsyncRateCallback)
 		{
+			BlockAlign = BytesPerSample * ChannelCount;
+
+			_getCoreVsyncRateCallback = getCoreVsyncRateCallback;
+			_outputProvider = new SoundOutputProvider(_getCoreVsyncRateCallback);
+			Config = config;
+
 			if (OSTailoredCode.IsUnixHost)
 			{
 				// if DirectSound or XAudio is chosen, use OpenAL, otherwise comply with the user's choice
-				_outputDevice = GlobalWin.Config.SoundOutputMethod == ESoundOutputMethod.Dummy
+				_outputDevice = config.SoundOutputMethod == ESoundOutputMethod.Dummy
 					? (ISoundOutput) new DummySoundOutput(this)
-					: new OpenALSoundOutput(this);
+					: new OpenALSoundOutput(this, config.SoundDevice);
 			}
 			else
 			{
-				_outputDevice = GlobalWin.Config.SoundOutputMethod switch
+				_outputDevice = config.SoundOutputMethod switch
 				{
-					ESoundOutputMethod.DirectSound => new DirectSoundSoundOutput(this, mainWindowHandle, GlobalWin.Config.SoundDevice),
-					ESoundOutputMethod.XAudio2 => new XAudio2SoundOutput(this),
-					ESoundOutputMethod.OpenAL => new OpenALSoundOutput(this),
+					ESoundOutputMethod.DirectSound => new DirectSoundSoundOutput(this, mainWindowHandle, config.SoundDevice),
+					ESoundOutputMethod.XAudio2 => new XAudio2SoundOutput(this, config.SoundDevice),
+					ESoundOutputMethod.OpenAL => new OpenALSoundOutput(this, config.SoundDevice),
 					_ => new DummySoundOutput(this)
 				};
 			}
@@ -62,14 +80,14 @@ namespace BizHawk.Client.EmuHawk
 		public void StartSound()
 		{
 			if (_disposed) return;
-			if (!GlobalWin.Config.SoundEnabled) return;
+			if (!Config.SoundEnabled) return;
 			if (IsStarted) return;
 
 			_outputDevice.StartSound();
 
 			_outputProvider.MaxSamplesDeficit = _outputDevice.MaxSamplesDeficit;
 
-			SoundMaxBufferDeficitMs = (int)Math.Ceiling(SamplesToMilliseconds(_outputDevice.MaxSamplesDeficit));
+			SoundMaxBufferDeficitMs = (int) Math.Ceiling(this.SamplesToMilliseconds(_outputDevice.MaxSamplesDeficit));
 
 			IsStarted = true;
 		}
@@ -109,7 +127,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			else if (source.SyncMode == SyncSoundMode.Async)
 			{
-				_bufferedAsync.RecalculateMagic(GlobalWin.Emulator.VsyncRate());
+				_bufferedAsync.RecalculateMagic(_getCoreVsyncRateCallback());
 				_bufferedProvider = _bufferedAsync;
 			}
 			else throw new InvalidOperationException("Unsupported sync mode.");
@@ -119,10 +137,10 @@ namespace BizHawk.Client.EmuHawk
 
 		public bool LogUnderruns { get; set; }
 
-		internal void HandleInitializationOrUnderrun(bool isUnderrun, ref int samplesNeeded)
+		public void HandleInitializationOrUnderrun(bool isUnderrun, ref int samplesNeeded)
 		{
 			// Fill device buffer with silence but leave enough room for one frame
-			int samplesPerFrame = (int)Math.Round(SampleRate / (double)GlobalWin.Emulator.VsyncRate());
+			int samplesPerFrame = (int)Math.Round(SampleRate / _getCoreVsyncRateCallback());
 			int silenceSamples = Math.Max(samplesNeeded - samplesPerFrame, 0);
 			_outputDevice.WriteSamples(new short[silenceSamples * 2], 0, silenceSamples);
 			samplesNeeded -= silenceSamples;
@@ -134,9 +152,9 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public void UpdateSound(float atten)
+		public void UpdateSound(float atten, bool isSecondaryThrottlingDisabled)
 		{
-			if (!GlobalWin.Config.SoundEnabled || !IsStarted || _bufferedProvider == null || _disposed)
+			if (!Config.SoundEnabled || !IsStarted || _bufferedProvider == null || _disposed)
 			{
 				_bufferedProvider?.DiscardSamples();
 				return;
@@ -161,12 +179,12 @@ namespace BizHawk.Client.EmuHawk
 			}
 			else if (_bufferedProvider == _outputProvider)
 			{
-				if (GlobalWin.Config.SoundThrottle)
+				if (Config.SoundThrottle)
 				{
 					_outputProvider.BaseSoundProvider.GetSamplesSync(out samples, out sampleCount);
 					sampleOffset = 0;
 
-					if (GlobalWin.DisableSecondaryThrottling && sampleCount > samplesNeeded)
+					if (isSecondaryThrottlingDisabled && sampleCount > samplesNeeded)
 					{
 						return;
 					}
@@ -194,7 +212,7 @@ namespace BizHawk.Client.EmuHawk
 				}
 				else
 				{
-					if (GlobalWin.DisableSecondaryThrottling) // This indicates rewind or fast-forward
+					if (isSecondaryThrottlingDisabled) // This indicates rewind or fast-forward
 					{
 						_outputProvider.OnVolatility();
 					}
@@ -217,16 +235,6 @@ namespace BizHawk.Client.EmuHawk
 			}
 
 			_outputDevice.WriteSamples(samples, sampleOffset, sampleCount);
-		}
-
-		public static int MillisecondsToSamples(int milliseconds)
-		{
-			return milliseconds * SampleRate / 1000;
-		}
-
-		public static double SamplesToMilliseconds(int samples)
-		{
-			return samples * 1000.0 / SampleRate;
 		}
 	}
 }

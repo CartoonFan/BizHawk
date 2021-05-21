@@ -6,13 +6,6 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class ExceptionBox : Form
 	{
-		public ExceptionBox(Exception ex)
-		{
-			InitializeComponent();
-			txtException.Text = ex.ToString();
-			timer1.Start();
-		}
-
 		public ExceptionBox(string str)
 		{
 			InitializeComponent();
@@ -20,16 +13,18 @@ namespace BizHawk.Client.EmuHawk
 			timer1.Start();
 		}
 
+		public ExceptionBox(Exception ex): this(ex.ToString()) {}
+
 		private void btnCopy_Click(object sender, EventArgs e)
 		{
 			DoCopy();
 		}
 
-		void DoCopy()
+		private void DoCopy()
 		{
 			string txt = txtException.Text;
 			Clipboard.SetText(txt);
-			try 
+			try
 			{
 				if (Clipboard.GetText() == txt)
 				{
@@ -50,6 +45,8 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (keyData == (Keys.C | Keys.Control))
 			{
+				if (txtException.SelectionLength > 0)
+					return false;
 				DoCopy();
 				return true;
 			}
@@ -70,7 +67,7 @@ namespace BizHawk.Client.EmuHawk
 		}
 
 		//http://stackoverflow.com/questions/2636065/alpha-in-forecolor
-		class MyLabel : Label
+		private class MyLabel : Label
 		{
 			protected override void OnPaint(PaintEventArgs e)
 			{

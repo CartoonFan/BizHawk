@@ -1,4 +1,6 @@
-﻿namespace BizHawk.Client.EmuHawk
+﻿using BizHawk.WinForms.Controls;
+
+namespace BizHawk.Client.EmuHawk
 {
 	partial class PCESoundDebugger
 	{
@@ -245,12 +247,7 @@
 			// 
 			// SoundMenuStrip
 			// 
-			this.SoundMenuStrip.ClickThrough = true;
-			this.SoundMenuStrip.Location = new System.Drawing.Point(0, 0);
-			this.SoundMenuStrip.Name = "SoundMenuStrip";
-			this.SoundMenuStrip.Size = new System.Drawing.Size(787, 24);
 			this.SoundMenuStrip.TabIndex = 4;
-			this.SoundMenuStrip.Text = "menuStrip1";
 			// 
 			// PCESoundDebugger
 			// 
@@ -261,11 +258,9 @@
 			this.Controls.Add(this.groupBox2);
 			this.Controls.Add(this.groupBox1);
 			this.Controls.Add(this.SoundMenuStrip);
-			this.Icon = global::BizHawk.Client.EmuHawk.Properties.Resources.Bug_MultiSize;
 			this.MainMenuStrip = this.SoundMenuStrip;
 			this.Name = "PCESoundDebugger";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-			this.Text = "Sound Debugger";
 			this.groupBox1.ResumeLayout(false);
 			this.groupBox2.ResumeLayout(false);
 			this.groupBox3.ResumeLayout(false);

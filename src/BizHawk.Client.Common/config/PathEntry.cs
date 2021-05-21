@@ -3,9 +3,8 @@ using Newtonsoft.Json;
 
 namespace BizHawk.Client.Common
 {
-	public class PathEntry
+	public sealed class PathEntry
 	{
-		public string SystemDisplayName { get; set; }
 		public string Type { get; set; }
 		[JsonIgnore]
 		private string _path;
@@ -16,6 +15,14 @@ namespace BizHawk.Client.Common
 		}
 		public string System { get; set; }
 		public int Ordinal { get; set; }
+
+		public PathEntry(string system, int ordinal, string type, string path)
+		{
+			Ordinal = ordinal;
+			Path = path;
+			System = system;
+			Type = type;
+		}
 
 		internal bool IsSystem(string systemID)
 		{

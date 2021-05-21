@@ -1,17 +1,13 @@
 #!/bin/sh
-MYPATH="`dirname \"$0\"`"
-SYSROOT="`realpath \"$MYPATH/../sysroot\"`"
-LLVMDIR="`realpath \"$MYPATH/../../../llvm-project\"`"
-
-#To uselibclang-rt (and libunwind), we need to evict the gcc libs, but musl automatically puts that in the specs file
-#and has no setting to remove it.  Fix that here.
-sed -i -e '13c\' -e '' "$SYSROOT/lib/musl-gcc.specs"
+set -e
+if [ -z "$SYSROOT" ]; then export SYSROOT="$(realpath "$(dirname "$0")/../sysroot")"; fi
+if [ -z "$LLVMDIR" ]; then export LLVMDIR="$(realpath "$(dirname "$0")/../llvm-project")"; fi
 
 rm -rf build-
 mkdir build-
 cd build-
-export CFLAGS="-mabi=ms -mcmodel=large -mstack-protector-guard=global -no-pie -fno-pic -fno-pie"
-export CXXFLAGS="-mabi=ms -mcmodel=large -mstack-protector-guard=global -no-pie -fno-pic -fno-pie"
+export CFLAGS="-mcmodel=large -mstack-protector-guard=global -no-pie -fno-pic -fno-pie"
+export CXXFLAGS="-mcmodel=large -mstack-protector-guard=global -no-pie -fno-pic -fno-pie"
 cmake \
 	-DCMAKE_C_COMPILER="$SYSROOT/bin/musl-gcc" \
 	-DCMAKE_CXX_COMPILER="$SYSROOT/bin/musl-gcc" \
@@ -27,4 +23,4 @@ cmake \
 	-DCMAKE_INSTALL_PREFIX="$SYSROOT" \
 	-DCMAKE_AR="/usr/bin/gcc-ar" \
 	-DCMAKE_RANLIB="/usr/bin/gcc-ranlib" \
-	../../../../llvm-project/compiler-rt
+	$LLVMDIR/compiler-rt

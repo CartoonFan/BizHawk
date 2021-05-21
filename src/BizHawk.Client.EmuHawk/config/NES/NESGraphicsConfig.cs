@@ -14,13 +14,13 @@ namespace BizHawk.Client.EmuHawk
 		// Allow selection of palette file from archive
 		// Hotkeys for BG & Sprite display toggle
 		// NTSC filter settings? Hue, Tint (This should probably be a client thing, not a nes specific thing?)
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly Config _config;
 		private NES.NESSettings _settings;
 		//private Bitmap _bmp;
 
 		public NESGraphicsConfig(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			Config config,
 			NES.NESSettings settings)
 		{
@@ -104,7 +104,7 @@ namespace BizHawk.Client.EmuHawk
 
 					if (palette.Exists)
 					{
-						var data = Palettes.Load_FCEUX_Palette(HawkFile.ReadAllBytes(palette.Name));
+						var data = Palettes.Load_FCEUX_Palette(palette.ReadAllBytes());
 						if (showMsg)
 						{
 							_mainForm.AddOnScreenMessage($"Palette file loaded: {palette.Name}");

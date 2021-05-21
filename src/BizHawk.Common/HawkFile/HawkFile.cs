@@ -4,8 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
-using BizHawk.Common.StringExtensions;
-
 namespace BizHawk.Common
 {
 	/// <summary>
@@ -16,7 +14,7 @@ namespace BizHawk.Common
 	/// Strings formatted this way are annotated <see cref="HawkFilePathAttribute">[HawkFilePath]</see>.
 	/// </summary>
 	/// <remarks>
-	/// This class is defensively designed around <see cref="IFileDearchivalMethod"/> to allow swapping out implementations (for speed) without adding any dependencies to this project.<br/>
+	/// This class is defensively designed around <see cref="IFileDearchivalMethod{T}"/> to allow swapping out implementations (for speed) without adding any dependencies to this project.<br/>
 	/// TODO split into "bind" and "open &lt;the bound thing>"<br/>
 	/// TODO scan archive to flatten interior directories down to a path (maintain our own archive item list)
 	/// </remarks>
@@ -54,15 +52,15 @@ namespace BizHawk.Common
 		/// <value>true if a file is bound and the bound file exists</value>
 		public readonly bool Exists;
 
-		/// <summary>returns the extension of Name in uppercase</summary>
-		public string Extension => Path.GetExtension(Name).ToUpperInvariant();
+		/// <value>the file extension (of <see cref="Name"/>); including the leading period and in lowercase</value>
+		public string Extension => Path.GetExtension(Name).ToLowerInvariant();
 
 		/// <value>returns the complete full path of the bound file, excluding the archive member portion</value>
 		public readonly string FullPathWithoutMember;
 
 		public readonly bool IsArchive;
 
-		/// <summary>Indicates whether the file is an archive member (IsArchive && IsBound[to member])</summary>
+		/// <summary>Indicates whether the file is an archive member (IsArchive &amp;&amp; IsBound[to member])</summary>
 		public bool IsArchiveMember => IsArchive && IsBound;
 
 		/// <summary>Gets a value indicating whether this instance is bound</summary>
@@ -73,12 +71,7 @@ namespace BizHawk.Common
 
 		/// <summary>Makes a new HawkFile based on the provided path.</summary>
 		/// <param name="delayIOAndDearchive">Pass <see langword="true"/> to only populate a few fields (those that can be computed from the string <paramref name="path"/>), which is less computationally expensive.</param>
-		/// <param name="nonArchiveExtensions">
-		/// These file extensions are assumed to not be archives. Include the leading period in each, and use lowercase.<br/>
-		/// Does not apply when <paramref name="delayIOAndDearchive"/> is <see langword="true"/>.<br/>
-		/// If <see langword="null"/> is passed (the default), uses <see cref="CommonNonArchiveExtensions"/> which should mitigate false positives caused by weak archive detection signatures.
-		/// </param>
-		public HawkFile([HawkFilePath] string path, bool delayIOAndDearchive = false, IReadOnlyCollection<string>? nonArchiveExtensions = null)
+		public HawkFile([HawkFilePath] string path, bool delayIOAndDearchive = false, bool allowArchives = true)
 		{
 			if (delayIOAndDearchive)
 			{
@@ -99,23 +92,30 @@ namespace BizHawk.Common
 			Exists = _rootExists = !string.IsNullOrEmpty(path) && new FileInfo(path).Exists;
 			if (!_rootExists) return;
 
-			if (DearchivalMethod != null
-				&& !(nonArchiveExtensions ?? CommonNonArchiveExtensions).Contains(Path.GetExtension(path).ToLowerInvariant())
-				&& DearchivalMethod.CheckSignature(path, out _, out _))
+			if (DearchivalMethod != null && allowArchives)
 			{
-				_extractor = DearchivalMethod.Construct(path);
-				try
+				var ext = Path.GetExtension(path).ToLowerInvariant();
+				if (DearchivalMethod.AllowedArchiveExtensions.Contains(ext))
 				{
-					_archiveItems = _extractor.Scan();
-					IsArchive = true;
-				}
-				catch
-				{
-					_archiveItems = null;
-					_extractor.Dispose();
-					_extractor = null;
+					if (DearchivalMethod.CheckSignature(path, out _, out _))
+					{
+						_extractor = DearchivalMethod.Construct(path);
+						try
+						{
+							_archiveItems = _extractor.Scan() ?? throw new NullReferenceException();
+							IsArchive = true;
+						}
+						catch
+						{
+							Console.WriteLine($"Failed to scan file list of {FullPathWithoutMember}");
+							_archiveItems = null;
+							_extractor.Dispose();
+							_extractor = null;
+						}
+					}
 				}
 			}
+
 			if (_extractor == null)
 			{
 				_rootStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -133,6 +133,12 @@ namespace BizHawk.Common
 				if (_extractor != null)
 				{
 					var scanResults = _extractor.Scan();
+					if (scanResults == null)
+					{
+						Console.WriteLine($"Failed to scan file list of {FullPathWithoutMember}");
+						Exists = false;
+						return;
+					}
 					for (int i = 0, l = scanResults.Count; i < l; i++)
 					{
 						if (string.Equals(scanResults[i].Name, autobind, StringComparison.InvariantCultureIgnoreCase))
@@ -175,43 +181,60 @@ namespace BizHawk.Common
 			return ai == null ? null : BindArchiveMember(ai.Value);
 		}
 
+		/// <param name="extensions">File extensions; include the leading period in each, and use lowercase.</param>
 		/// <exception cref="InvalidOperationException">stream already bound</exception>
-		private HawkFile BindByExtensionCore(bool first, params string[] extensions)
+		private HawkFile BindByExtensionCore(string[] extensions, bool onlyBindSingle = false)
 		{
 			if (!_rootExists) return this;
 			if (_boundStream != null) throw new InvalidOperationException("stream already bound!");
 
-			if (_archiveItems == null || _extractor == null)
-			{
-				// open uncompressed file
-				if (extensions.Length == 0
-					|| Path.GetExtension(FullPathWithoutMember).Substring(1).In(extensions))
-				{
-					BindRoot();
-				}
-			}
-			else
+			if (!(_archiveItems == null || _extractor == null))
 			{
 				if (extensions.Length != 0)
 				{
-					var candidates = _archiveItems.Where(item => Path.GetExtension(item.Name).Substring(1).In(extensions)).ToList();
-					if (candidates.Count != 0 && first || candidates.Count == 1) BindArchiveMember(candidates[0].Index);
+					var candidates = _archiveItems.Where(item => extensions.Contains(Path.GetExtension(item.Name).ToLowerInvariant())).ToList();
+					if (onlyBindSingle ? candidates.Count == 1 : candidates.Count != 0) BindArchiveMember(candidates[0].Index);
+					return this;
 				}
-				else if (first || _archiveItems.Count == 1)
+				else if (!onlyBindSingle || _archiveItems.Count == 1)
 				{
 					BindArchiveMember(0);
+					return this;
 				}
+				else
+				{
+					return this;
+				}
+			}
+
+			// open uncompressed file
+			if (extensions.Length == 0
+				|| extensions.Contains(Path.GetExtension(FullPathWithoutMember).ToLowerInvariant()))
+			{
+				BindRoot();
 			}
 
 			return this;
 		}
 
-		/// <summary>Binds the first item in the archive (or the file itself), assuming that there is anything in the archive.</summary>
-		public HawkFile BindFirst() => BindFirstOf();
+		/// <summary>Binds the first archive member if one exists, or for non-archives, binds the file.</summary>
+		public HawkFile BindFirst() => BindByExtensionCore(Array.Empty<string>());
 
-		/// <summary>Binds the first item in the archive (or the file itself) if the extension matches one of the supplied templates.</summary>
+		/// <summary>
+		/// Binds the first archive member whose file extension is in <paramref name="extensions"/> if one exists,
+		/// or for non-archives, binds the file if its file extension is in <paramref name="extensions"/>.
+		/// </summary>
+		/// <param name="extensions">File extensions; include the leading period in each, and use lowercase.</param>
 		/// <remarks>You probably should use <see cref="BindSoleItemOf"/> or the archive chooser instead.</remarks>
-		public HawkFile BindFirstOf(params string[] extensions) => BindByExtensionCore(true, extensions);
+		public HawkFile BindFirstOf(string[] extensions) => BindByExtensionCore(extensions);
+
+		/// <summary>
+		/// Binds the first archive member whose file extension is <paramref name="extension"/> if one exists,
+		/// or for non-archives, binds the file if its file extension is <paramref name="extension"/>.
+		/// </summary>
+		/// <param name="extension">File extension; include the leading period, and use lowercase.</param>
+		/// <remarks>You probably should use <see cref="BindSoleItemOf"/> or the archive chooser instead.</remarks>
+		public HawkFile BindFirstOf(string extension) => BindByExtensionCore(new[] { extension });
 
 		/// <summary>causes the root to be bound (in the case of non-archive files)</summary>
 		private void BindRoot()
@@ -220,8 +243,9 @@ namespace BizHawk.Common
 			Debug.WriteLine($"{nameof(HawkFile)} bound {CanonicalFullPath}");
 		}
 
-		/// <summary>binds one of the supplied extensions if there is only one match in the archive</summary>
-		public HawkFile BindSoleItemOf(params string[] extensions) => BindByExtensionCore(false, extensions);
+		/// <summary>As <see cref="BindFirstOf(string[])"/>, but doesn't bind anything if there are multiple archive members with a matching file extension.</summary>
+		/// <param name="extensions">File extensions; include the leading period in each, and use lowercase.</param>
+		public HawkFile BindSoleItemOf(string[] extensions) => BindByExtensionCore(extensions, onlyBindSingle: true);
 
 		public void Dispose()
 		{
@@ -260,25 +284,8 @@ namespace BizHawk.Common
 		/// <summary>Set this with an instance which can construct archive handlers as necessary for archive handling.</summary>
 		public static IFileDearchivalMethod<IHawkArchiveFile>? DearchivalMethod;
 
-		public static readonly IReadOnlyCollection<string> CommonNonArchiveExtensions = new[] { ".smc", ".sfc", ".dll" };
-
-		/// <summary>Utility: Uses full HawkFile processing to determine whether a file exists at the provided path</summary>
-		public static bool ExistsAt(string path)
-		{
-			using var file = new HawkFile(path);
-			return file.Exists;
-		}
-
 		[return: HawkFilePath]
 		private static string MakeCanonicalName(string root, string? member) => member == null ? root : $"{root}|{member}";
-
-		/// <summary>reads all the contents of the file at <paramref name="path"/></summary>
-		/// <exception cref="FileNotFoundException">could not find <paramref name="path"/></exception>
-		public static byte[] ReadAllBytes(string path)
-		{
-			using var file = new HawkFile(path);
-			return file.Exists ? file.ReadAllBytes() : throw new FileNotFoundException(path);
-		}
 
 		/// <returns>path / member path pair iff <paramref name="path"/> contains <c>'|'</c>, <see langword="null"/> otherwise</returns>
 		private static (string, string)? SplitArchiveMemberPath([HawkFilePath] string path)

@@ -83,7 +83,7 @@ namespace BizHawk.Emulation.Cores
 		/// <summary>
 		/// extra information which could be easily gotten during the file ID (region, suspected homebrew, CRC invalid, etc.)
 		/// </summary>
-		public Dictionary<string, object> ExtraInfo = new Dictionary<string, object>();
+		public readonly IDictionary<string, object> ExtraInfo = new Dictionary<string, object>();
 	}
 
 	public class FileIDResults : List<FileIDResult>
@@ -127,7 +127,7 @@ namespace BizHawk.Emulation.Cores
 			public DiscSystem.Disc Disc;
 		}
 
-		class IdentifyJob
+		private class IdentifyJob
 		{
 			public Stream Stream;
 			public string Extension;
@@ -212,7 +212,7 @@ namespace BizHawk.Emulation.Cores
 			else return ret[0].FileIDType;
 		}
 
-		FileIDResults IdentifyDisc(IdentifyJob job)
+		private FileIDResults IdentifyDisc(IdentifyJob job)
 		{
 			var discIdentifier = new DiscSystem.DiscIdentifier(job.Disc);
 			//DiscSystem could use some newer approaches from this file (instead of parsing ISO filesystem... maybe?)
@@ -240,7 +240,7 @@ namespace BizHawk.Emulation.Cores
 			}
 		}
 
-		class SimpleMagicRecord
+		private class SimpleMagicRecord
 		{
 			public int Offset;
 			public string Key;
@@ -250,54 +250,54 @@ namespace BizHawk.Emulation.Cores
 
 		//some of these (NES, UNIF for instance) should be lower confidence probably...
 		//if you change some of the Length arguments for longer keys, please make notes about why
-		static class SimpleMagics
+		private static class SimpleMagics
 		{
-			public static SimpleMagicRecord INES = new SimpleMagicRecord { Offset = 0, Key = "NES" };
-			public static SimpleMagicRecord UNIF = new SimpleMagicRecord { Offset = 0, Key = "UNIF" };
+			public static readonly SimpleMagicRecord INES = new SimpleMagicRecord { Offset = 0, Key = "NES" };
+			public static readonly SimpleMagicRecord UNIF = new SimpleMagicRecord { Offset = 0, Key = "UNIF" };
 			public static SimpleMagicRecord NSF = new SimpleMagicRecord { Offset = 0, Key = "NESM\x1A" }; 
 
-			public static SimpleMagicRecord FDS_HEADERLESS = new SimpleMagicRecord { Offset = 0, Key = "\x01*NINTENDO-HVC*" };
-			public static SimpleMagicRecord FDS_HEADER = new SimpleMagicRecord { Offset = 0, Key = "FDS\x1A" };
+			public static readonly SimpleMagicRecord FDS_HEADERLESS = new SimpleMagicRecord { Offset = 0, Key = "\x01*NINTENDO-HVC*" };
+			public static readonly SimpleMagicRecord FDS_HEADER = new SimpleMagicRecord { Offset = 0, Key = "FDS\x1A" };
 
 			//the GBA nintendo logo.. we'll only use 16 bytes of it but theyre all here, for reference
 			//we cant expect these roms to be normally sized, but we may be able to find other features of the header to use for extra checks
-			public static SimpleMagicRecord GBA = new SimpleMagicRecord {  Offset = 4, Length = 16, Key = "\x24\xFF\xAE\x51\x69\x9A\xA2\x21\x3D\x84\x82\x0A\x84\xE4\x09\xAD\x11\x24\x8B\x98\xC0\x81\x7F\x21\xA3\x52\xBE\x19\x93\x09\xCE\x20\x10\x46\x4A\x4A\xF8\x27\x31\xEC\x58\xC7\xE8\x33\x82\xE3\xCE\xBF\x85\xF4\xDF\x94\xCE\x4B\x09\xC1\x94\x56\x8A\xC0\x13\x72\xA7\xFC\x9F\x84\x4D\x73\xA3\xCA\x9A\x61\x58\x97\xA3\x27\xFC\x03\x98\x76\x23\x1D\xC7\x61\x03\x04\xAE\x56\xBF\x38\x84\x00\x40\xA7\x0E\xFD\xFF\x52\xFE\x03\x6F\x95\x30\xF1\x97\xFB\xC0\x85\x60\xD6\x80\x25\xA9\x63\xBE\x03\x01\x4E\x38\xE2\xF9\xA2\x34\xFF\xBB\x3E\x03\x44\x78\x00\x90\xCB\x88\x11\x3A\x94\x65\xC0\x7C\x63\x87\xF0\x3C\xAF\xD6\x25\xE4\x8B\x38\x0A\xAC\x72\x21\xD4\xF8\x07" };
-			public static SimpleMagicRecord NDS = new SimpleMagicRecord { Offset = 0xC0, Length = 16, Key = "\x24\xFF\xAE\x51\x69\x9A\xA2\x21\x3D\x84\x82\x0A\x84\xE4\x09\xAD\x11\x24\x8B\x98\xC0\x81\x7F\x21\xA3\x52\xBE\x19\x93\x09\xCE\x20\x10\x46\x4A\x4A\xF8\x27\x31\xEC\x58\xC7\xE8\x33\x82\xE3\xCE\xBF\x85\xF4\xDF\x94\xCE\x4B\x09\xC1\x94\x56\x8A\xC0\x13\x72\xA7\xFC\x9F\x84\x4D\x73\xA3\xCA\x9A\x61\x58\x97\xA3\x27\xFC\x03\x98\x76\x23\x1D\xC7\x61\x03\x04\xAE\x56\xBF\x38\x84\x00\x40\xA7\x0E\xFD\xFF\x52\xFE\x03\x6F\x95\x30\xF1\x97\xFB\xC0\x85\x60\xD6\x80\x25\xA9\x63\xBE\x03\x01\x4E\x38\xE2\xF9\xA2\x34\xFF\xBB\x3E\x03\x44\x78\x00\x90\xCB\x88\x11\x3A\x94\x65\xC0\x7C\x63\x87\xF0\x3C\xAF\xD6\x25\xE4\x8B\x38\x0A\xAC\x72\x21\xD4\xF8\x07" };
+			public static readonly SimpleMagicRecord GBA = new SimpleMagicRecord {  Offset = 4, Length = 16, Key = "\x24\xFF\xAE\x51\x69\x9A\xA2\x21\x3D\x84\x82\x0A\x84\xE4\x09\xAD\x11\x24\x8B\x98\xC0\x81\x7F\x21\xA3\x52\xBE\x19\x93\x09\xCE\x20\x10\x46\x4A\x4A\xF8\x27\x31\xEC\x58\xC7\xE8\x33\x82\xE3\xCE\xBF\x85\xF4\xDF\x94\xCE\x4B\x09\xC1\x94\x56\x8A\xC0\x13\x72\xA7\xFC\x9F\x84\x4D\x73\xA3\xCA\x9A\x61\x58\x97\xA3\x27\xFC\x03\x98\x76\x23\x1D\xC7\x61\x03\x04\xAE\x56\xBF\x38\x84\x00\x40\xA7\x0E\xFD\xFF\x52\xFE\x03\x6F\x95\x30\xF1\x97\xFB\xC0\x85\x60\xD6\x80\x25\xA9\x63\xBE\x03\x01\x4E\x38\xE2\xF9\xA2\x34\xFF\xBB\x3E\x03\x44\x78\x00\x90\xCB\x88\x11\x3A\x94\x65\xC0\x7C\x63\x87\xF0\x3C\xAF\xD6\x25\xE4\x8B\x38\x0A\xAC\x72\x21\xD4\xF8\x07" };
+			public static readonly SimpleMagicRecord NDS = new SimpleMagicRecord { Offset = 0xC0, Length = 16, Key = "\x24\xFF\xAE\x51\x69\x9A\xA2\x21\x3D\x84\x82\x0A\x84\xE4\x09\xAD\x11\x24\x8B\x98\xC0\x81\x7F\x21\xA3\x52\xBE\x19\x93\x09\xCE\x20\x10\x46\x4A\x4A\xF8\x27\x31\xEC\x58\xC7\xE8\x33\x82\xE3\xCE\xBF\x85\xF4\xDF\x94\xCE\x4B\x09\xC1\x94\x56\x8A\xC0\x13\x72\xA7\xFC\x9F\x84\x4D\x73\xA3\xCA\x9A\x61\x58\x97\xA3\x27\xFC\x03\x98\x76\x23\x1D\xC7\x61\x03\x04\xAE\x56\xBF\x38\x84\x00\x40\xA7\x0E\xFD\xFF\x52\xFE\x03\x6F\x95\x30\xF1\x97\xFB\xC0\x85\x60\xD6\x80\x25\xA9\x63\xBE\x03\x01\x4E\x38\xE2\xF9\xA2\x34\xFF\xBB\x3E\x03\x44\x78\x00\x90\xCB\x88\x11\x3A\x94\x65\xC0\x7C\x63\x87\xF0\x3C\xAF\xD6\x25\xE4\x8B\x38\x0A\xAC\x72\x21\xD4\xF8\x07" };
 
-			public static SimpleMagicRecord GB = new SimpleMagicRecord {  Offset=0x104, Length = 16, Key = "\xCE\xED\x66\x66\xCC\x0D\x00\x0B\x03\x73\x00\x83\x00\x0C\x00\x0D\x00\x08\x11\x1F\x88\x89\x00\x0E\xDC\xCC\x6E\xE6\xDD\xDD\xD9\x99\xBB\xBB\x67\x63\x6E\x0E\xEC\xCC\xDD\xDC\x99\x9F\xBB\xB9\x33\x3E" };
+			public static readonly SimpleMagicRecord GB = new SimpleMagicRecord {  Offset=0x104, Length = 16, Key = "\xCE\xED\x66\x66\xCC\x0D\x00\x0B\x03\x73\x00\x83\x00\x0C\x00\x0D\x00\x08\x11\x1F\x88\x89\x00\x0E\xDC\xCC\x6E\xE6\xDD\xDD\xD9\x99\xBB\xBB\x67\x63\x6E\x0E\xEC\xCC\xDD\xDC\x99\x9F\xBB\xB9\x33\x3E" };
 
-			public static SimpleMagicRecord S32X = new SimpleMagicRecord { Offset = 0x100, Key = "SEGA 32X" };
+			public static readonly SimpleMagicRecord S32X = new SimpleMagicRecord { Offset = 0x100, Key = "SEGA 32X" };
 
-			public static SimpleMagicRecord SEGAGENESIS = new SimpleMagicRecord { Offset = 0x100, Key = "SEGA GENESIS" };
-			public static SimpleMagicRecord SEGAMEGADRIVE = new SimpleMagicRecord { Offset = 0x100, Key = "SEGA MEGA DRIVE" };
-			public static SimpleMagicRecord SEGASATURN = new SimpleMagicRecord { Offset = 0, Key = "SEGA SEGASATURN" };
-			public static SimpleMagicRecord SEGADISCSYSTEM = new SimpleMagicRecord { Offset = 0, Key = "SEGADISCSYSTEM" };
+			public static readonly SimpleMagicRecord SEGAGENESIS = new SimpleMagicRecord { Offset = 0x100, Key = "SEGA GENESIS" };
+			public static readonly SimpleMagicRecord SEGAMEGADRIVE = new SimpleMagicRecord { Offset = 0x100, Key = "SEGA MEGA DRIVE" };
+			public static readonly SimpleMagicRecord SEGASATURN = new SimpleMagicRecord { Offset = 0, Key = "SEGA SEGASATURN" };
+			public static readonly SimpleMagicRecord SEGADISCSYSTEM = new SimpleMagicRecord { Offset = 0, Key = "SEGADISCSYSTEM" };
 
-			public static SimpleMagicRecord PSX = new SimpleMagicRecord { Offset = 0x24E0, Key = "  Licensed  by          Sony Computer Entertainment" }; //there might be other ideas for checking in mednafen sources, if we need them
-			public static SimpleMagicRecord PSX_EXE = new SimpleMagicRecord { Key = "PS-X EXE\0" };
-			public static SimpleMagicRecord PSP = new SimpleMagicRecord { Offset = 0x8000, Key = "\x01CD001\x01\0x00PSP GAME" };
-			public static SimpleMagicRecord PSF = new SimpleMagicRecord { Offset = 0, Key = "PSF\x1" };
+			public static readonly SimpleMagicRecord PSX = new SimpleMagicRecord { Offset = 0x24E0, Key = "  Licensed  by          Sony Computer Entertainment" }; //there might be other ideas for checking in mednafen sources, if we need them
+			public static readonly SimpleMagicRecord PSX_EXE = new SimpleMagicRecord { Key = "PS-X EXE\0" };
+			public static readonly SimpleMagicRecord PSP = new SimpleMagicRecord { Offset = 0x8000, Key = "\x01CD001\x01\0x00PSP GAME" };
+			public static readonly SimpleMagicRecord PSF = new SimpleMagicRecord { Offset = 0, Key = "PSF\x1" };
 
 			//https://sites.google.com/site/atari7800wiki/a78-header
-			public static SimpleMagicRecord A78 = new SimpleMagicRecord { Offset = 0, Key = "\x01ATARI7800" };
+			public static readonly SimpleMagicRecord A78 = new SimpleMagicRecord { Offset = 0, Key = "\x01ATARI7800" };
 
 			//could be at various offsets?
 			public static SimpleMagicRecord TMR_SEGA = new SimpleMagicRecord { Offset = 0x7FF0, Key = "TMR SEGA" };
 
-			public static SimpleMagicRecord SBI = new SimpleMagicRecord { Key = "SBI\0" };
-			public static SimpleMagicRecord M3U = new SimpleMagicRecord { Key = "#EXTM3U" }; //note: M3U may not have this. EXTM3U only has it. We'll still catch it by extension though.
+			public static readonly SimpleMagicRecord SBI = new SimpleMagicRecord { Key = "SBI\0" };
+			public static readonly SimpleMagicRecord M3U = new SimpleMagicRecord { Key = "#EXTM3U" }; //note: M3U may not have this. EXTM3U only has it. We'll still catch it by extension though.
 
-			public static SimpleMagicRecord ECM = new SimpleMagicRecord { Key = "ECM\0" };
-			public static SimpleMagicRecord FLAC = new SimpleMagicRecord { Key = "fLaC" };
-			public static SimpleMagicRecord MPC = new SimpleMagicRecord { Key = "MP+", ExtraCheck = (s) => { s.Position += 3; return s.ReadByte() >= 7; } };
-			public static SimpleMagicRecord APE = new SimpleMagicRecord { Key = "MAC " };
-			public static SimpleMagicRecord[] WAV = new SimpleMagicRecord[] {
+			public static readonly SimpleMagicRecord ECM = new SimpleMagicRecord { Key = "ECM\0" };
+			public static readonly SimpleMagicRecord FLAC = new SimpleMagicRecord { Key = "fLaC" };
+			public static readonly SimpleMagicRecord MPC = new SimpleMagicRecord { Key = "MP+", ExtraCheck = (s) => { s.Position += 3; return s.ReadByte() >= 7; } };
+			public static readonly SimpleMagicRecord APE = new SimpleMagicRecord { Key = "MAC " };
+			public static readonly SimpleMagicRecord[] WAV = {
 				new SimpleMagicRecord { Offset = 0, Key = "RIFF" },
 				new SimpleMagicRecord { Offset = 8, Key = "WAVEfmt " }
 			};
 		}
 
-		class ExtensionInfo
+		private class ExtensionInfo
 		{
 			public ExtensionInfo(FileIDType defaultForExtension, FormatTester tester)
 			{
@@ -307,14 +307,14 @@ namespace BizHawk.Emulation.Cores
 				DefaultForExtension = defaultForExtension;
 			}
 
-			public FileIDType DefaultForExtension;
-			public List<FormatTester> Testers;
+			public readonly FileIDType DefaultForExtension;
+			public readonly List<FormatTester> Testers;
 		}
 
 		/// <summary>
 		/// testers to try for each extension, along with a default for the extension
 		/// </summary>
-		static Dictionary<string, ExtensionInfo> ExtensionHandlers = new Dictionary<string, ExtensionInfo> {
+		private static readonly Dictionary<string, ExtensionInfo> ExtensionHandlers = new Dictionary<string, ExtensionInfo> {
 		  { "NES", new ExtensionInfo(FileIDType.INES, Test_INES ) },
 			{ "FDS", new ExtensionInfo(FileIDType.FDS, Test_FDS ) },
 			{ "GBA", new ExtensionInfo(FileIDType.GBA, (j)=>Test_Simple(j,FileIDType.GBA,SimpleMagics.GBA) ) },
@@ -381,14 +381,14 @@ namespace BizHawk.Emulation.Cores
 			{ "ECM", new ExtensionInfo(FileIDType.ECM, (j)=>Test_Simple(j,FileIDType.ECM,SimpleMagics.ECM) ) },
 		};
 
-		delegate FileIDResult FormatTester(IdentifyJob job);
+		private delegate FileIDResult FormatTester(IdentifyJob job);
 
-		static int[] no_offsets = new int[] { 0 };
+		private static readonly int[] no_offsets = { 0 };
 
 		/// <summary>
 		/// checks for the magic string (bytewise ASCII check) at the given address
 		/// </summary>
-		static bool CheckMagic(Stream stream, IEnumerable<SimpleMagicRecord> recs, params int[] offsets)
+		private static bool CheckMagic(Stream stream, IEnumerable<SimpleMagicRecord> recs, params int[] offsets)
 		{
 			if (offsets.Length == 0)
 				offsets = no_offsets;
@@ -409,12 +409,12 @@ namespace BizHawk.Emulation.Cores
 			return false;
 		}
 
-		static bool CheckMagic(Stream stream, SimpleMagicRecord rec, params int[] offsets)
+		private static bool CheckMagic(Stream stream, SimpleMagicRecord rec, params int[] offsets)
 		{
 			return CheckMagic(stream, new SimpleMagicRecord[] { rec }, offsets);
 		}
 
-		static bool CheckMagicOne(Stream stream, SimpleMagicRecord rec, int offset)
+		private static bool CheckMagicOne(Stream stream, SimpleMagicRecord rec, int offset)
 		{
 			stream.Position = rec.Offset + offset;
 			string key = rec.Key;
@@ -436,13 +436,13 @@ namespace BizHawk.Emulation.Cores
 			else return true;
 		}
 
-		static int ReadByte(Stream stream, int ofs)
+		private static int ReadByte(Stream stream, int ofs)
 		{
 			stream.Position = ofs;
 			return stream.ReadByte();
 		}
 
-		static FileIDResult Test_INES(IdentifyJob job)
+		private static FileIDResult Test_INES(IdentifyJob job)
 		{
 			if (!CheckMagic(job.Stream, SimpleMagics.INES))
 				return new FileIDResult();
@@ -457,7 +457,7 @@ namespace BizHawk.Emulation.Cores
 			return ret;
 		}
 
-		static FileIDResult Test_FDS(IdentifyJob job)
+		private static FileIDResult Test_FDS(IdentifyJob job)
 		{
 			if (CheckMagic(job.Stream, SimpleMagics.FDS_HEADER))
 				return new FileIDResult(FileIDType.FDS, 90); //kind of a small header..
@@ -470,7 +470,7 @@ namespace BizHawk.Emulation.Cores
 		/// <summary>
 		/// all magics must pass
 		/// </summary>
-		static FileIDResult Test_Simple(IdentifyJob job, FileIDType type, SimpleMagicRecord[] magics)
+		private static FileIDResult Test_Simple(IdentifyJob job, FileIDType type, SimpleMagicRecord[] magics)
 		{
 			var ret = new FileIDResult(type);
 
@@ -480,7 +480,7 @@ namespace BizHawk.Emulation.Cores
 				return new FileIDResult();
 		}
 
-		static FileIDResult Test_Simple(IdentifyJob job, FileIDType type, SimpleMagicRecord magic)
+		private static FileIDResult Test_Simple(IdentifyJob job, FileIDType type, SimpleMagicRecord magic)
 		{
 			var ret = new FileIDResult(type);
 
@@ -490,7 +490,7 @@ namespace BizHawk.Emulation.Cores
 				return new FileIDResult();
 		}
 
-		static FileIDResult Test_UNIF(IdentifyJob job)
+		private static FileIDResult Test_UNIF(IdentifyJob job)
 		{
 			if (!CheckMagic(job.Stream, SimpleMagics.UNIF))
 				return new FileIDResult();
@@ -502,7 +502,7 @@ namespace BizHawk.Emulation.Cores
 			return ret;
 		}
 
-		static FileIDResult Test_GB_GBC(IdentifyJob job)
+		private static FileIDResult Test_GB_GBC(IdentifyJob job)
 		{
 			if (!CheckMagic(job.Stream, SimpleMagics.GB))
 				return new FileIDResult();
@@ -517,7 +517,7 @@ namespace BizHawk.Emulation.Cores
 			return ret;
 		}
 
-		static FileIDResult Test_SMS(IdentifyJob job)
+		private static FileIDResult Test_SMS(IdentifyJob job)
 		{
 			//http://www.smspower.org/Development/ROMHeader
 
@@ -525,7 +525,7 @@ namespace BizHawk.Emulation.Cores
 			return new FileIDResult();
 		}
 
-		static FileIDResult Test_N64(IdentifyJob job)
+		private static FileIDResult Test_N64(IdentifyJob job)
 		{
 			//  .Z64 = No swapping
 			//  .N64 = Word Swapped
@@ -538,7 +538,7 @@ namespace BizHawk.Emulation.Cores
 			return ret;
 		}
 
-		static FileIDResult Test_A78(IdentifyJob job)
+		private static FileIDResult Test_A78(IdentifyJob job)
 		{
 			int len = (int)job.Stream.Length;
 			
@@ -556,7 +556,7 @@ namespace BizHawk.Emulation.Cores
 			return new FileIDResult(0);
 		}
 
-		static FileIDResult Test_BIN_ISO(IdentifyJob job)
+		private static FileIDResult Test_BIN_ISO(IdentifyJob job)
 		{
 			//ok, this is complicated.
 			//there are lots of mislabeled bins/isos so lets just treat them the same (mostly)
@@ -615,7 +615,7 @@ namespace BizHawk.Emulation.Cores
 				return new FileIDResult(FileIDType.Multiple, 1);
 		}
 
-		static FileIDResult Test_JAD_JAC(IdentifyJob job)
+		private static FileIDResult Test_JAD_JAC(IdentifyJob job)
 		{
 			//TBD
 			//just mount it as a disc and send it through the disc checker?

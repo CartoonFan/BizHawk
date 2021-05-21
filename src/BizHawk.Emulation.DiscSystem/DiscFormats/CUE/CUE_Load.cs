@@ -12,7 +12,7 @@
 //most fundamentally, it is organized with TRACK and INDEX commands alternating.
 //these should be flattened into individual records with CURRTRACK and CURRINDEX fields.
 //more generally, it's organized with 'register' settings and INDEX commands alternating.
-//whenever an INDEX command is received from the cue file, individual flattened records are written with the current 'register' settings 
+//whenever an INDEX command is received from the cue file, individual flattened records are written with the current 'register' settings
 //and an incrementing timestamp until the INDEX command appears (or the EOF happens)
 //PREGAP commands are special : at the moment it is received, emit flat records with a different pregap structure
 //POSTGAP commands are special : TBD
@@ -20,6 +20,8 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+
+using BizHawk.Common;
 
 namespace BizHawk.Emulation.DiscSystem.CUE
 {
@@ -30,10 +32,10 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 	/// </summary>
 	internal class LoadCueJob : DiscJob
 	{
-		/// <summary>
-		/// The results of the compile job, a prerequisite for this
-		/// </summary>
-		public CompileCueJob IN_CompileJob { private get; set; }
+		private readonly CompileCueJob IN_CompileJob;
+
+		/// <param name="compileJob">The results of the compile job, a prerequisite for this</param>
+		public LoadCueJob(CompileCueJob compileJob) => IN_CompileJob = compileJob;
 
 		/// <summary>
 		/// The resulting disc
@@ -51,16 +53,26 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 			public long Length;
 		}
 
-		//not sure if we need this...
-		private class TrackInfo
+		/// <remarks>not sure if we need this...</remarks>
+		private readonly struct TrackInfo
 		{
-			public int Length;
+			public readonly CompiledCueTrack CompiledCueTrack;
 
-			public CompiledCueTrack CompiledCueTrack;
+#if true
+			public TrackInfo(CompiledCueTrack compiledCueTrack) => CompiledCueTrack = compiledCueTrack;
+#else
+			public readonly int Length;
+
+			public TrackInfo(CompiledCueTrack compiledCueTrack, int length)
+			{
+				CompiledCueTrack = compiledCueTrack;
+				Length = length;
+			}
+#endif
 		}
 
 		private List<BlobInfo> BlobInfos;
-		private List<TrackInfo> TrackInfos = new List<TrackInfo>();
+		private readonly List<TrackInfo> TrackInfos = new List<TrackInfo>();
 
 
 		private void MountBlobs()
@@ -79,14 +91,14 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 					case CompiledCueFileType.Unknown:
 						{
 							//raw files:
-							var blob = new Disc.Blob_RawFile { PhysicalPath = ccf.FullPath };
+							var blob = new Blob_RawFile { PhysicalPath = ccf.FullPath };
 							OUT_Disc.DisposableResources.Add(file_blob = blob);
 							bi.Length = blob.Length;
 							break;
 						}
 					case CompiledCueFileType.ECM:
 						{
-							var blob = new Disc.Blob_ECM();
+							var blob = new Blob_ECM();
 							OUT_Disc.DisposableResources.Add(file_blob = blob);
 							blob.Load(ccf.FullPath);
 							bi.Length = blob.Length;
@@ -94,7 +106,7 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 						}
 					case CompiledCueFileType.WAVE:
 						{
-							var blob = new Disc.Blob_WaveFile();
+							var blob = new Blob_WaveFile();
 							OUT_Disc.DisposableResources.Add(file_blob = blob);
 							blob.Load(ccf.FullPath);
 							bi.Length = blob.Length;
@@ -102,14 +114,13 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 						}
 					case CompiledCueFileType.DecodeAudio:
 						{
-							FFMpeg ffmpeg = new FFMpeg();
-							if (!ffmpeg.QueryServiceAvailable())
+							if (!FFmpegService.QueryServiceAvailable())
 							{
-								throw new DiscReferenceException(ccf.FullPath, "No decoding service was available (make sure ffmpeg.exe is available. even though this may be a wav, ffmpeg is used to load oddly formatted wave files. If you object to this, please send us a note and we'll see what we can do. It shouldn't be too hard.)");
+								throw new DiscReferenceException(ccf.FullPath, "No decoding service was available (make sure ffmpeg.exe is available. Even though this may be a wav, ffmpeg is used to load oddly formatted wave files. If you object to this, please send us a note and we'll see what we can do. It shouldn't be too hard.)");
 							}
 							AudioDecoder dec = new AudioDecoder();
 							byte[] buf = dec.AcquireWaveData(ccf.FullPath);
-							var blob = new Disc.Blob_WaveFile();
+							var blob = new Blob_WaveFile();
 							OUT_Disc.DisposableResources.Add(file_blob = blob);
 							blob.Load(new MemoryStream(buf));
 							bi.Length = buf.Length;
@@ -120,7 +131,7 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 				} //switch(file type)
 
 				//wrap all the blobs with zero padding
-				bi.Blob = new Disc.Blob_ZeroPadAdapter(file_blob, bi.Length);
+				bi.Blob = new Blob_ZeroPadAdapter(file_blob, bi.Length);
 			}
 		}
 
@@ -133,8 +144,7 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 			{
 				var cct = compiledTracks[t];
 
-				var ti = new TrackInfo() { CompiledCueTrack = cct };
-				TrackInfos.Add(ti);
+				TrackInfos.Add(new TrackInfo(cct));
 
 				//OH NO! CANT DO THIS!
 				//need to read sectors from file to reliably know its ending size.
@@ -377,12 +387,11 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 
 
 			//add RawTOCEntries A0 A1 A2 to round out the TOC
-			var TOCMiscInfo = new Synthesize_A0A1A2_Job { 
-				IN_FirstRecordedTrackNumber = IN_CompileJob.OUT_CompiledDiscInfo.FirstRecordedTrackNumber,
-				IN_LastRecordedTrackNumber = IN_CompileJob.OUT_CompiledDiscInfo.LastRecordedTrackNumber,
-				IN_Session1Format = IN_CompileJob.OUT_CompiledDiscInfo.SessionFormat,
-				IN_LeadoutTimestamp = OUT_Disc._Sectors.Count
-			};
+			var TOCMiscInfo = new Synthesize_A0A1A2_Job(
+				firstRecordedTrackNumber: IN_CompileJob.OUT_CompiledDiscInfo.FirstRecordedTrackNumber,
+				lastRecordedTrackNumber: IN_CompileJob.OUT_CompiledDiscInfo.LastRecordedTrackNumber,
+				session1Format: IN_CompileJob.OUT_CompiledDiscInfo.SessionFormat,
+				leadoutTimestamp: OUT_Disc._Sectors.Count);
 			TOCMiscInfo.Run(OUT_Disc.RawTOCEntries);
 
 			//TODO - generate leadout, or delegates at least

@@ -1,8 +1,6 @@
 using System;
 using BizHawk.Common;
 
-using OpenTK.Graphics.OpenGL;
-
 namespace BizHawk.Bizware.BizwareGL
 {
 	/// <summary>
@@ -24,7 +22,7 @@ namespace BizHawk.Bizware.BizwareGL
 		public object Opaque { get; }
 		public IGL Owner { get; }
 
-		int RefCount;
+		private int RefCount;
 
 		public void Release()
 		{
@@ -42,7 +40,7 @@ namespace BizHawk.Bizware.BizwareGL
 		}
 
 		/// <exception cref="InvalidOperationException">already closed (by call to <see cref="Close"/>)</exception>
-		public void DefineVertexAttribute(string name, int index, int components, VertexAttribPointerType attribType, AttributeUsage usage, bool normalized, int stride, int offset = 0)
+		public void DefineVertexAttribute(string name, int index, int components, VertexAttribPointerType attribType, AttribUsage usage, bool normalized, int stride, int offset = 0)
 		{
 			if (Closed)
 				throw new InvalidOperationException("Type is Closed and is now immutable.");
@@ -65,7 +63,7 @@ namespace BizHawk.Bizware.BizwareGL
 			public bool Normalized { get; internal set; }
 			public int Stride { get; internal set; }
 			public int Offset { get; internal set; }
-			public AttributeUsage Usage { get; internal set; }
+			public AttribUsage Usage { get; internal set; }
 		}
 
 		public class MyDictionary : WorkingDictionary<int, LayoutItem>
@@ -78,7 +76,7 @@ namespace BizHawk.Bizware.BizwareGL
 		}
 
 		public MyDictionary Items { get; }
-		bool Closed = false;
+		private bool Closed = false;
 
 	}
 }

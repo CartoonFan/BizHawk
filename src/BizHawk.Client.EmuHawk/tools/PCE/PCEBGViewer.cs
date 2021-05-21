@@ -9,6 +9,7 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
+	[SpecializedTool("BG Viewer")]
 	public partial class PceBgViewer : ToolFormBase, IToolFormAutoConfig
 	{
 		[RequiredService]
@@ -26,9 +27,12 @@ namespace BizHawk.Client.EmuHawk
 
 		private int _vdcType;
 
+		protected override string WindowTitleStatic => "Background Viewer";
+
 		public PceBgViewer()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.PceIcon;
 			Activated += (o, e) => Generate();
 		}
 
@@ -80,11 +84,6 @@ namespace BizHawk.Client.EmuHawk
 				canvas.Bat.UnlockBits(buf);
 				canvas.Refresh();
 			});
-		}
-
-		public void Restart()
-		{
-			// Nothing to do
 		}
 
 		protected override void UpdateBefore() => Generate();

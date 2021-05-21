@@ -15,13 +15,12 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		private BlipBuffer _blip_L = new BlipBuffer(15000);
 		private BlipBuffer _blip_R = new BlipBuffer(15000);
 
-		public static bool[] DUTY_CYCLES = new bool[] {false, false, false, false, false, false, false, true,
+		public static bool[] DUTY_CYCLES = { false, false, false, false, false, false, false, true,
 													 true, false, false, false, false, false, false, true,
 													 true, false, false, false, false, true, true, true,
-													 false, true, true, true, true, true, true, false};
+													 false, true, true, true, true, true, true, false };
 
-		public static int[] DIVISOR = new int[] { 8, 16, 32, 48, 64, 80, 96, 112 };
-
+		public static int[] DIVISOR = { 8, 16, 32, 48, 64, 80, 96, 112 };
 
 		public const int NR10 = 0;
 		public const int NR11 = 1;
@@ -45,7 +44,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		public const int NR51 = 19;
 		public const int NR52 = 20;
 
-		public static int[] unused_bits = new int[] { 0x80, 0x3F, 0x00, 0xFF, 0xBF,
+		public static int[] unused_bits = { 0x80, 0x3F, 0x00, 0xFF, 0xBF,
 															0x3F, 0x00, 0xFF, 0xBF,
 													  0x7F, 0xFF, 0x9F, 0xFF, 0xBF,
 															0xFF, 0x00, 0x00, 0xBF,
@@ -113,7 +112,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		public byte AUD_CTRL_vol_R;
 
 		public int sequencer_len, sequencer_vol, sequencer_swp;
-		public bool timer_bit_old;
 		public int sequencer_reset_cd;
 
 		public byte sample;
@@ -170,7 +168,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					if (WAVE_enable)
 					{
 						if (WAVE_can_get || Core.is_GBC) { ret = Wave_RAM[WAVE_wave_cntr >> 1]; }
-						else { ret = 0xFF; }						
+						else { ret = 0xFF; }
 					}
 					else { ret = Wave_RAM[addr & 0x0F]; }
 					
@@ -304,7 +302,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 						SQ2_per = (byte)(value & 7);
 
 						// several glitchy effects happen when writing to NRx2 during audio playing
-						if (((Audio_Regs[NR22] & 7) == 0) && !SQ2_vol_done) { SQ2_vol_state++; }						
+						if (((Audio_Regs[NR22] & 7) == 0) && !SQ2_vol_done) { SQ2_vol_state++; }
 						else if ((Audio_Regs[NR22] & 8) == 0) { SQ2_vol_state += 2; }
 							
 						if (((Audio_Regs[NR22] ^ value) & 8) > 0) { SQ2_vol_state = (byte)(0x10 - SQ2_vol_state); }
@@ -741,9 +739,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			// frame sequencer ticks at a rate of 512 hz (or every time a 13 bit counter rolls over)
 			// the sequencer is actually the timer DIV register
 			// so if it's constantly written to, these values won't update
-			bool check = Core.double_speed ? Core.timer.divider_reg.Bit(13) : Core.timer.divider_reg.Bit(12);
 
-			if (!check && timer_bit_old && AUD_CTRL_power)
+			if (Core.DIV_falling_edge && AUD_CTRL_power)
 			{				
 				sequencer_vol++; sequencer_vol &= 0x7;
 				sequencer_len++; sequencer_len &= 0x7;
@@ -896,25 +893,29 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					}
 				}
 			}
-			timer_bit_old = Core.double_speed ? Core.timer.divider_reg.Bit(13) : Core.timer.divider_reg.Bit(12);
+
+			Core.DIV_falling_edge = false;
 
 			if (sequencer_reset_cd > 0)
 			{
 				sequencer_reset_cd--;
-								
+							
 				if (sequencer_reset_cd == 0)
 				{
+					// seems to be off by one issues here, hard to tell since the write takes place in the cpu loop
+					// but the effect takes place in the sound loop 
 					if (Core.double_speed)
 					{
-						sequencer_len = Core.timer.divider_reg.Bit(13) ? 0 : 1;
-						sequencer_vol = Core.timer.divider_reg.Bit(13) ? 0 : 1;
-						sequencer_swp = Core.timer.divider_reg.Bit(13) ? 0 : 1;
+						
+						sequencer_len = (Core.timer.divider_reg - 1).Bit(13) ? 0 : 1;
+						sequencer_vol = (Core.timer.divider_reg - 1).Bit(13) ? 0 : 1;
+						sequencer_swp = (Core.timer.divider_reg - 1).Bit(13) ? 0 : 1;
 					}
 					else
 					{
-						sequencer_len = Core.timer.divider_reg.Bit(12) ? 0 : 1;
-						sequencer_vol = Core.timer.divider_reg.Bit(12) ? 0 : 1;
-						sequencer_swp = Core.timer.divider_reg.Bit(12) ? 0 : 1;
+						sequencer_len = (Core.timer.divider_reg + 1).Bit(12) ? 0 : 1;
+						sequencer_vol = (Core.timer.divider_reg + 1).Bit(12) ? 0 : 1;
+						sequencer_swp = (Core.timer.divider_reg + 1).Bit(12) ? 0 : 1;
 					}				
 				}
 			}
@@ -1076,16 +1077,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			sound_update_needed = true;
 		}
 
-		public void update_sound()
-		{
-			if (sound_update_needed)
-			{
-
-
-				
-			}
-		}
-
 		public void SyncState(Serializer ser)
 		{
 			ser.Sync(nameof(Audio_Regs), ref Audio_Regs, false);
@@ -1166,13 +1157,11 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			ser.Sync(nameof(sequencer_len), ref sequencer_len);
 			ser.Sync(nameof(sequencer_vol), ref sequencer_vol);
 			ser.Sync(nameof(sequencer_swp), ref sequencer_swp);
-			ser.Sync(nameof(timer_bit_old), ref timer_bit_old);
 			ser.Sync(nameof(sequencer_reset_cd), ref sequencer_reset_cd);
 			ser.Sync(nameof(WAVE_decay_counter), ref WAVE_decay_counter);
 			ser.Sync(nameof(WAVE_decay_done), ref WAVE_decay_done);
 
 			ser.Sync(nameof(sound_update_needed), ref sound_update_needed);
-			ser.Sync(nameof(master_audio_clock), ref master_audio_clock);
 
 			ser.Sync(nameof(sample), ref sample);
 			ser.Sync(nameof(latched_sample_L), ref latched_sample_L);

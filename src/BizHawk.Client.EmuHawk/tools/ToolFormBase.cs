@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Drawing;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 
 using BizHawk.Client.Common;
@@ -8,16 +9,28 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public class ToolFormBase : Form
+	public class ToolFormBase : FormBase, IToolForm, IDialogParent
 	{
-		public ToolManager Tools { get; set; }
-		public Config Config { get; set; }
-		public MainForm MainForm { get; set; }
+		public ToolManager Tools { protected get; set; }
 
-		public IMovieSession MovieSession { get; set; }
-		public IGameInfo Game { get; set; }
+		public DisplayManager DisplayManager { protected get; set; }
+
+		public InputManager InputManager { protected get; set; }
+
+		public IMainFormForTools MainForm { protected get; set; }
+
+		public IMovieSession MovieSession { protected get; set; }
+
+		public IGameInfo Game { protected get; set; }
+
+		public IDialogController DialogController => MainForm;
 
 		public virtual bool AskSaveChanges() => true;
+
+		public virtual bool IsActive => IsHandleCreated && !IsDisposed;
+		public virtual bool IsLoaded => IsActive;
+
+		public virtual void Restart() {}
 
 		public virtual void UpdateValues(ToolFormUpdateType type)
 		{
@@ -49,6 +62,10 @@ namespace BizHawk.Client.EmuHawk
 
 		public FileInfo OpenFileDialog(string currentFile, string path, string fileType, string fileExt)
 		{
+			return OpenFileDialog(currentFile, path, new FilesystemFilterSet(new FilesystemFilter(fileType, new[] { fileExt })));
+		}
+		public FileInfo OpenFileDialog(string currentFile, string path, FilesystemFilterSet filterSet)
+		{
 			if (!Directory.Exists(path))
 			{
 				Directory.CreateDirectory(path);
@@ -58,22 +75,21 @@ namespace BizHawk.Client.EmuHawk
 			{
 				FileName = !string.IsNullOrWhiteSpace(currentFile)
 					? Path.GetFileName(currentFile)
-					: $"{Game.FilesystemSafeName()}.{fileExt}",
+					: $"{Game.FilesystemSafeName()}.{filterSet.Filters.FirstOrDefault()?.Extensions.FirstOrDefault()}",
 				InitialDirectory = path,
-				Filter = new FilesystemFilterSet(new FilesystemFilter(fileType, new[] { fileExt })).ToString(),
+				Filter = filterSet.ToString(),
 				RestoreDirectory = true
 			};
 
-			var result = ofd.ShowHawkDialog();
-			if (result != DialogResult.OK)
-			{
-				return null;
-			}
-
-			return new FileInfo(ofd.FileName);
+			var result = this.ShowDialogWithTempMute(ofd);
+			return result.IsOk() ? new FileInfo(ofd.FileName) : null;
 		}
 
-		public static FileInfo SaveFileDialog(string currentFile, string path, string fileType, string fileExt)
+		public static FileInfo SaveFileDialog(string currentFile, string path, string fileType, string fileExt, IDialogParent parent)
+		{
+			return SaveFileDialog(currentFile, path, new FilesystemFilterSet(new FilesystemFilter(fileType, new[] { fileExt })), parent);
+		}
+		public static FileInfo SaveFileDialog(string currentFile, string path, FilesystemFilterSet filterSet, IDialogParent parent)
 		{
 			if (!Directory.Exists(path))
 			{
@@ -82,21 +98,14 @@ namespace BizHawk.Client.EmuHawk
 
 			using var sfd = new SaveFileDialog
 			{
-				FileName = !string.IsNullOrWhiteSpace(currentFile)
-					? Path.GetFileName(currentFile)
-					: $"{GlobalWin.Game.FilesystemSafeName()}.{fileExt}",
+				FileName = Path.GetFileName(currentFile),
 				InitialDirectory = path,
-				Filter = new FilesystemFilterSet(new FilesystemFilter(fileType, new[] { fileExt })).ToString(),
+				Filter = filterSet.ToString(),
 				RestoreDirectory = true
 			};
 
-			var result = sfd.ShowHawkDialog();
-			if (result != DialogResult.OK)
-			{
-				return null;
-			}
-
-			return new FileInfo(sfd.FileName);
+			var result = parent.ShowDialogWithTempMute(sfd);
+			return result.IsOk() ? new FileInfo(sfd.FileName) : null;
 		}
 
 		public FileInfo GetWatchFileFromUser(string currentFile)
@@ -106,7 +115,7 @@ namespace BizHawk.Client.EmuHawk
 
 		public FileInfo GetWatchSaveFileFromUser(string currentFile)
 		{
-			return SaveFileDialog(currentFile, Config.PathEntries.WatchAbsolutePath(), "Watch Files", "wch");
+			return SaveFileDialog(currentFile, Config.PathEntries.WatchAbsolutePath(), "Watch Files", "wch", this);
 		}
 
 		public void ViewInHexEditor(MemoryDomain domain, IEnumerable<long> addresses, WatchSize size)
@@ -120,14 +129,14 @@ namespace BizHawk.Client.EmuHawk
 			e.Set(DragDropEffects.Copy);
 		}
 
-		protected void RefreshFloatingWindowControl(bool floatingWindow)
+		protected override void OnLoad(EventArgs e)
 		{
-			Owner = floatingWindow ? null : MainForm;
-		}
-
-		protected bool IsOnScreen(Point topLeft)
-		{
-			return Tools.IsOnScreen(topLeft);
+			if (MainMenuStrip != null)
+			{
+				MainMenuStrip.MenuActivate += (sender, args) => MainForm.MaybePauseFromMenuOpened();
+				MainMenuStrip.MenuDeactivate += (sender, args) => MainForm.MaybeUnpauseFromMenuClosed();
+			}
+			base.OnLoad(e);
 		}
 	}
 }

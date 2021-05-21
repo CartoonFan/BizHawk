@@ -1,38 +1,61 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 
 using NLua;
 
-using BizHawk.Common.ReflectionExtensions;
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 using BizHawk.Client.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public class Win32LuaLibraries : LuaLibraries
+	public class Win32LuaLibraries : IPlatformLuaLibEnv
 	{
-		private readonly MainForm _mainForm;
-		public Win32LuaLibraries()
+		public Win32LuaLibraries(
+			LuaFileList scriptList,
+			LuaFunctionList registeredFuncList,
+			IEmulatorServiceProvider serviceProvider,
+			MainForm mainForm,
+			IDisplayManagerForApi displayManager,
+			InputManager inputManager,
+			Config config,
+			IEmulator emulator,
+			IGameInfo game)
 		{
-//			if (NLua.Lua.WhichLua == "NLua")
-				_lua["keepalives"] = _lua.NewTable();
-		}
+			void EnumerateLuaFunctions(string name, Type type, LuaLibraryBase instance)
+			{
+				if (instance != null) _lua.NewTable(name);
+				foreach (var method in type.GetMethods())
+				{
+					var foundAttrs = method.GetCustomAttributes(typeof(LuaMethodAttribute), false);
+					if (foundAttrs.Length == 0) continue;
+					if (instance != null) _lua.RegisterFunction($"{name}.{((LuaMethodAttribute) foundAttrs[0]).Name}", instance, method);
+					Docs.Add(new LibraryFunction(
+						name,
+						type.GetCustomAttributes(typeof(DescriptionAttribute), false).Cast<DescriptionAttribute>()
+							.Select(descAttr => descAttr.Description).FirstOrDefault() ?? string.Empty,
+						method
+					));
+				}
+			}
 
-		public Win32LuaLibraries(IEmulatorServiceProvider serviceProvider, MainForm mainForm)
-			: this()
-		{
+			if (true /*NLua.Lua.WhichLua == "NLua"*/) _lua["keepalives"] = _lua.NewTable();
+			_th = new NLuaTableHelper(_lua, LogToLuaConsole);
+			_displayManager = displayManager;
+			_inputManager = inputManager;
 			_mainForm = mainForm;
-
 			LuaWait = new AutoResetEvent(false);
+			RegisteredFunctions = registeredFuncList;
+			ScriptList = scriptList;
 			Docs.Clear();
+			_apiContainer = ApiManager.RestartLua(serviceProvider, LogToLuaConsole, _mainForm, _displayManager, _inputManager, _mainForm.MovieSession, _mainForm.Tools, config, emulator, game);
 
 			// Register lua libraries
-			foreach (var lib in Assembly.Load("BizHawk.Client.Common").GetTypes()
-				.Concat(Assembly.GetAssembly(typeof(Win32LuaLibraries)).GetTypes())
+			foreach (var lib in Client.Common.ReflectionCache.Types.Concat(EmuHawk.ReflectionCache.Types)
 				.Where(t => typeof(LuaLibraryBase).IsAssignableFrom(t) && t.IsSealed && ServiceInjector.IsAvailable(serviceProvider, t)))
 			{
 				bool addLibrary = true;
@@ -44,9 +67,7 @@ namespace BizHawk.Client.EmuHawk
 
 				if (addLibrary)
 				{
-					var instance = (LuaLibraryBase)Activator.CreateInstance(lib, _lua);
-					instance.LuaRegister(lib, Docs);
-					instance.LogOutputCallback = ConsoleLuaLibrary.LogOutput;
+					var instance = (LuaLibraryBase) Activator.CreateInstance(lib, this, _apiContainer, (Action<string>) LogToLuaConsole);
 					ServiceInjector.UpdateServices(serviceProvider, instance);
 
 					// TODO: make EmuHawk libraries have a base class with common properties such as this
@@ -55,11 +76,26 @@ namespace BizHawk.Client.EmuHawk
 					{
 						clientLib.MainForm = _mainForm;
 					}
+					else if (instance is ConsoleLuaLibrary consoleLib)
+					{
+						consoleLib.Tools = _mainForm.Tools;
+						_logToLuaConsoleCallback = consoleLib.Log;
+					}
+					else if (instance is GuiLuaLibrary guiLib)
+					{
+						guiLib.CreateLuaCanvasCallback = (width, height, x, y) =>
+						{
+							var canvas = new LuaCanvas(width, height, x, y, _th, LogToLuaConsole);
+							canvas.Show();
+							return _th.ObjectToTable(canvas);
+						};
+					}
+					else if (instance is TAStudioLuaLibrary tastudioLib)
+					{
+						tastudioLib.Tools = _mainForm.Tools;
+					}
 
-					ApiContainerInstance = ApiManager.RestartLua(serviceProvider, ConsoleLuaLibrary.LogOutput);
-					if (instance is DelegatingLuaLibraryEmu dlgInstanceEmu) dlgInstanceEmu.APIs = ApiContainerInstance; // this is necessary as the property has the `new` modifier
-					else if (instance is DelegatingLuaLibrary dlgInstance) dlgInstance.APIs = ApiContainerInstance;
-
+					EnumerateLuaFunctions(instance.Name, lib, instance);
 					Libraries.Add(lib, instance);
 				}
 			}
@@ -69,103 +105,168 @@ namespace BizHawk.Client.EmuHawk
 			EmulationLuaLibrary.FrameAdvanceCallback = Frameadvance;
 			EmulationLuaLibrary.YieldCallback = EmuYield;
 
-			// Add LuaCanvas to Docs
-			Type luaCanvas = typeof(LuaCanvas);
-
-			foreach (var method in luaCanvas.GetMethods())
-			{
-				if (method.GetCustomAttributes(typeof(LuaMethodAttribute), false).Length != 0)
-				{
-					Docs.Add(new LibraryFunction(nameof(LuaCanvas), luaCanvas.Description(), method));
-				}
-			}
+			EnumerateLuaFunctions(nameof(LuaCanvas), typeof(LuaCanvas), null); // add LuaCanvas to Lua function reference table
 		}
 
-		/// <remarks>lazily instantiated</remarks>
-		private static ApiContainer ApiContainerInstance;
+		private ApiContainer _apiContainer;
+
+		private readonly IDisplayManagerForApi _displayManager;
+
+		private GuiApi GuiAPI => (GuiApi) _apiContainer.Gui;
+
+		private readonly InputManager _inputManager;
+
+		private readonly MainForm _mainForm;
 
 		private Lua _lua = new Lua();
 		private Lua _currThread;
 
+		private readonly NLuaTableHelper _th;
+
+		private static Action<object[]> _logToLuaConsoleCallback = a => Console.WriteLine("a Lua lib is logging during init and the console lib hasn't been initialised yet");
+
 		private FormsLuaLibrary FormsLibrary => (FormsLuaLibrary)Libraries[typeof(FormsLuaLibrary)];
 
-		private EventsLuaLibrary EventsLibrary => (EventsLuaLibrary)Libraries[typeof(EventsLuaLibrary)];
+		public LuaDocumentation Docs { get; } = new LuaDocumentation();
 
 		private EmulationLuaLibrary EmulationLuaLibrary => (EmulationLuaLibrary)Libraries[typeof(EmulationLuaLibrary)];
 
-		public override GuiLuaLibrary GuiLibrary => (GuiLuaLibrary) Libraries[typeof(GuiLuaLibrary)];
+		public string EngineName => Lua.WhichLua;
 
-		public override void Restart(IEmulatorServiceProvider newServiceProvider)
-		{
-			foreach (var lib in Libraries)
-			{
-				ServiceInjector.UpdateServices(newServiceProvider, lib.Value);
-			}
-		}
+		public bool IsRebootingCore { get; set; }
 
-		public override void StartLuaDrawing()
-		{
-			if (ScriptList.Count != 0 && GuiLibrary.SurfaceIsNull && !SuppressLua)
-			{
-				GuiLibrary.DrawNew("emu");
-			}
-		}
+		public bool IsUpdateSupressed { get; set; }
 
-		public override void EndLuaDrawing()
+		private readonly IDictionary<Type, LuaLibraryBase> Libraries = new Dictionary<Type, LuaLibraryBase>();
+
+		private EventWaitHandle LuaWait;
+
+		public LuaFileList ScriptList { get; }
+
+		private static void LogToLuaConsole(object outputs) => _logToLuaConsoleCallback(new[] { outputs });
+
+		public NLuaTableHelper GetTableHelper() => _th;
+
+		public void Restart(
+			IEmulatorServiceProvider newServiceProvider,
+			Config config,
+			IEmulator emulator,
+			IGameInfo game)
 		{
-			if (ScriptList.Count != 0 && !SuppressLua)
+			_apiContainer = ApiManager.RestartLua(newServiceProvider, LogToLuaConsole, _mainForm, _displayManager, _inputManager, _mainForm.MovieSession, _mainForm.Tools, config, emulator, game);
+			foreach (var lib in Libraries.Values)
 			{
-				GuiLibrary.DrawFinish();
+				lib.APIs = _apiContainer;
+				ServiceInjector.UpdateServices(newServiceProvider, lib);
 			}
 		}
 
 		public bool FrameAdvanceRequested { get; private set; }
 
-		public override LuaFunctionList RegisteredFunctions => EventsLibrary.RegisteredFunctions;
+		public LuaFunctionList RegisteredFunctions { get; }
 
-		public override void WindowClosed(IntPtr handle)
+		public void CallSaveStateEvent(string name)
 		{
-			FormsLibrary.WindowClosed(handle);
-		}
-
-		public override void CallSaveStateEvent(string name)
-		{
-			EventsLibrary.CallSaveStateEvent(name);
-		}
-
-		public override void CallLoadStateEvent(string name)
-		{
-			EventsLibrary.CallLoadStateEvent(name);
-		}
-
-		public override void CallFrameBeforeEvent()
-		{
-			if (!SuppressLua)
+			try
 			{
-				EventsLibrary.CallFrameBeforeEvent();
+				foreach (var lf in RegisteredFunctions.Where(l => l.Event == "OnSavestateSave"))
+				{
+					lf.Call(name);
+				}
+				GuiAPI.ThisIsTheLuaAutounlockHack();
+			}
+			catch (Exception e)
+			{
+				GuiAPI.ThisIsTheLuaAutounlockHack();
+				LogToLuaConsole($"error running function attached by lua function event.onsavestate\nError message: {e.Message}");
 			}
 		}
 
-		public override void CallFrameAfterEvent()
+		public void CallLoadStateEvent(string name)
 		{
-			if (!SuppressLua)
+			try
 			{
-				EventsLibrary.CallFrameAfterEvent();
+				foreach (var lf in RegisteredFunctions.Where(l => l.Event == "OnSavestateLoad"))
+				{
+					lf.Call(name);
+				}
+				GuiAPI.ThisIsTheLuaAutounlockHack();
+			}
+			catch (Exception e)
+			{
+				GuiAPI.ThisIsTheLuaAutounlockHack();
+				LogToLuaConsole($"error running function attached by lua function event.onloadstate\nError message: {e.Message}");
 			}
 		}
 
-		public override void CallExitEvent(LuaFile lf)
+		public void CallFrameBeforeEvent()
 		{
-			EventsLibrary.CallExitEvent(lf);
+			if (IsUpdateSupressed) return;
+			try
+			{
+				foreach (var lf in RegisteredFunctions.Where(l => l.Event == "OnFrameStart"))
+				{
+					lf.Call();
+				}
+				GuiAPI.ThisIsTheLuaAutounlockHack();
+			}
+			catch (Exception e)
+			{
+				GuiAPI.ThisIsTheLuaAutounlockHack();
+				LogToLuaConsole($"error running function attached by lua function event.onframestart\nError message: {e.Message}");
+			}
 		}
 
-		public override void Close()
+		public void CallFrameAfterEvent()
 		{
-			RegisteredFunctions.Clear(GlobalWin.Emulator); // TODO: don't use globals
+			if (IsUpdateSupressed) return;
+			try
+			{
+				foreach (var lf in RegisteredFunctions.Where(l => l.Event == "OnFrameEnd"))
+				{
+					lf.Call();
+				}
+				GuiAPI.ThisIsTheLuaAutounlockHack();
+			}
+			catch (Exception e)
+			{
+				GuiAPI.ThisIsTheLuaAutounlockHack();
+				LogToLuaConsole($"error running function attached by lua function event.onframeend\nError message: {e.Message}");
+			}
+		}
+
+		public void CallExitEvent(LuaFile lf)
+		{
+			foreach (var exitCallback in RegisteredFunctions
+				.Where(l => l.Event == "OnExit" && (l.LuaFile.Path == lf.Path || l.LuaFile.Thread == lf.Thread)))
+			{
+				exitCallback.Call();
+			}
+			GuiAPI.ThisIsTheLuaAutounlockHack();
+		}
+
+		public void Close()
+		{
+			RegisteredFunctions.Clear(_mainForm.Emulator);
+			ScriptList.Clear();
 			FormsLibrary.DestroyAll();
 			_lua.Close();
 			_lua = new Lua();
-			GuiLibrary.Dispose();
+		}
+
+		public INamedLuaFunction CreateAndRegisterNamedFunction(LuaFunction function, string theEvent, Action<string> logCallback, LuaFile luaFile, string name = null)
+		{
+			var nlf = new NamedLuaFunction(function, theEvent, logCallback, luaFile, name);
+			RegisteredFunctions.Add(nlf);
+			return nlf;
+		}
+
+		public bool RemoveNamedFunctionMatching(Func<INamedLuaFunction, bool> predicate)
+		{
+			var nlf = (NamedLuaFunction) RegisteredFunctions.FirstOrDefault(predicate);
+			if (nlf == null) return false;
+			RegisteredFunctions.Remove(nlf, _mainForm.Emulator);
+			return true;
 		}
 
 		public Lua SpawnCoroutine(string file)
@@ -174,7 +275,7 @@ namespace BizHawk.Client.EmuHawk
 			var content = File.ReadAllText(file);
 			var main = lua.LoadString(content, "main");
 			lua.Push(main); // push main function on to stack for subsequent resuming
-			//if (NLua.Lua.WhichLua == "NLua")
+			if (true /*NLua.Lua.WhichLua == "NLua"*/)
 			{
 				_lua.GetTable("keepalives")[lua] = 1;
 				//this not being run is the origin of a memory leak if you restart scripts too many times
@@ -183,20 +284,21 @@ namespace BizHawk.Client.EmuHawk
 			return lua;
 		}
 
-		public override void SpawnAndSetFileThread(string pathToLoad, LuaFile lf)
+		public void SpawnAndSetFileThread(string pathToLoad, LuaFile lf)
 		{
 			lf.Thread = SpawnCoroutine(pathToLoad);
 		}
 
-		public override void ExecuteString(string command)
+		public void ExecuteString(string command)
 		{
 			_currThread = _lua.NewThread();
 			_currThread.DoString(command);
-			//if (NLua.Lua.WhichLua == "NLua")
-				_lua.Pop();
+			if (true /*NLua.Lua.WhichLua == "NLua"*/) _lua.Pop();
 		}
 
-		public override ResumeResult ResumeScript(LuaFile lf)
+		public void RunScheduledDisposes() => _lua.RunScheduledDisposes();
+
+		public (bool WaitForFrame, bool Terminated) ResumeScript(LuaFile lf)
 		{
 			_currThread = lf.Thread;
 
@@ -205,27 +307,25 @@ namespace BizHawk.Client.EmuHawk
 				LuaLibraryBase.SetCurrentThread(lf);
 
 				var execResult = _currThread.Resume(0);
+				GuiAPI.ThisIsTheLuaAutounlockHack();
 
-				_lua.RunScheduledDisposes();
+				_lua.RunScheduledDisposes(); // TODO: I don't think this is needed anymore, we run this regularly anyway
 
 				// not sure how this is going to work out, so do this too
 				_currThread.RunScheduledDisposes();
 
 				_currThread = null;
-				var result = new ResumeResult();
-				if (execResult == 0)
-				{
-					// terminated
-					result.Terminated = true;
-				}
-				else
-				{
-					// yielded
-					result.WaitForFrame = FrameAdvanceRequested;
-				}
+				var result = execResult == 0
+					? (WaitForFrame: false, Terminated: true) // terminated
+					: (WaitForFrame: FrameAdvanceRequested, Terminated: false); // yielded
 
 				FrameAdvanceRequested = false;
 				return result;
+			}
+			catch (Exception)
+			{
+				GuiAPI.ThisIsTheLuaAutounlockHack();
+				throw;
 			}
 			finally
 			{
@@ -235,7 +335,7 @@ namespace BizHawk.Client.EmuHawk
 
 		public static void Print(params object[] outputs)
 		{
-			ConsoleLuaLibrary.Log(outputs);
+			_logToLuaConsoleCallback(outputs);
 		}
 
 		private void Frameadvance()
@@ -247,12 +347,6 @@ namespace BizHawk.Client.EmuHawk
 		private void EmuYield()
 		{
 			_currThread.Yield(0);
-		}
-
-		public class ResumeResult
-		{
-			public bool WaitForFrame { get; set; }
-			public bool Terminated { get; set; }
 		}
 	}
 }

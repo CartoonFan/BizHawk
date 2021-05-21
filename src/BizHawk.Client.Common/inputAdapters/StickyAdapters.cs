@@ -6,12 +6,12 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.Common
 {
-	public interface IStickyController : IController
+	public interface IStickyAdapter : IInputAdapter
 	{
 		bool IsSticky(string button);
 	}
 
-	public class StickyXorAdapter : IStickyController
+	public class StickyXorAdapter : IStickyAdapter
 	{
 		public ControllerDefinition Definition => Source.Definition;
 
@@ -38,6 +38,10 @@ namespace BizHawk.Client.Common
 
 			return Source.AxisValue(name);
 		}
+
+		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => Source.GetHapticsSnapshot();
+
+		public void SetHapticChannelStrength(string name, int strength) => Source.SetHapticChannelStrength(name, strength);
 
 		public IController Source { get; set; }
 
@@ -107,7 +111,7 @@ namespace BizHawk.Client.Common
 		}
 	}
 
-	public class AutoFireStickyXorAdapter : IStickyController, IInputAdapter
+	public class AutoFireStickyXorAdapter : IStickyAdapter, IInputAdapter
 	{
 		public ControllerDefinition Definition => Source.Definition;
 
@@ -140,6 +144,10 @@ namespace BizHawk.Client.Common
 
 			return Source.AxisValue(name);
 		}
+
+		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => Source.GetHapticsSnapshot();
+
+		public void SetHapticChannelStrength(string name, int strength) => Source.SetHapticChannelStrength(name, strength);
 
 		// TODO: Change the AutoHold adapter to be one of these, with an 'Off' value of 0?
 		// Probably would have slightly lower performance, but it seems weird to have such a similar class that is only used once.

@@ -6,10 +6,13 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-using Microsoft.VisualBasic.ApplicationServices;
-
+using BizHawk.Bizware.BizwareGL;
+using BizHawk.Bizware.DirectX;
+using BizHawk.Bizware.OpenTK3;
 using BizHawk.Common;
+using BizHawk.Common.PathExtensions;
 using BizHawk.Client.Common;
+using BizHawk.Client.EmuHawk.CustomControls;
 
 using OSTC = EXE_PROJECT.OSTailoredCode;
 
@@ -35,7 +38,7 @@ namespace BizHawk.Client.EmuHawk
 				var p = OSTC.LinkedLibManager.LoadOrZero(dllToLoad);
 				if (p == IntPtr.Zero)
 				{
-					using (var box = new ExceptionBox($"EmuHawk needs {desc} in order to run! See the readme for more info. (EmuHawk will now close.)")) box.ShowDialog();
+					using (var box = new ExceptionBox($"EmuHawk needs {desc} in order to run! See the readme on GitHub for more info. (EmuHawk will now close.)")) box.ShowDialog();
 					Process.GetCurrentProcess().Kill();
 					return;
 				}
@@ -84,17 +87,24 @@ namespace BizHawk.Client.EmuHawk
 		{
 			// this check has to be done VERY early.  i stepped through a debug build with wrong .dll versions purposely used,
 			// and there was a TypeLoadException before the first line of SubMain was reached (some static ColorType init?)
-			// zero 25-dec-2012 - only do for public builds. its annoying during development
-			// and don't bother when installed from a package manager i.e. not Windows --yoshi
-			if (!VersionInfo.DeveloperBuild && !OSTC.IsUnixHost)
+			var thisAsmVer = EmuHawk.ReflectionCache.AsmVersion;
+			foreach (var asmVer in new[]
 			{
-				var thisversion = typeof(Program).Assembly.GetName().Version;
-				var utilversion = Assembly.Load(new AssemblyName("BizHawk.Client.Common")).GetName().Version;
-				var emulversion = Assembly.Load(new AssemblyName("BizHawk.Emulation.Cores")).GetName().Version;
-
-				if (thisversion != utilversion || thisversion != emulversion)
+				BizInvoke.ReflectionCache.AsmVersion,
+				Bizware.BizwareGL.ReflectionCache.AsmVersion,
+				Bizware.DirectX.ReflectionCache.AsmVersion,
+				Bizware.OpenTK3.ReflectionCache.AsmVersion,
+				Client.Common.ReflectionCache.AsmVersion,
+				Common.ReflectionCache.AsmVersion,
+				Emulation.Common.ReflectionCache.AsmVersion,
+				Emulation.Cores.ReflectionCache.AsmVersion,
+				Emulation.DiscSystem.ReflectionCache.AsmVersion,
+				WinForms.Controls.ReflectionCache.AsmVersion,
+			})
+			{
+				if (asmVer != thisAsmVer)
 				{
-					MessageBox.Show("Conflicting revisions found!  Don't mix .dll versions!");
+					MessageBox.Show("One or more of the BizHawk.* assemblies have the wrong version!\n(Did you attempt to update by overwriting an existing install?)");
 					return -1;
 				}
 			}
@@ -106,82 +116,89 @@ namespace BizHawk.Client.EmuHawk
 			string cmdConfigFile = ArgParser.GetCmdConfigFile(args);
 			if (cmdConfigFile != null) Config.SetDefaultIniPath(cmdConfigFile);
 
+			Config initialConfig;
 			try
 			{
-				GlobalWin.Config = ConfigService.Load<Config>(Config.DefaultIniPath);
+				if (!VersionInfo.DeveloperBuild && !ConfigService.IsFromSameVersion(Config.DefaultIniPath, out var msg))
+				{
+					new MsgBox(msg, "Mismatched version in config file", MessageBoxIcon.Warning).ShowDialog();
+				}
+				initialConfig = ConfigService.Load<Config>(Config.DefaultIniPath);
 			}
 			catch (Exception e)
 			{
-				new ExceptionBox(e).ShowDialog();
-				new ExceptionBox("Since your config file is corrupted or from a different BizHawk version, we're going to recreate it. Back it up before proceeding if you want to investigate further.").ShowDialog();
+				new ExceptionBox(string.Join("\n",
+					"It appears your config file (config.ini) is corrupted; an exception was thrown while loading it.",
+					"On closing this warning, EmuHawk will delete your config file and generate a new one. You can go make a backup now if you'd like to look into diffs.",
+					"The caught exception was:",
+					e.ToString()
+				)).ShowDialog();
 				File.Delete(Config.DefaultIniPath);
-				GlobalWin.Config = ConfigService.Load<Config>(Config.DefaultIniPath);
+				initialConfig = ConfigService.Load<Config>(Config.DefaultIniPath);
 			}
 
-			GlobalWin.Config.ResolveDefaults();
+			initialConfig.ResolveDefaults();
+			FFmpegService.FFmpegPath = Path.Combine(PathUtils.DllDirectoryPath, OSTC.IsUnixHost ? "ffmpeg" : "ffmpeg.exe");
 
-			StringLogUtil.DefaultToDisk = GlobalWin.Config.Movies.MoviesOnDisk;
+			StringLogUtil.DefaultToDisk = initialConfig.Movies.MoviesOnDisk;
+
+			IGL TryInitIGL(EDispMethod dispMethod)
+			{
+				IGL CheckRenderer(IGL gl)
+				{
+					try
+					{
+						using (gl.CreateRenderer()) return gl;
+					}
+					catch (Exception ex)
+					{
+						new ExceptionBox(new Exception("Initialization of Display Method failed; falling back to GDI+", ex)).ShowDialog();
+						return TryInitIGL(initialConfig.DispMethod = EDispMethod.GdiPlus);
+					}
+				}
+				switch (dispMethod)
+				{
+					case EDispMethod.SlimDX9:
+						if (OSTC.CurrentOS != OSTC.DistinctOS.Windows)
+						{
+							// possibly sharing config w/ Windows, assume the user wants the not-slow method (but don't change the config)
+							return TryInitIGL(EDispMethod.OpenGL);
+						}
+						IGL_SlimDX9 glSlimDX;
+						try
+						{
+							glSlimDX = new IGL_SlimDX9();
+						}
+						catch (Exception ex)
+						{
+							new ExceptionBox(new Exception("Initialization of Direct3d 9 Display Method failed; falling back to GDI+", ex)).ShowDialog();
+							return TryInitIGL(initialConfig.DispMethod = EDispMethod.GdiPlus);
+						}
+						return CheckRenderer(glSlimDX);
+					case EDispMethod.OpenGL:
+						var glOpenTK = new IGL_TK(2, 0, false);
+						if (glOpenTK.Version < 200)
+						{
+							// too old to use, GDI+ will be better
+							((IDisposable) glOpenTK).Dispose();
+							return TryInitIGL(initialConfig.DispMethod = EDispMethod.GdiPlus);
+						}
+						return CheckRenderer(glOpenTK);
+					default:
+					case EDispMethod.GdiPlus:
+						return new IGL_GdiPlus();
+				}
+			}
 
 			// super hacky! this needs to be done first. still not worth the trouble to make this system fully proper
 			if (Array.Exists(args, arg => arg.StartsWith("--gdi", StringComparison.InvariantCultureIgnoreCase)))
 			{
-				GlobalWin.Config.DispMethod = EDispMethod.GdiPlus;
+				initialConfig.DispMethod = EDispMethod.GdiPlus;
 			}
 
-			// create IGL context. we do this whether or not the user has selected OpenGL, so that we can run opengl-based emulator cores
-			GlobalWin.IGL_GL = new IGL_TK(2, 0, false);
+			var workingGL = TryInitIGL(initialConfig.DispMethod);
 
-			// setup the GL context manager, needed for coping with multiple opengl cores vs opengl display method
-			GLManager.CreateInstance();
-			GlobalWin.GLManager = GLManager.Instance;
-
-			//now create the "GL" context for the display method. we can reuse the IGL_TK context if opengl display method is chosen
-		REDO_DISPMETHOD:
-			if (GlobalWin.Config.DispMethod == EDispMethod.GdiPlus)
-			{
-				GlobalWin.GL = new IGL_GdiPlus();
-			}
-			else if (OSTailoredCode.CurrentOS == OSTailoredCode.DistinctOS.Windows && GlobalWin.Config.DispMethod == EDispMethod.SlimDX9)
-			{
-				try
-				{
-					GlobalWin.GL = new IGL_SlimDX9();
-				}
-				catch(Exception ex)
-				{
-					new ExceptionBox(new Exception("Initialization of Direct3d 9 Display Method failed; falling back to GDI+", ex)).ShowDialog();
-
-					// fallback
-					GlobalWin.Config.DispMethod = EDispMethod.GdiPlus;
-					goto REDO_DISPMETHOD;
-				}
-			}
-			else
-			{
-				GlobalWin.GL = GlobalWin.IGL_GL;
-
-				// check the opengl version and don't even try to boot this crap up if its too old
-				if (GlobalWin.IGL_GL.Version < 200)
-				{
-					// fallback
-					GlobalWin.Config.DispMethod = EDispMethod.GdiPlus;
-					goto REDO_DISPMETHOD;
-				}
-			}
-
-			// try creating a GUI Renderer. If that doesn't succeed. we fallback
-			try
-			{
-				using (GlobalWin.GL.CreateRenderer()) { }
-			}
-			catch(Exception ex)
-			{
-				new ExceptionBox(new Exception("Initialization of Display Method failed; falling back to GDI+", ex)).ShowDialog();
-
-				//fallback
-				GlobalWin.Config.DispMethod = EDispMethod.GdiPlus;
-				goto REDO_DISPMETHOD;
-			}
+			Sound globalSound = null;
 
 			if (!OSTC.IsUnixHost)
 			{
@@ -194,41 +211,30 @@ namespace BizHawk.Client.EmuHawk
 				SetDllDirectory(dllDir);
 			}
 
+			var exitCode = 0;
 			try
 			{
-				if (GlobalWin.Config.SingleInstanceMode)
+				var mf = new MainForm(initialConfig, workingGL, newSound => globalSound = newSound, args, out var movieSession);
+//				var title = mf.Text;
+				mf.Show();
+//				mf.Text = title;
+				try
 				{
-					try
-					{
-						new SingleInstanceController(args).Run();
-					}
-					catch (ObjectDisposedException)
-					{
-						// Eat it, MainForm disposed itself and Run attempts to dispose of itself.  Eventually we would want to figure out a way to prevent that, but in the meantime it is harmless, so just eat the error
-					}
+					exitCode = mf.ProgramRunLoop();
+					if (!mf.IsDisposed)
+						mf.Dispose();
 				}
-				else
+				catch (Exception e) when (movieSession.Movie.IsActive() && !(Debugger.IsAttached || VersionInfo.DeveloperBuild))
 				{
-					using var mf = new MainForm(args);
-					var title = mf.Text;
-					mf.Show();
-					mf.Text = title;
-					try
+					var result = MessageBox.Show(
+						"EmuHawk has thrown a fatal exception and is about to close.\nA movie has been detected. Would you like to try to save?\n(Note: Depending on what caused this error, this may or may not succeed)",
+						$"Fatal error: {e.GetType().Name}",
+						MessageBoxButtons.YesNo,
+						MessageBoxIcon.Exclamation
+					);
+					if (result == DialogResult.Yes)
 					{
-						GlobalWin.ExitCode = mf.ProgramRunLoop();
-					}
-					catch (Exception e) when (GlobalWin.MovieSession.Movie.IsActive() && !(Debugger.IsAttached || VersionInfo.DeveloperBuild))
-					{
-						var result = MessageBox.Show(
-							"EmuHawk has thrown a fatal exception and is about to close.\nA movie has been detected. Would you like to try to save?\n(Note: Depending on what caused this error, this may or may not succeed)",
-							$"Fatal error: {e.GetType().Name}",
-							MessageBoxButtons.YesNo,
-							MessageBoxIcon.Exclamation
-						);
-						if (result == DialogResult.Yes)
-						{
-							GlobalWin.MovieSession.Movie.Save();
-						}
+						movieSession.Movie.Save();
 					}
 				}
 			}
@@ -238,23 +244,13 @@ namespace BizHawk.Client.EmuHawk
 			}
 			finally
 			{
-				GlobalWin.Sound?.Dispose();
-				GlobalWin.Sound = null;
-				GlobalWin.GL.Dispose();
-				Input.Instance.Adapter.DeInitAll();
+				globalSound?.Dispose();
+				workingGL.Dispose();
+				Input.Instance?.Adapter?.DeInitAll();
 			}
 
-			//cleanup:
-			//cleanup IGL stuff so we can get better refcounts when exiting process, for debugging
-			//DOESNT WORK FOR SOME REASON
-			//GlobalWin.IGL_GL = new IGL_TK();
-			//GLManager.Instance.Dispose();
-			//if (GlobalWin.IGL_GL != GlobalWin.GL)
-			//  GlobalWin.GL.Dispose();
-			//((IDisposable)GlobalWin.IGL_GL).Dispose();
-
 			//return 0 assuming things have gone well, non-zero values could be used as error codes or for scripting purposes
-			return GlobalWin.ExitCode;
+			return exitCode;
 		} //SubMain
 
 		//declared here instead of a more usual place to avoid dependencies on the more usual place
@@ -280,7 +276,7 @@ namespace BizHawk.Client.EmuHawk
 			//    later, we look for NLua or KopiLua assembly names and redirect them to files located in the output/DLL/nlua directory
 			if (new AssemblyName(requested).Name == "NLua")
 			{
-				//this method referencing GlobalWin.Config makes assemblies get loaded, which isnt smart from the assembly resolver.
+				// if this method referenced the global config, assemblies would need to be loaded, which isn't smart to do from the assembly resolver.
 				//so.. we're going to resort to something really bad.
 				//avert your eyes.
 				var configPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "config.ini");
@@ -306,35 +302,6 @@ namespace BizHawk.Client.EmuHawk
 				var fname = Path.Combine(directory, dllname);
 				//it is important that we use LoadFile here and not load from a byte array; otherwise mixed (managed/unmanaged) assemblies can't load
 				return File.Exists(fname) ? Assembly.LoadFile(fname) : null;
-			}
-		}
-
-		private class SingleInstanceController : WindowsFormsApplicationBase
-		{
-			private readonly string[] cmdArgs;
-
-			public SingleInstanceController(string[] args)
-			{
-				cmdArgs = args;
-				IsSingleInstance = true;
-				StartupNextInstance += this_StartupNextInstance;
-			}
-
-			public void Run() => Run(cmdArgs);
-
-			private void this_StartupNextInstance(object sender, StartupNextInstanceEventArgs e)
-			{
-				if (e.CommandLine.Count >= 1)
-					((MainForm)MainForm).LoadRom(e.CommandLine[0], new MainForm.LoadRomArgs { OpenAdvanced = new OpenAdvanced_OpenRom() });
-			}
-
-			protected override void OnCreateMainForm()
-			{
-				MainForm = new MainForm(cmdArgs);
-				var title = MainForm.Text;
-				MainForm.Show();
-				MainForm.Text = title;
-				GlobalWin.ExitCode = ((MainForm)MainForm).ProgramRunLoop();
 			}
 		}
 	}

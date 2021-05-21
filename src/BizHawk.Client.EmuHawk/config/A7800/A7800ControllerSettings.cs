@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Windows.Forms;
 using BizHawk.Emulation.Cores.Atari.A7800Hawk;
 
@@ -7,23 +6,22 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class A7800ControllerSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly A7800Hawk.A7800SyncSettings _syncSettings;
 
 		public A7800ControllerSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			A7800Hawk.A7800SyncSettings syncSettings)
 		{
 			_mainForm = mainForm;
 			_syncSettings = syncSettings;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void IntvControllerSettings_Load(object sender, EventArgs e)
 		{
-			var possibleControllers = A7800HawkControllerDeck.ValidControllerTypes.Select(t => t.Key);
-
-			foreach (var val in possibleControllers)
+			foreach (var val in A7800HawkControllerDeck.ControllerCtors.Keys)
 			{
 				Port1ComboBox.Items.Add(val);
 				Port2ComboBox.Items.Add(val);

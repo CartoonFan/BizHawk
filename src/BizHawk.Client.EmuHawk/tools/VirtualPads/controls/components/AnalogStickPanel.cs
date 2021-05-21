@@ -1,7 +1,8 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
-
+using BizHawk.Client.Common;
 using BizHawk.Common;
 using BizHawk.Common.NumberExtensions;
 using BizHawk.Emulation.Common;
@@ -10,9 +11,11 @@ namespace BizHawk.Client.EmuHawk
 {
 	public sealed class AnalogStickPanel : Panel
 	{
+		private StickyXorAdapter _stickyXorAdapter;
 		private int _x;
 		private int _y;
 
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public int X
 		{
 			get => _x;
@@ -23,6 +26,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public int Y
 		{
 			get => _y;
@@ -33,7 +37,10 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public bool HasValue;
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+		public bool HasValue { get; set; }
+
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public bool ReadOnly { private get; set; }
 
 		public string XName { get; private set; } = string.Empty;
@@ -53,19 +60,27 @@ namespace BizHawk.Client.EmuHawk
 			Refresh();
 		}
 
-		public void Init(string nameX, ControllerDefinition.AxisRange rangeX, string nameY, ControllerDefinition.AxisRange rangeY)
+		public void Init(StickyXorAdapter stickyXorAdapter, string nameX, AxisSpec rangeX, string nameY, AxisSpec rangeY)
 		{
-			Name = XName = nameX;
+			_stickyXorAdapter = stickyXorAdapter;
+
+			var scaleBase = Math.Min(Size.Width, Size.Height) - 10.0; // be circular when control is stretched
+
+			XName = nameX;
 			_fullRangeX = rangeX;
+			ScaleX = scaleBase / rangeX.Range.Count();
+
 			YName = nameY;
 			_fullRangeY = rangeY;
+			ScaleY = scaleBase / rangeY.Range.Count();
+
 			Rerange();
 		}
 
 		private Range<int> _rangeX = 0.RangeTo(0);
 		private Range<int> _rangeY = 0.RangeTo(0);
-		private ControllerDefinition.AxisRange _fullRangeX;
-		private ControllerDefinition.AxisRange _fullRangeY;
+		private AxisSpec _fullRangeX;
+		private AxisSpec _fullRangeY;
 
 		private bool _reverseX;
 		private bool _reverseY;
@@ -75,22 +90,19 @@ namespace BizHawk.Client.EmuHawk
 			_reverseX = _fullRangeX.IsReversed ^ _userRangePercentageX < 0;
 			_reverseY = _fullRangeY.IsReversed ^ _userRangePercentageY < 0;
 
-			_rangeX = (_fullRangeX.Mid - (_fullRangeX.Mid - _fullRangeX.Min) * _userRangePercentageX / 100)
-				.RangeTo(_fullRangeX.Mid + (_fullRangeX.Max - _fullRangeX.Mid) * _userRangePercentageX / 100);
-			_rangeY = (_fullRangeY.Mid - (_fullRangeY.Mid - _fullRangeY.Min) * _userRangePercentageY / 100)
-				.RangeTo(_fullRangeY.Mid + (_fullRangeY.Max - _fullRangeY.Mid) * _userRangePercentageY / 100);
+			_rangeX = (_fullRangeX.Neutral - (_fullRangeX.Neutral - _fullRangeX.Min) * _userRangePercentageX / 100)
+				.RangeTo(_fullRangeX.Neutral + (_fullRangeX.Max - _fullRangeX.Neutral) * _userRangePercentageX / 100);
+			_rangeY = (_fullRangeY.Neutral - (_fullRangeY.Neutral - _fullRangeY.Min) * _userRangePercentageY / 100)
+				.RangeTo(_fullRangeY.Neutral + (_fullRangeY.Max - _fullRangeY.Neutral) * _userRangePercentageY / 100);
 
 			_x = _x.ConstrainWithin(_rangeX);
 			_y = _y.ConstrainWithin(_rangeY);
 			SetAnalog();
 		}
 
-		/// <remarks>
-		/// never tested, assuming it works --zeromus
-		/// </remarks>
-		private const float ScaleX = 0.60f;
-		/// <inheritdoc cref="ScaleX"/>
-		private const float ScaleY = 0.60f;
+		private double ScaleX = 0.6;
+
+		private double ScaleY = 0.6;
 
 		/// <remarks>
 		/// min + (max - i) == max - (i - min) == min + max - i
@@ -127,16 +139,11 @@ namespace BizHawk.Client.EmuHawk
 		private readonly Bitmap _dot = new Bitmap(7, 7);
 		private readonly Bitmap _grayDot = new Bitmap(7, 7);
 
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public Action ClearCallback { private get; set; }
-
-		private void DoClearCallback()
-		{
-			ClearCallback?.Invoke();
-		}
 
 		public AnalogStickPanel()
 		{
-			Size = new Size(PixelSizeX + 1, PixelSizeY + 1);
 			SetStyle(ControlStyles.AllPaintingInWmPaint, true);
 			SetStyle(ControlStyles.UserPaint, true);
 			SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
@@ -163,8 +170,8 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SetAnalog()
 		{
-			GlobalWin.InputManager.StickyXorAdapter.SetAxis(XName, HasValue ? X : (int?)null);
-			GlobalWin.InputManager.StickyXorAdapter.SetAxis(YName, HasValue ? Y : (int?)null);
+			_stickyXorAdapter.SetAxis(XName, HasValue ? X : (int?)null);
+			_stickyXorAdapter.SetAxis(YName, HasValue ? Y : (int?)null);
 			Refresh();
 		}
 
@@ -184,8 +191,8 @@ namespace BizHawk.Client.EmuHawk
 				// Previous frame
 				if (_previous != null)
 				{
-					var pX = (int)_previous.AxisValue(XName);
-					var pY = (int)_previous.AxisValue(YName);
+					var pX = _previous.AxisValue(XName);
+					var pY = _previous.AxisValue(YName);
 					e.Graphics.DrawLine(_grayPen, PixelMidX, PixelMidY, RealToGfxX(pX), RealToGfxY(pY));
 					e.Graphics.DrawImage(_grayDot, RealToGfxX(pX) - 3, RealToGfxY(_rangeY.EndInclusive) - RealToGfxY(pY) - 3);
 				}
@@ -255,14 +262,14 @@ namespace BizHawk.Client.EmuHawk
 			if (!HasValue && X == 0 && Y == 0) return;
 			X = Y = 0;
 			HasValue = false;
-			DoClearCallback();
+			ClearCallback?.Invoke();
 			Refresh();
 		}
 
 		public void Set(IController controller)
 		{
-			var newX = (int) controller.AxisValue(XName);
-			var newY = (int) controller.AxisValue(YName);
+			var newX = controller.AxisValue(XName);
+			var newY = controller.AxisValue(YName);
 			if (newX != X || newY != Y) SetPosition(newX, newY);
 		}
 

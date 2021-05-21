@@ -1,15 +1,27 @@
 ﻿using System;
 using System.Text;
+using BizHawk.BizInvoke;
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Nintendo.GBA
 {
-	[Core(CoreNames.Mgba, "endrift", true, true, "0.8", "https://mgba.io/", false)]
+	[PortedCore(CoreNames.Mgba, "endrift", "0.8", "https://mgba.io/")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight), typeof(IRegionable) })]
 	public partial class MGBAHawk : IEmulator, IVideoProvider, ISoundProvider, IGBAGPUViewable,
 		ISaveRam, IStatable, IInputPollable, ISettable<MGBAHawk.Settings, MGBAHawk.SyncSettings>,
 		IDebuggable
 	{
+		private static readonly LibmGBA LibmGBA;
+		public static LibmGBA ZZHacky => LibmGBA;
+
+		static MGBAHawk()
+		{
+			var resolver = new DynamicLibraryImportResolver(
+				OSTailoredCode.IsUnixHost ? "libmgba.dll.so" : "mgba.dll", hasLimitedLifetime: false);
+			LibmGBA = BizInvoker.GetInvoker<LibmGBA>(resolver, CallingConventionAdapters.Native);
+		}
+
 		[CoreConstructor("GBA")]
 		public MGBAHawk(byte[] file, CoreComm comm, SyncSettings syncSettings, Settings settings, bool deterministic, GameInfo game)
 		{
@@ -22,7 +34,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBA
 
 			if (DeterministicEmulation != deterministic)
 			{
-				throw new InvalidOperationException("A BIOS is required for deterministic recordings!");
+				throw new MissingFirmwareException("A BIOS is required for deterministic recordings!");
 			}
 
 			if (!DeterministicEmulation && bios != null && !_syncSettings.RTCUseRealTime && !_syncSettings.SkipBios)
@@ -68,7 +80,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBA
 				throw;
 			}
 
-			InputCallbacks = new MemoryBasedInputCallbackSystem(this, "System Bus", new [] { 0x4000130u });
+			InputCallbacks = new MemoryBasedInputCallbackSystem(this, "System Bus", new[] { 0x4000130u });
 		}
 
 		public IEmulatorServiceProvider ServiceProvider { get; }
@@ -104,7 +116,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBA
 
 		public bool FrameAdvance(IController controller, bool render, bool renderSound = true)
 		{
-			Frame++;
 			if (controller.IsPressed("Power"))
 			{
 				LibmGBA.BizReset(Core);
@@ -113,7 +124,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBA
 				WireMemoryDomainPointers();
 			}
 
-			LibmGBA.BizSetTraceCallback(Tracer.Enabled ? _tracecb : null);
+			LibmGBA.BizSetTraceCallback(Core, Tracer.Enabled ? _tracecb : null);
 
 			IsLagFrame = LibmGBA.BizAdvance(
 				Core,
@@ -134,6 +145,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBA
 
 			// this should be called in hblank on the appropriate line, but until we implement that, just do it here
 			_scanlinecb?.Invoke();
+
+			Frame++;
 
 			return true;
 		}
@@ -250,25 +263,11 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBA
 			return baseTime + increment;
 		}
 
-		private static readonly ControllerDefinition.AxisRange TiltRange = new ControllerDefinition.AxisRange(-32767, 0, 32767);
-
 		public static readonly ControllerDefinition GBAController = new ControllerDefinition
 		{
 			Name = "GBA Controller",
-			BoolButtons =
-			{
-				"Up", "Down", "Left", "Right", "Start", "Select", "B", "A", "L", "R", "Power"
-			},
-			AxisControls =
-			{
-				"Tilt X", "Tilt Y", "Tilt Z",
-				"Light Sensor"
-			},
-			AxisRanges =
-			{
-				TiltRange, TiltRange, TiltRange,
-				new ControllerDefinition.AxisRange(0, 100, 200),
-			}
-		};
+			BoolButtons = { "Up", "Down", "Left", "Right", "Start", "Select", "B", "A", "L", "R", "Power" }
+		}.AddXYZTriple("Tilt {0}", (-32767).RangeTo(32767), 0)
+			.AddAxis("Light Sensor", 0.RangeTo(255), 0);
 	}
 }

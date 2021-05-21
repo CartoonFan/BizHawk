@@ -12,8 +12,12 @@ using static BizHawk.Experiment.AutoGenConfig.ConfigEditorUIGenerators;
 namespace BizHawk.Experiment.AutoGenConfig
 {
 	[ExternalTool("AutoGenConfig")]
-	public class AutoGenConfigForm : Form, IExternalToolForm
+	public class AutoGenConfigForm : ToolFormBase, IExternalToolForm
 	{
+		public ApiContainer? _apiContainer { get; set; }
+
+		private ApiContainer APIs => _apiContainer ?? throw new NullReferenceException();
+
 		private static readonly WeakReference<ConfigEditorCache> _cache = new WeakReference<ConfigEditorCache>(new ConfigEditorCache(typeof(Config)));
 
 		private static ConfigEditorCache Cache => _cache.TryGetTarget(out var c) ? c : new ConfigEditorCache(typeof(Config)).Also(_cache.SetTarget);
@@ -22,10 +26,7 @@ namespace BizHawk.Experiment.AutoGenConfig
 
 		private readonly ConfigEditorMetadata Metadata = new ConfigEditorMetadata(Cache);
 
-		[RequiredApi]
-		private IEmu? EmuHawkAPI { get; set; }
-
-		public override string Text => "AutoGenConfig";
+		protected override string WindowTitleStatic => "AutoGenConfig";
 
 		public AutoGenConfigForm()
 		{
@@ -76,7 +77,12 @@ namespace BizHawk.Experiment.AutoGenConfig
 								tuple.Generator != null // Already iterating nested-config groupboxes as GroupUIs.Values; maybe this can be changed to iterate recursively starting with `GroupUIs[""]`?
 									&& !tuple.Generator.MatchesBaseline(tuple.c, Metadata)
 							)
-							.Select(tuple => (tuple.c.Name, tuple.Generator, Baseline: Metadata.BaselineValues[tuple.c.Name], Current: tuple.Generator.GetTValue(tuple.c)))
+							.Select(tuple => (
+								tuple.c.Name,
+								tuple.Generator ?? throw new Exception("never hit"),
+								Baseline: Metadata.BaselineValues[tuple.c.Name],
+								Current: tuple.Generator.GetTValue(tuple.c)
+							))
 							.Where(tuple => tuple.Baseline != tuple.Current)
 							.ToList();
 						if (state.Count == 0) {
@@ -128,7 +134,7 @@ namespace BizHawk.Experiment.AutoGenConfig
 						Text = fi.Name
 					});
 				}
-				var config = (EmuHawkAPI as EmuApi ?? throw new Exception("required API wasn't fulfilled")).ForbiddenConfigReference;
+				var config = (APIs.Emulation as EmulationApi ?? throw new Exception("required API wasn't fulfilled")).ForbiddenConfigReference;
 				var groupings = new Dictionary<string, object> { [string.Empty] = config };
 				void TraverseGroupings(object groupingObj, string parentNesting)
 				{
@@ -147,11 +153,5 @@ namespace BizHawk.Experiment.AutoGenConfig
 			};
 			ResumeLayout();
 		}
-
-		public bool AskSaveChanges() => true;
-
-		public void Restart() {}
-
-		public void UpdateValues(ToolFormUpdateType type) {}
 	}
 }

@@ -32,20 +32,20 @@
 			this.OkBtn = new System.Windows.Forms.Button();
 			this.GoodRadio = new System.Windows.Forms.RadioButton();
 			this.pictureBox1 = new System.Windows.Forms.PictureBox();
-			this.label1 = new System.Windows.Forms.Label();
-			this.label2 = new System.Windows.Forms.Label();
+			this.label1 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label2 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.pictureBox2 = new System.Windows.Forms.PictureBox();
 			this.HomebrewRadio = new System.Windows.Forms.RadioButton();
-			this.label3 = new System.Windows.Forms.Label();
+			this.label3 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.pictureBox3 = new System.Windows.Forms.PictureBox();
 			this.HackRadio = new System.Windows.Forms.RadioButton();
-			this.label4 = new System.Windows.Forms.Label();
+			this.label4 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.pictureBox4 = new System.Windows.Forms.PictureBox();
 			this.TranslationRadio = new System.Windows.Forms.RadioButton();
-			this.label5 = new System.Windows.Forms.Label();
+			this.label5 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.pictureBox5 = new System.Windows.Forms.PictureBox();
 			this.BadRadio = new System.Windows.Forms.RadioButton();
-			this.label6 = new System.Windows.Forms.Label();
+			this.label6 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.pictureBox6 = new System.Windows.Forms.PictureBox();
 			this.OverdumpRadio = new System.Windows.Forms.RadioButton();
 			((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
@@ -92,8 +92,6 @@
 			// 
 			// pictureBox1
 			// 
-			this.pictureBox1.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.GreenCheck;
-			this.pictureBox1.InitialImage = global::BizHawk.Client.EmuHawk.Properties.Resources.GreenCheck;
 			this.pictureBox1.Location = new System.Drawing.Point(29, 10);
 			this.pictureBox1.Name = "pictureBox1";
 			this.pictureBox1.Size = new System.Drawing.Size(16, 16);
@@ -102,26 +100,18 @@
 			// 
 			// label1
 			// 
-			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(48, 12);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(64, 13);
-			this.label1.TabIndex = 4;
 			this.label1.Text = "Good Dump";
 			// 
 			// label2
 			// 
-			this.label2.AutoSize = true;
 			this.label2.Location = new System.Drawing.Point(48, 37);
 			this.label2.Name = "label2";
-			this.label2.Size = new System.Drawing.Size(58, 13);
-			this.label2.TabIndex = 7;
 			this.label2.Text = "Homebrew";
 			// 
 			// pictureBox2
 			// 
-			this.pictureBox2.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.HomeBrew;
-			this.pictureBox2.InitialImage = global::BizHawk.Client.EmuHawk.Properties.Resources.HomeBrew;
 			this.pictureBox2.Location = new System.Drawing.Point(29, 35);
 			this.pictureBox2.Name = "pictureBox2";
 			this.pictureBox2.Size = new System.Drawing.Size(16, 16);
@@ -139,17 +129,12 @@
 			// 
 			// label3
 			// 
-			this.label3.AutoSize = true;
 			this.label3.Location = new System.Drawing.Point(48, 62);
 			this.label3.Name = "label3";
-			this.label3.Size = new System.Drawing.Size(33, 13);
-			this.label3.TabIndex = 10;
 			this.label3.Text = "Hack";
 			// 
 			// pictureBox3
 			// 
-			this.pictureBox3.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.Hack;
-			this.pictureBox3.InitialImage = global::BizHawk.Client.EmuHawk.Properties.Resources.Hack;
 			this.pictureBox3.Location = new System.Drawing.Point(29, 60);
 			this.pictureBox3.Name = "pictureBox3";
 			this.pictureBox3.Size = new System.Drawing.Size(16, 16);
@@ -167,17 +152,12 @@
 			// 
 			// label4
 			// 
-			this.label4.AutoSize = true;
 			this.label4.Location = new System.Drawing.Point(48, 87);
 			this.label4.Name = "label4";
-			this.label4.Size = new System.Drawing.Size(85, 13);
-			this.label4.TabIndex = 13;
 			this.label4.Text = "Translated ROM";
 			// 
 			// pictureBox4
 			// 
-			this.pictureBox4.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.Translation;
-			this.pictureBox4.InitialImage = global::BizHawk.Client.EmuHawk.Properties.Resources.Translation;
 			this.pictureBox4.Location = new System.Drawing.Point(29, 85);
 			this.pictureBox4.Name = "pictureBox4";
 			this.pictureBox4.Size = new System.Drawing.Size(16, 16);
@@ -195,17 +175,12 @@
 			// 
 			// label5
 			// 
-			this.label5.AutoSize = true;
 			this.label5.Location = new System.Drawing.Point(48, 112);
 			this.label5.Name = "label5";
-			this.label5.Size = new System.Drawing.Size(57, 13);
-			this.label5.TabIndex = 16;
 			this.label5.Text = "Bad Dump";
 			// 
 			// pictureBox5
 			// 
-			this.pictureBox5.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.ExclamationRed;
-			this.pictureBox5.InitialImage = global::BizHawk.Client.EmuHawk.Properties.Resources.ExclamationRed;
 			this.pictureBox5.Location = new System.Drawing.Point(29, 110);
 			this.pictureBox5.Name = "pictureBox5";
 			this.pictureBox5.Size = new System.Drawing.Size(16, 16);
@@ -223,17 +198,12 @@
 			// 
 			// label6
 			// 
-			this.label6.AutoSize = true;
 			this.label6.Location = new System.Drawing.Point(48, 137);
 			this.label6.Name = "label6";
-			this.label6.Size = new System.Drawing.Size(61, 13);
-			this.label6.TabIndex = 19;
 			this.label6.Text = "Over Dump";
 			// 
 			// pictureBox6
 			// 
-			this.pictureBox6.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.ExclamationRed;
-			this.pictureBox6.InitialImage = global::BizHawk.Client.EmuHawk.Properties.Resources.ExclamationRed;
 			this.pictureBox6.Location = new System.Drawing.Point(29, 135);
 			this.pictureBox6.Name = "pictureBox6";
 			this.pictureBox6.Size = new System.Drawing.Size(16, 16);
@@ -301,20 +271,20 @@
 		private System.Windows.Forms.Button OkBtn;
 		private System.Windows.Forms.RadioButton GoodRadio;
 		private System.Windows.Forms.PictureBox pictureBox1;
-		private System.Windows.Forms.Label label1;
-		private System.Windows.Forms.Label label2;
+		private BizHawk.WinForms.Controls.LocLabelEx label1;
+		private BizHawk.WinForms.Controls.LocLabelEx label2;
 		private System.Windows.Forms.PictureBox pictureBox2;
 		private System.Windows.Forms.RadioButton HomebrewRadio;
-		private System.Windows.Forms.Label label3;
+		private BizHawk.WinForms.Controls.LocLabelEx label3;
 		private System.Windows.Forms.PictureBox pictureBox3;
 		private System.Windows.Forms.RadioButton HackRadio;
-		private System.Windows.Forms.Label label4;
+		private BizHawk.WinForms.Controls.LocLabelEx label4;
 		private System.Windows.Forms.PictureBox pictureBox4;
 		private System.Windows.Forms.RadioButton TranslationRadio;
-		private System.Windows.Forms.Label label5;
+		private BizHawk.WinForms.Controls.LocLabelEx label5;
 		private System.Windows.Forms.PictureBox pictureBox5;
 		private System.Windows.Forms.RadioButton BadRadio;
-		private System.Windows.Forms.Label label6;
+		private BizHawk.WinForms.Controls.LocLabelEx label6;
 		private System.Windows.Forms.PictureBox pictureBox6;
 		private System.Windows.Forms.RadioButton OverdumpRadio;
 	}

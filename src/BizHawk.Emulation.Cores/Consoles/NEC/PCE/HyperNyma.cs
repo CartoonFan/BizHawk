@@ -1,58 +1,52 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 using BizHawk.BizInvoke;
 using BizHawk.Common;
 using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.PCEngine;
 using BizHawk.Emulation.Cores.Waterbox;
-using BizHawk.Emulation.DiscSystem;
 
 namespace BizHawk.Emulation.Cores.Consoles.NEC.PCE
 {
-	[Core(CoreNames.HyperNyma, "Mednafen Team", true, true, "1.24.3", "https://mednafen.github.io/releases/", false)]
+	[PortedCore(CoreNames.HyperNyma, "Mednafen Team", "1.26.1", "https://mednafen.github.io/releases/")]
 	public class HyperNyma : NymaCore, IRegionable, IPceGpuView
 	{
-		private readonly LibHyperNyma _terboGrafix;
+		private readonly LibHyperNyma _hyperNyma;
+		private readonly bool _hasCds;
 
-		[CoreConstructor(new[] { "PCE", "SGX" })]
-		public HyperNyma(GameInfo game, byte[] rom, CoreComm comm, string extension,
-			NymaSettings settings, NymaSyncSettings syncSettings, bool deterministic)
-			: base(comm, "PCE", "PC Engine Controller", settings, syncSettings)
+		[CoreConstructor("PCE", Priority = CorePriority.Low)]
+		[CoreConstructor("SGX", Priority = CorePriority.Low)]
+		[CoreConstructor("PCECD", Priority = CorePriority.Low)]
+		public HyperNyma(CoreLoadParameters<NymaSettings, NymaSyncSettings> lp)
+			: base(lp.Comm, "PCE", "PC Engine Controller", lp.Settings, lp.SyncSettings)
 		{
-			_terboGrafix = DoInit<LibHyperNyma>(game, rom, null, "pce-fast.wbx", extension, deterministic);
-		}
-		public HyperNyma(GameInfo game, Disc[] discs, CoreComm comm,
-			NymaSettings settings, NymaSyncSettings syncSettings, bool deterministic)
-			: base(comm, "PCE", "PC Engine Controller", settings, syncSettings)
-		{
-			var firmwares = new Dictionary<string, ValueTuple<string, string>>
+			var firmwares = new Dictionary<string, FirmwareID>();
+			if (lp.Discs.Count > 0)
 			{
-				{ "FIRMWARE:syscard3.pce", ("PCECD", "Bios") },
-				// { "FIRMWARE:gecard.pce", ("PCECD", "GE-Bios") },
-			};
-			_terboGrafix = DoInit<LibHyperNyma>(game, null, discs, "pce-fast.wbx", null, deterministic, firmwares);
+				_hasCds = true;
+				firmwares.Add("FIRMWARE:syscard3.pce", new("PCECD", "Bios"));
+			}
+
+			_hyperNyma = DoInit<LibHyperNyma>(lp, "hyper.wbx", firmwares);
 		}
 
-		public override string SystemId => IsSgx ? "SGX" : "PCE";
+		public override string SystemId => IsSgx
+			? _hasCds ? "SGXCD" : "SGX"
+			: _hasCds ? "PCECD" : "PCE";
 
-		protected override IDictionary<string, string> SettingsOverrides { get; } = new Dictionary<string, string>
+		protected override IDictionary<string, SettingOverride> SettingOverrides { get; } = new Dictionary<string, SettingOverride>
 		{
-			{ "pce_fast.mouse_sensitivity", null },
-			{ "pce_fast.disable_softreset", null },
-			{ "pce_fast.cdbios", null },
-			{ "nyma.rtcinitialtime", null },
-			{ "nyma.rtcrealtime", null },
-		};
-		protected override ISet<string> NonSyncSettingNames { get; } = new HashSet<string>
-		{
-			"pce_fast.slstart", "pce_fast.slend",
-		};
+			{ "pce_fast.mouse_sensitivity", new() { Hide = true } },
+			{ "pce_fast.disable_softreset", new() { Hide = true } },
+			{ "pce_fast.cdbios", new() { Hide = true } },
+			{ "nyma.rtcinitialtime", new() { Hide = true } },
+			{ "nyma.rtcrealtime", new() { Hide = true } },
+			{ "pce_fast.slstart", new() { NonSync = true, NoRestart = true } },
+			{ "pce_fast.slend", new() { NonSync = true, NoRestart = true } },
 
-		protected override IDictionary<string, string> ButtonNameOverrides { get; } = new Dictionary<string, string>
-		{
-			{ "RIGHT →", "Right up my arse" },
+			{ "pce_fast.correct_aspect", new() { NonSync = true } },
+			{ "pce_fast.nospritelimit", new() { NonSync = true } },
 		};
 
 		// pce always has two layers, sgx always has 4, and mednafen knows this
@@ -64,7 +58,7 @@ namespace BizHawk.Emulation.Cores.Consoles.NEC.PCE
 			{
 				var palScratch = new int[512];
 				var v = new PceGpuData();
-				_terboGrafix.GetVramInfo(v, vdc);
+				_hyperNyma.GetVramInfo(v, vdc);
 				fixed(int* p = palScratch)
 				{
 					for (var i = 0; i < 512; i++)

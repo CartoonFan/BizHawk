@@ -10,16 +10,15 @@ using System.Windows.Forms;
 using BizHawk.Emulation.Common;
 
 using BizHawk.Client.Common;
+using BizHawk.Client.EmuHawk.Properties;
 using BizHawk.Client.EmuHawk.ToolExtensions;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class RamWatch : ToolFormBase, IToolForm
+	public partial class RamWatch : ToolFormBase, IToolFormAutoConfig
 	{
 		private WatchList _watches;
 
-		private int _defaultWidth;
-		private int _defaultHeight;
 		private string _sortedColumn;
 		private bool _sortReverse;
 
@@ -32,9 +31,54 @@ namespace BizHawk.Client.EmuHawk
 		[OptionalService]
 		private IDebuggable Debuggable { get; set; }
 
+		protected override string WindowTitleStatic => "RAM Watch";
+
 		public RamWatch()
 		{
 			InitializeComponent();
+			newToolStripMenuItem.Image = Resources.AddWatch;
+			EditContextMenuItem.Image = Resources.Cut;
+			RemoveContextMenuItem.Image = Resources.Delete;
+			DuplicateContextMenuItem.Image = Resources.Duplicate;
+			PokeContextMenuItem.Image = Resources.Poke;
+			FreezeContextMenuItem.Image = Resources.Freeze;
+			UnfreezeAllContextMenuItem.Image = Resources.Unfreeze;
+			InsertSeperatorContextMenuItem.Image = Resources.InsertSeparator;
+			MoveUpContextMenuItem.Image = Resources.MoveUp;
+			MoveDownContextMenuItem.Image = Resources.MoveDown;
+			MoveTopContextMenuItem.Image = Resources.MoveTop;
+			MoveBottomContextMenuItem.Image = Resources.MoveBottom;
+			ErrorIconButton.Image = Resources.ExclamationRed;
+			newToolStripButton.Image = Resources.NewFile;
+			openToolStripButton.Image = Resources.OpenFile;
+			saveToolStripButton.Image = Resources.SaveAs;
+			newWatchToolStripButton.Image = Resources.AddWatch;
+			editWatchToolStripButton.Image = Resources.Cut;
+			cutToolStripButton.Image = Resources.Delete;
+			clearChangeCountsToolStripButton.Image = Resources.Placeholder;
+			duplicateWatchToolStripButton.Image = Resources.Duplicate;
+			PokeAddressToolBarItem.Image = Resources.Poke;
+			FreezeAddressToolBarItem.Image = Resources.Freeze;
+			seperatorToolStripButton.Image = Resources.InsertSeparator;
+			moveUpToolStripButton.Image = Resources.MoveUp;
+			moveDownToolStripButton.Image = Resources.MoveDown;
+			NewListMenuItem.Image = Resources.NewFile;
+			OpenMenuItem.Image = Resources.OpenFile;
+			SaveMenuItem.Image = Resources.SaveAs;
+			RecentSubMenu.Image = Resources.Recent;
+			NewWatchMenuItem.Image = Resources.Find;
+			EditWatchMenuItem.Image = Resources.Cut;
+			RemoveWatchMenuItem.Image = Resources.Delete;
+			DuplicateWatchMenuItem.Image = Resources.Duplicate;
+			PokeAddressMenuItem.Image = Resources.Poke;
+			FreezeAddressMenuItem.Image = Resources.Freeze;
+			InsertSeparatorMenuItem.Image = Resources.InsertSeparator;
+			MoveUpMenuItem.Image = Resources.MoveUp;
+			MoveDownMenuItem.Image = Resources.MoveDown;
+			MoveTopMenuItem.Image = Resources.MoveTop;
+			MoveBottomMenuItem.Image = Resources.MoveBottom;
+			Icon = Resources.WatchIcon;
+
 			Settings = new RamWatchSettings();
 
 			WatchListView.QueryItemText += WatchListView_QueryItemText;
@@ -58,34 +102,32 @@ namespace BizHawk.Client.EmuHawk
 			SetColumns();
 		}
 
+		public override bool IsActive => Config!.DisplayRamWatch || base.IsActive;
+		public override bool IsLoaded => base.IsActive;
+
 		private void SetColumns()
 		{
-			foreach (var column in Settings.Columns)
-			{
-				if (WatchListView.AllColumns[column.Name] == null)
-				{
-					WatchListView.AllColumns.Add(column);
-				}
-			}
+			WatchListView.AllColumns.AddRange(Settings.Columns);
+			WatchListView.Refresh();
 		}
 
 		[ConfigPersist]
 		public RamWatchSettings Settings { get; set; }
 
-		public class RamWatchSettings : ToolDialogSettings
+		public class RamWatchSettings
 		{
 			public RamWatchSettings()
 			{
 				Columns = new List<RollColumn>
 				{
-					new RollColumn { Text = "Address", Name = WatchList.Address, Visible = true, UnscaledWidth = 60, Type = ColumnType.Text },
-					new RollColumn { Text = "Value", Name = WatchList.Value, Visible = true, UnscaledWidth = 59, Type = ColumnType.Text },
-					new RollColumn { Text = "Prev", Name = WatchList.Prev, Visible = false, UnscaledWidth = 59, Type = ColumnType.Text },
-					new RollColumn { Text = "Changes", Name = WatchList.ChangesCol, Visible = true, UnscaledWidth = 60, Type = ColumnType.Text },
-					new RollColumn { Text = "Diff", Name = WatchList.Diff, Visible = false, UnscaledWidth = 59, Type = ColumnType.Text },
-					new RollColumn { Text = "Type", Name = WatchList.Type, Visible = false, UnscaledWidth = 55, Type = ColumnType.Text },
-					new RollColumn { Text = "Domain", Name = WatchList.Domain, Visible = true, UnscaledWidth = 55, Type = ColumnType.Text },
-					new RollColumn { Text = "Notes", Name = WatchList.Notes, Visible = true, UnscaledWidth = 128, Type = ColumnType.Text }
+					new() { Text = "Address", Name = WatchList.Address, Visible = true, UnscaledWidth = 60, Type = ColumnType.Text },
+					new() { Text = "Value", Name = WatchList.Value, Visible = true, UnscaledWidth = 59, Type = ColumnType.Text },
+					new() { Text = "Prev", Name = WatchList.Prev, Visible = false, UnscaledWidth = 59, Type = ColumnType.Text },
+					new() { Text = "Changes", Name = WatchList.ChangesCol, Visible = true, UnscaledWidth = 60, Type = ColumnType.Text },
+					new() { Text = "Diff", Name = WatchList.Diff, Visible = false, UnscaledWidth = 59, Type = ColumnType.Text },
+					new() { Text = "Type", Name = WatchList.Type, Visible = false, UnscaledWidth = 55, Type = ColumnType.Text },
+					new() { Text = "Domain", Name = WatchList.Domain, Visible = true, UnscaledWidth = 55, Type = ColumnType.Text },
+					new() { Text = "Notes", Name = WatchList.Notes, Visible = true, UnscaledWidth = 128, Type = ColumnType.Text }
 				};
 			}
 
@@ -114,9 +156,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (_watches.Changes)
 			{
-				GlobalWin.Sound.StopSound();
-				var result = MessageBox.Show("Save Changes?", "RAM Watch", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button3);
-				GlobalWin.Sound.StartSound();
+				var result = MainForm.DoWithTempMute(() => MessageBox.Show("Save Changes?", "RAM Watch", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button3));
 				if (result == DialogResult.Yes)
 				{
 					if (string.IsNullOrWhiteSpace(_watches.CurrentFileName))
@@ -156,7 +196,7 @@ namespace BizHawk.Client.EmuHawk
 				var loadResult = _watches.Load(path, append: false);
 				if (!loadResult)
 				{
-					Config.RecentWatches.HandleLoadError(path);
+					Config.RecentWatches.HandleLoadError(MainForm, path);
 				}
 				else
 				{
@@ -196,7 +236,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			if ((!IsHandleCreated || IsDisposed) && !Config.DisplayRamWatch)
 			{
@@ -255,7 +295,7 @@ namespace BizHawk.Client.EmuHawk
 				return;
 			}
 
-			GlobalWin.OSD.ClearRamWatches();
+			DisplayManager.OSD.ClearRamWatches();
 			if (_watches.Any())
 			{
 				_watches.UpdateValues(Config.RamWatchDefinePrevious);
@@ -274,10 +314,11 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (Config.DisplayRamWatch)
 			{
+				DisplayManager.OSD.ClearRamWatches();
 				for (var i = 0; i < _watches.Count; i++)
 				{
 					var frozen = !_watches[i].IsSeparator && MainForm.CheatList.IsActive(_watches[i].Domain, _watches[i].Address);
-					GlobalWin.OSD.AddRamWatch(
+					DisplayManager.OSD.AddRamWatch(
 						_watches[i].ToDisplayString(),
 						new MessagePosition
 						{
@@ -314,7 +355,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void PasteWatchesToClipBoard()
+		private void PasteWatchesFromClipBoard()
 		{
 			var data = Clipboard.GetDataObject();
 
@@ -349,14 +390,6 @@ namespace BizHawk.Client.EmuHawk
 
 			if (SelectedWatches.Any())
 			{
-				foreach (var sw in SelectedWatches)
-				{
-					if (sw.Domain != SelectedWatches.First().Domain)
-					{
-						throw new InvalidOperationException("Can't edit multiple watches on varying memory domains");
-					}
-				}
-
 				var we = new WatchEditor
 				{
 					InitialLocation = this.ChildPointToScreen(WatchListView),
@@ -365,10 +398,8 @@ namespace BizHawk.Client.EmuHawk
 
 				we.SetWatch(SelectedWatches.First().Domain, SelectedWatches, duplicate ? WatchEditor.Mode.Duplicate : WatchEditor.Mode.Edit);
 
-				var result = we.ShowHawkDialog(this);
-				if (result == DialogResult.OK)
+				if (this.ShowDialogWithTempMute(we) == DialogResult.OK)
 				{
-					Changes();
 					if (duplicate)
 					{
 						_watches.AddRange(we.Watches);
@@ -382,6 +413,7 @@ namespace BizHawk.Client.EmuHawk
 							_watches[indexes[i]] = we.Watches[i];
 						}
 					}
+					Changes();
 				}
 
 				GeneralUpdate();
@@ -396,9 +428,7 @@ namespace BizHawk.Client.EmuHawk
 					TextInputType = InputPrompt.InputType.Text
 				};
 
-				var result = inputPrompt.ShowHawkDialog();
-
-				if (result == DialogResult.OK)
+				if (this.ShowDialogWithTempMute(inputPrompt) == DialogResult.OK)
 				{
 					Changes();
 
@@ -419,28 +449,28 @@ namespace BizHawk.Client.EmuHawk
 			string s = w.Size == WatchSize.Byte ? "1" : (w.Size == WatchSize.Word ? "2" : "4");
 			switch (w.Type)
 			{
-				case Common.DisplayType.Binary:
+				case Common.WatchDisplayType.Binary:
 					s += "b";
 					break;
-				case Common.DisplayType.FixedPoint_12_4:
+				case Common.WatchDisplayType.FixedPoint_12_4:
 					s += "F";
 					break;
-				case Common.DisplayType.FixedPoint_16_16:
+				case Common.WatchDisplayType.FixedPoint_16_16:
 					s += "F6";
 					break;
-				case Common.DisplayType.FixedPoint_20_12:
+				case Common.WatchDisplayType.FixedPoint_20_12:
 					s += "F2";
 					break;
-				case Common.DisplayType.Float:
+				case Common.WatchDisplayType.Float:
 					s += "f";
 					break;
-				case Common.DisplayType.Hex:
+				case Common.WatchDisplayType.Hex:
 					s += "h";
 					break;
-				case Common.DisplayType.Signed:
+				case Common.WatchDisplayType.Signed:
 					s += "s";
 					break;
-				case Common.DisplayType.Unsigned:
+				case Common.WatchDisplayType.Unsigned:
 					s += "u";
 					break;
 			}
@@ -450,20 +480,6 @@ namespace BizHawk.Client.EmuHawk
 
 		private void LoadConfigSettings()
 		{
-			// Size and Positioning
-			_defaultWidth = Size.Width;
-			_defaultHeight = Size.Height;
-
-			if (Settings.UseWindowPosition && IsOnScreen(Settings.TopLeft))
-			{
-				Location = Settings.WindowPosition;
-			}
-
-			if (Settings.UseWindowSize)
-			{
-				Size = Settings.WindowSize;
-			}
-
 			WatchListView.AllColumns.Clear();
 			SetColumns();
 		}
@@ -507,9 +523,16 @@ namespace BizHawk.Client.EmuHawk
 			WatchListView.Refresh();
 		}
 
+		private string CurrentFileName()
+		{
+			return !string.IsNullOrWhiteSpace(_watches.CurrentFileName)
+				? _watches.CurrentFileName
+				: Game.FilesystemSafeName();
+		}
+
 		private void SaveAs()
 		{
-			var result = _watches.SaveAs(GetWatchSaveFileFromUser(_watches.CurrentFileName));
+			var result = _watches.SaveAs(GetWatchSaveFileFromUser(CurrentFileName()));
 			if (result)
 			{
 				UpdateStatusBar(saved: true);
@@ -520,14 +543,6 @@ namespace BizHawk.Client.EmuHawk
 		private void SaveConfigSettings()
 		{
 			Settings.Columns = WatchListView.AllColumns;
-
-			if (WindowState == FormWindowState.Normal)
-			{
-				Settings.Wndx = Location.X;
-				Settings.Wndy = Location.Y;
-				Settings.Width = Right - Left;
-				Settings.Height = Bottom - Top;
-			}
 		}
 
 		private void SetMemoryDomain(string name)
@@ -551,7 +566,7 @@ namespace BizHawk.Client.EmuHawk
 				}
 			}
 
-			ErrorIconButton.Visible = _watches.Where(watch => !watch.IsSeparator).Any(watch => watch.Address >= watch.Domain.Size);
+			ErrorIconButton.Visible = _watches.Where(watch => !watch.IsSeparator).Any(watch => !watch.IsValid);
 
 			MessageLabel.Text = message;
 		}
@@ -572,7 +587,7 @@ namespace BizHawk.Client.EmuHawk
 			{
 				color = BackColor;
 			}
-			else if (_watches[index].Address >= _watches[index].Domain.Size)
+			else if (!_watches[index].IsValid)
 			{
 				color = Color.PeachPuff;
 			}
@@ -673,12 +688,7 @@ namespace BizHawk.Client.EmuHawk
 		private void RecentSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
 			RecentSubMenu.DropDownItems.Clear();
-			RecentSubMenu.DropDownItems.AddRange(Config.RecentWatches.RecentMenu(LoadFileFromRecent, "Watches"));
-		}
-
-		private void ExitMenuItem_Click(object sender, EventArgs e)
-		{
-			Close();
+			RecentSubMenu.DropDownItems.AddRange(Config.RecentWatches.RecentMenu(MainForm, LoadFileFromRecent, "Watches"));
 		}
 
 		private void WatchesSubMenu_DropDownOpened(object sender, EventArgs e)
@@ -722,7 +732,7 @@ namespace BizHawk.Client.EmuHawk
 				MemoryDomains = MemoryDomains
 			};
 			we.SetWatch(CurrentDomain);
-			we.ShowHawkDialog(this);
+			this.ShowDialogWithTempMute(we);
 			if (we.DialogResult == DialogResult.OK)
 			{
 				_watches.Add(we.Watches[0]);
@@ -740,14 +750,15 @@ namespace BizHawk.Client.EmuHawk
 
 		private void RemoveWatchMenuItem_Click(object sender, EventArgs e)
 		{
-			var items = SelectedItems.ToList();
-			if (items.Any())
+			var indices = SelectedIndices
+				.OrderByDescending(i => i)
+				.ToList();
+			if (indices.Any())
 			{
-				foreach (var item in items)
+				foreach (var index in indices)
 				{
-					_watches.Remove(item);
+					_watches.RemoveAt(index);
 				}
-
 				WatchListView.RowCount = _watches.Count;
 				GeneralUpdate();
 				UpdateWatchCount();
@@ -763,14 +774,12 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (SelectedWatches.Any())
 			{
-				var poke = new RamPoke
+				var poke = new RamPoke(DialogController, SelectedWatches, MainForm.CheatList)
 				{
 					InitialLocation = this.ChildPointToScreen(WatchListView)
 				};
 
-				poke.SetWatch(SelectedWatches);
-
-				if (poke.ShowHawkDialog(this).IsOk())
+				if (this.ShowDialogWithTempMute(poke).IsOk())
 				{
 					GeneralUpdate();
 				}
@@ -782,11 +791,12 @@ namespace BizHawk.Client.EmuHawk
 			var allCheats = SelectedWatches.All(x => MainForm.CheatList.IsActive(x.Domain, x.Address));
 			if (allCheats)
 			{
-				SelectedWatches.UnfreezeAll();
+				MainForm.CheatList.RemoveRange(SelectedWatches);
 			}
 			else
 			{
-				SelectedWatches.FreezeAll();
+				MainForm.CheatList.AddRange(
+					SelectedWatches.Select(w => new Cheat(w, w.Value)));
 			}
 		}
 
@@ -931,12 +941,9 @@ namespace BizHawk.Client.EmuHawk
 			WatchListView.SelectAll();
 		}
 
-		private void OptionsSubMenu_DropDownOpened(object sender, EventArgs e)
+		private void SettingsSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
 			WatchesOnScreenMenuItem.Checked = Config.DisplayRamWatch;
-			SaveWindowPositionMenuItem.Checked = Settings.SaveWindowPosition;
-			AlwaysOnTopMenuItem.Checked = Settings.TopMost;
-			FloatingWindowMenuItem.Checked = Settings.FloatingWindow;
 		}
 
 		private void DefinePreviousValueSubMenu_DropDownOpened(object sender, EventArgs e)
@@ -967,7 +974,7 @@ namespace BizHawk.Client.EmuHawk
 
 			if (!Config.DisplayRamWatch)
 			{
-				GlobalWin.OSD.ClearRamWatches();
+				DisplayManager.OSD.ClearRamWatches();
 			}
 			else
 			{
@@ -975,26 +982,10 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void SaveWindowPositionMenuItem_Click(object sender, EventArgs e)
-		{
-			Settings.SaveWindowPosition ^= true;
-		}
-
-		private void AlwaysOnTopMenuItem_Click(object sender, EventArgs e)
-		{
-			TopMost = Settings.TopMost ^= true;
-		}
-
-		private void FloatingWindowMenuItem_Click(object sender, EventArgs e)
-		{
-			Settings.FloatingWindow ^= true;
-			RefreshFloatingWindowControl(Settings.FloatingWindow);
-		}
-
-		private void RestoreDefaultsMenuItem_Click(object sender, EventArgs e)
+		[RestoreDefaults]
+		private void RestoreDefaultsMenuItem()
 		{
 			Settings = new RamWatchSettings();
-			Size = new Size(_defaultWidth, _defaultHeight);
 
 			RamWatchMenu.Items.Remove(
 				RamWatchMenu.Items
@@ -1002,13 +993,10 @@ namespace BizHawk.Client.EmuHawk
 					.First(x => x.Name == "GeneratedColumnsSubMenu"));
 
 			RamWatchMenu.Items.Add(WatchListView.ToColumnsMenu(ColumnToggleCallback));
-
 			Config.DisplayRamWatch = false;
-
-			RefreshFloatingWindowControl(Settings.FloatingWindow);
-
 			WatchListView.AllColumns.Clear();
 			SetColumns();
+			WatchListView.Refresh();
 		}
 
 		private void RamWatch_Load(object sender, EventArgs e)
@@ -1019,7 +1007,6 @@ namespace BizHawk.Client.EmuHawk
 				Settings = new RamWatchSettings();
 			}
 
-			TopMost = Settings.TopMost;
 			_watches = new WatchList(MemoryDomains, Emu.SystemId);
 			LoadConfigSettings();
 			RamWatchMenu.Items.Add(WatchListView.ToColumnsMenu(ColumnToggleCallback));
@@ -1085,12 +1072,12 @@ namespace BizHawk.Client.EmuHawk
 			if (allCheats)
 			{
 				FreezeContextMenuItem.Text = "&Unfreeze Address";
-				FreezeContextMenuItem.Image = Properties.Resources.Unfreeze;
+				FreezeContextMenuItem.Image = Resources.Unfreeze;
 			}
 			else
 			{
 				FreezeContextMenuItem.Text = "&Freeze Address";
-				FreezeContextMenuItem.Image = Properties.Resources.Freeze;
+				FreezeContextMenuItem.Image = Resources.Freeze;
 			}
 
 			UnfreezeAllContextMenuItem.Visible = MainForm.CheatList.ActiveCount > 0;
@@ -1155,19 +1142,19 @@ namespace BizHawk.Client.EmuHawk
 
 		private void WatchListView_KeyDown(object sender, KeyEventArgs e)
 		{
-			if (e.KeyCode == Keys.Delete && !e.Control && !e.Alt && !e.Shift)
+			if (e.IsPressed(Keys.Delete))
 			{
 				RemoveWatchMenuItem_Click(sender, e);
 			}
-			else if (e.KeyCode == Keys.C && e.Control && !e.Alt && !e.Shift) // Ctrl+C
+			else if (e.IsCtrl(Keys.C))
 			{
 				CopyWatchesToClipBoard();
 			}
-			else if (e.KeyCode == Keys.V && e.Control && !e.Alt && !e.Shift) // Ctrl+V
+			else if (e.IsCtrl(Keys.V))
 			{
-				PasteWatchesToClipBoard();
+				PasteWatchesFromClipBoard();
 			}
-			else if (e.KeyCode == Keys.Enter && !e.Control && !e.Alt && !e.Shift) // Enter
+			else if (e.IsPressed(Keys.Enter))
 			{
 				EditWatch();
 			}
@@ -1194,7 +1181,7 @@ namespace BizHawk.Client.EmuHawk
 		private void ErrorIconButton_Click(object sender, EventArgs e)
 		{
 			var items = _watches
-				.Where(watch => watch.Address >= watch.Domain.Size)
+				.Where(watch => !watch.IsValid)
 				.ToList(); // enumerate because _watches is about to be changed
 
 			foreach (var item in items)

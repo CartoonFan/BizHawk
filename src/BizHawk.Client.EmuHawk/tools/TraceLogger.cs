@@ -53,22 +53,31 @@ namespace BizHawk.Client.EmuHawk
 		private StreamWriter _streamWriter;
 		private bool _splitFile;
 		private string _baseName;
-		private string _extension = ".log";
+		private readonly string _extension = ".log";
 		private int _segmentCount;
 		private ulong _currentSize;
 
 		private const string DisasmColumnName = "Disasm";
 		private const string RegistersColumnName = "Registers";
+
+		protected override string WindowTitleStatic => "Trace Logger";
+
 		public TraceLogger()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.PencilIcon;
+			SaveLogMenuItem.Image = Properties.Resources.SaveAs;
 
 			TraceView.QueryItemText += TraceView_QueryItemText;
 
 			Closing += (o, e) =>
 			{
 				SaveConfigSettings();
-				Tracer.Sink = null;
+				if (Tracer != null)
+				{
+					Tracer.Sink = null;
+				}
+
 				CloseFile();
 			};
 
@@ -188,7 +197,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			CloseFile();
 			ClearList();
@@ -293,7 +302,7 @@ namespace BizHawk.Client.EmuHawk
 				FilesystemFilter.TextFiles
 			).ToString();
 			sfd.RestoreDirectory = true;
-			var result = sfd.ShowHawkDialog();
+			var result = this.ShowDialogWithTempMute(sfd);
 			return result.IsOk() ? new FileInfo(sfd.FileName) : null;
 		}
 
@@ -307,11 +316,6 @@ namespace BizHawk.Client.EmuHawk
 				MainForm.AddOnScreenMessage($"Log dumped to {LogFile.FullName}");
 				CloseFile();
 			}
-		}
-
-		private void ExitMenuItem_Click(object sender, EventArgs e)
-		{
-			Close();
 		}
 
 		private void CopyMenuItem_Click(object sender, EventArgs e)
@@ -347,8 +351,7 @@ namespace BizHawk.Client.EmuHawk
 				InitialValue = MaxLines.ToString()
 			};
 
-			var result = prompt.ShowHawkDialog();
-			if (result == DialogResult.OK)
+			if (this.ShowDialogWithTempMute(prompt) == DialogResult.OK)
 			{
 				var max = int.Parse(prompt.PromptText);
 				if (max > 0)
@@ -368,8 +371,7 @@ namespace BizHawk.Client.EmuHawk
 				InitialValue = FileSizeCap.ToString()
 			};
 
-			var result = prompt.ShowHawkDialog();
-			if (result == DialogResult.OK)
+			if (this.ShowDialogWithTempMute(prompt) == DialogResult.OK)
 			{
 				FileSizeCap = int.Parse(prompt.PromptText);
 				_splitFile = FileSizeCap != 0;

@@ -12,11 +12,12 @@ namespace BizHawk.Client.Common
 		public Controller(ControllerDefinition definition)
 		{
 			Definition = definition;
-			for (int i = 0; i < Definition.AxisControls.Count; i++)
+			foreach (var kvp in Definition.Axes)
 			{
-				_axes[Definition.AxisControls[i]] = Definition.AxisRanges[i].Mid;
-				_axisRanges[Definition.AxisControls[i]] = Definition.AxisRanges[i];
+				_axes[kvp.Key] = kvp.Value.Neutral;
+				_axisRanges[kvp.Key] = kvp.Value;
 			}
+			foreach (var channel in Definition.HapticsChannels) _haptics[channel] = 0;
 		}
 
 		public ControllerDefinition Definition { get; private set; }
@@ -25,11 +26,18 @@ namespace BizHawk.Client.Common
 
 		public int AxisValue(string name) => _axes[name];
 
+		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot()
+			=> _haptics.Select(kvp => (kvp.Key, kvp.Value)).ToArray();
+
+		public void SetHapticChannelStrength(string name, int strength) => _haptics[name] = strength;
+
 		private readonly WorkingDictionary<string, List<string>> _bindings = new WorkingDictionary<string, List<string>>();
 		private readonly WorkingDictionary<string, bool> _buttons = new WorkingDictionary<string, bool>();
 		private readonly WorkingDictionary<string, int> _axes = new WorkingDictionary<string, int>();
-		private readonly Dictionary<string, ControllerDefinition.AxisRange> _axisRanges = new WorkingDictionary<string, ControllerDefinition.AxisRange>();
+		private readonly Dictionary<string, AxisSpec> _axisRanges = new WorkingDictionary<string, AxisSpec>();
 		private readonly Dictionary<string, AnalogBind> _axisBindings = new Dictionary<string, AnalogBind>();
+		private readonly Dictionary<string, int> _haptics = new WorkingDictionary<string, int>();
+		private readonly Dictionary<string, FeedbackBind> _feedbackBindings = new Dictionary<string, FeedbackBind>();
 
 		/// <summary>don't do this</summary>
 		public void ForceType(ControllerDefinition newType) => Definition = newType;
@@ -49,60 +57,11 @@ namespace BizHawk.Client.Common
 				.SelectMany(kvp => kvp.Value)
 				.Any(boundButton => boundButton == button);
 
-		public void NormalizeAxes(IController controller)
-		{
-			foreach (var kvp in _axisBindings)
-			{
-				var input = (float) _axes[kvp.Key];
-				string outKey = kvp.Key;
-				float multiplier = kvp.Value.Mult;
-				float deadZone = kvp.Value.Deadzone;
-				if (_axisRanges.TryGetValue(outKey, out var range))
-				{
-					// input range is assumed to be -10000,0,10000
-
-					// first, modify for deadZone
-					float absInput = Math.Abs(input);
-					float zeroPoint = deadZone * 10000.0f;
-					if (absInput < zeroPoint)
-					{
-						input = 0.0f;
-					}
-					else
-					{
-						absInput -= zeroPoint;
-						absInput *= 10000.0f;
-						absInput /= 10000.0f - zeroPoint;
-						input = absInput * Math.Sign(input);
-					}
-
-					// zero 09-mar-2015 - not sure if adding + 1 here is correct.. but... maybe?
-					float output;
-
-					if (range.IsReversed)
-					{
-						output = (((input * multiplier) + 10000.0f) * (range.Min - range.Max + 1) / 20000.0f) + range.Max;
-					}
-					else
-					{
-						output = (((input * multiplier) + 10000.0f) * (range.Max - range.Min + 1) / 20000.0f) + range.Min;
-					}
-
-					// zero 09-mar-2015 - at this point, we should only have integers, since that's all 100% of consoles ever see
-					// if this becomes a problem we can add flags to the range and update GUIs to be able to display floats
-
-					// fixed maybe? --yoshi
-
-					_axes[outKey] = (int) output.ConstrainWithin(range.FloatRange);
-				}
-			}
-		}
-
 		/// <summary>
 		/// uses the bindings to latch our own logical button state from the source controller's button state (which are assumed to be the physical side of the binding).
 		/// this will clobber any existing data (use OR_* or other functions to layer in additional input sources)
 		/// </summary>
-		public void LatchFromPhysical(IController controller)
+		public void LatchFromPhysical(IController finalHostController)
 		{
 			_buttons.Clear();
 			
@@ -111,7 +70,7 @@ namespace BizHawk.Client.Common
 				_buttons[kvp.Key] = false;
 				foreach (var button in kvp.Value)
 				{
-					if (controller.IsPressed(button))
+					if (finalHostController.IsPressed(button))
 					{
 						_buttons[kvp.Key] = true;
 					}
@@ -120,16 +79,40 @@ namespace BizHawk.Client.Common
 
 			foreach (var kvp in _axisBindings)
 			{
-				var input = controller.AxisValue(kvp.Value.Value);
-				string outKey = kvp.Key;
-				if (_axisRanges.ContainsKey(outKey))
+				// values from finalHostController are ints in -10000..10000 (or 0..10000), so scale to -1..1, using floats to keep fractional part
+				var value = finalHostController.AxisValue(kvp.Value.Value) / 10000.0f;
+
+				// apply deadzone (and scale diminished range back up to -1..1)
+				var deadzone = kvp.Value.Deadzone;
+				if (value < -deadzone) value += deadzone;
+				else if (value < deadzone) value = 0.0f;
+				else value -= deadzone;
+				value /= 1.0f - deadzone;
+
+				// scale by user-set multiplier (which is -2..2, therefore value is now in -2..2)
+				value *= kvp.Value.Mult;
+
+				// -1..1 -> -A..A (where A is the larger "side" of the range e.g. a range of 0..50, neutral=10 would give A=40, and thus a value in -40..40)
+				var range = _axisRanges[kvp.Key];
+				value *= Math.Max(range.Neutral - range.Min, range.Max - range.Neutral);
+
+				// shift the midpoint, so a value of 0 becomes range.Neutral (and, assuming >=1x multiplier, all values in range are reachable)
+				value += range.Neutral;
+
+				// finally, constrain to range
+				_axes[kvp.Key] = ((int) value).ConstrainWithin(range.Range);
+			}
+		}
+
+		public void PrepareHapticsForHost(SimpleController finalHostController)
+		{
+			foreach (var kvp in _feedbackBindings)
+			{
+				if (_haptics.TryGetValue(kvp.Key, out var strength))
 				{
-					_axes[outKey] = input;
+					finalHostController.SetHapticChannelStrength(kvp.Value.GamepadPrefix + kvp.Value.Channel, (int) ((double) strength * kvp.Value.Prescale));
 				}
 			}
-
-			// it's not sure where this should happen, so for backwards compatibility.. do it every time
-			NormalizeAxes(controller);
 		}
 
 		public void ApplyAxisConstraints(string constraintClass)
@@ -190,6 +173,8 @@ namespace BizHawk.Client.Common
 		{
 			_axisBindings[button] = bind;
 		}
+
+		public void BindFeedbackChannel(string channel, FeedbackBind binding) => _feedbackBindings[channel] = binding;
 
 		public List<string> PressedButtons => _buttons
 			.Where(kvp => kvp.Value)

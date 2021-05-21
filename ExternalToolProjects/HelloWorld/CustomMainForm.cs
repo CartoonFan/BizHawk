@@ -6,22 +6,42 @@ using BizHawk.Client.Common;
 using BizHawk.Client.EmuHawk;
 using BizHawk.Emulation.Common;
 
-using DisplayType = BizHawk.Client.Common.DisplayType;
-
 namespace HelloWorld
 {
 	/// <remarks>All of this is example code, but it's at least a little more substantiative than a simple "hello world".</remarks>
 	[ExternalTool("HelloWorld", Description = "An example of how to interact with EmuHawk")]
 //	[ExternalToolApplicability.SingleRom(CoreSystem.NES, "EA343F4E445A9050D4B4FBAC2C77D0693B1D0922")] // example of limiting tool usage (this is SMB1)
 	[ExternalToolEmbeddedIcon("HelloWorld.icon_Hello.ico")]
-	public partial class CustomMainForm : Form, IExternalToolForm
+	public partial class CustomMainForm : ToolFormBase, IExternalToolForm
 	{
-		/// <remarks><see cref="RequiredServiceAttribute">RequiredServices</see> are populated by EmuHawk at runtime.</remarks>
+		/// <remarks>
+		/// <see cref="RequiredServiceAttribute">RequiredServices</see> are populated by EmuHawk at runtime.
+		/// These remain supported, but you should only use them when there is no API that does what you want.
+		/// </remarks>
 		[RequiredService]
 		private IEmulator? _emu { get; set; }
 
 		[RequiredService]
 		private IMemoryDomains? _memoryDomains { get; set; }
+
+		/// <remarks>
+		/// <see cref="RequiredApiAttribute">RequiredApis</see> are populated by EmuHawk at runtime.
+		/// You can have props for any subset of the available APIs, or use an <see cref="ApiContainer"/> to get them all at once.
+		/// </remarks>
+		[RequiredApi]
+		private IEmulationApi? _emuApi { get; set; }
+
+		/// <remarks>
+		/// <see cref="ApiContainer"/> can be used as a shorthand for accessing the various APIs, more like the Lua syntax.
+		/// </remarks>
+		public ApiContainer? _apiContainer { get; set; }
+
+		private ApiContainer APIs => _apiContainer ?? throw new NullReferenceException();
+
+		/// <remarks>
+		/// An example of a hack. Hacks should be your last resort because they're prone to break with new releases.
+		/// </remarks>
+		private Config GlobalConfig => (_emuApi as EmulationApi ?? throw new Exception("required API wasn't fulfilled")).ForbiddenConfigReference;
 
 		private WatchList? _watches;
 
@@ -33,9 +53,9 @@ namespace HelloWorld
 				{
 					var w = new WatchList(_memoryDomains, _emu?.SystemId ?? string.Empty);
 					w.AddRange(new[] {
-						Watch.GenerateWatch(_memoryDomains?.MainMemory, 0x40, WatchSize.Byte, DisplayType.Hex, true),
-						Watch.GenerateWatch(_memoryDomains?.MainMemory, 0x50, WatchSize.Word, DisplayType.Unsigned, true),
-						Watch.GenerateWatch(_memoryDomains?.MainMemory, 0x60, WatchSize.DWord, DisplayType.Hex, true)
+						Watch.GenerateWatch(_memoryDomains?.MainMemory, 0x40, WatchSize.Byte, WatchDisplayType.Hex, true),
+						Watch.GenerateWatch(_memoryDomains?.MainMemory, 0x50, WatchSize.Word, WatchDisplayType.Unsigned, true),
+						Watch.GenerateWatch(_memoryDomains?.MainMemory, 0x60, WatchSize.DWord, WatchDisplayType.Hex, true)
 					});
 					return w;
 				}
@@ -44,42 +64,43 @@ namespace HelloWorld
 			}
 		}
 
+		protected override string WindowTitleStatic => "HelloWorld";
+
 		public CustomMainForm()
 		{
 			InitializeComponent();
 			label_GameHash.Click += label_GameHash_Click;
-
-			ClientApi.BeforeQuickSave += (sender, e) =>
+			Closing += (sender, args) => APIs.EmuClient.SetClientExtraPadding(0, 0, 0, 0);
+			Load += (_, _) =>
 			{
-				if (e.Slot != 0) return; // only take effect on slot 0
-				var basePath = Path.Combine(Global.Config.PathEntries.SaveStateAbsolutePath(Global.Game.System), "Test");
-				if (!Directory.Exists(basePath)) Directory.CreateDirectory(basePath);
-				ClientApi.SaveState(Path.Combine(basePath, e.Name));
-				e.Handled = true;
-			};
-			ClientApi.BeforeQuickLoad += (sender, e) =>
-			{
-				if (e.Slot != 0) return; // only take effect on slot 0
-				var basePath = Path.Combine(Global.Config.PathEntries.SaveStateAbsolutePath(Global.Game.System), "Test");
-				ClientApi.LoadState(Path.Combine(basePath, e.Name));
-				e.Handled = true;
+				APIs.EmuClient.BeforeQuickSave += (_, e) =>
+				{
+					if (e.Slot != 0) return; // only take effect on slot 0
+					var basePath = Path.Combine(GlobalConfig.PathEntries.SaveStateAbsolutePath(APIs.Emulation.GetSystemId()), "Test");
+					if (!Directory.Exists(basePath)) Directory.CreateDirectory(basePath);
+					APIs.EmuClient.SaveState(Path.Combine(basePath, e.Name));
+					e.Handled = true;
+				};
+				APIs.EmuClient.BeforeQuickLoad += (_, e) =>
+				{
+					if (e.Slot != 0) return; // only take effect on slot 0
+					var basePath = Path.Combine(GlobalConfig.PathEntries.SaveStateAbsolutePath(APIs.Emulation.GetSystemId()), "Test");
+					APIs.EmuClient.LoadState(Path.Combine(basePath, e.Name));
+					e.Handled = true;
+				};
 			};
 		}
 
-		public bool AskSaveChanges() => true;
-
 		/// <remarks>This is called once when the form is opened, and every time a new movie session starts.</remarks>
-		public void Restart()
+		public override void Restart()
 		{
-#if false
-			ClientApi.SetExtraPadding(50, 50);
-#endif
+			APIs.EmuClient.SetClientExtraPadding(50, 50);
 
-			if (Global.Game.Name != "Null")
+			if (APIs.GameInfo.GetRomName() != "Null")
 			{
-				Watches.RefreshDomains(_memoryDomains, Global.Config.RamWatchDefinePrevious);
-				label_Game.Text = $"You're playing {Global.Game.Name}";
-				label_GameHash.Text = $"Hash: {Global.Game.Hash}";
+				Watches.RefreshDomains(_memoryDomains, GlobalConfig.RamWatchDefinePrevious);
+				label_Game.Text = $"You're playing {APIs.GameInfo.GetRomName()}";
+				label_GameHash.Text = $"Hash: {APIs.GameInfo.GetRomHash()}";
 			}
 			else
 			{
@@ -88,53 +109,28 @@ namespace HelloWorld
 			}
 		}
 
-		public void UpdateValues(ToolFormUpdateType type)
+		public override void UpdateValues(ToolFormUpdateType type)
 		{
 			if (!(type == ToolFormUpdateType.PreFrame || type == ToolFormUpdateType.FastPreFrame)
-			    || Global.Game.Name == "Null"
+			    || APIs.GameInfo.GetRomName() == "Null"
 			    || Watches.Count < 3)
 			{
 				return;
 			}
-			Watches.UpdateValues(Global.Config.RamWatchDefinePrevious);
+			Watches.UpdateValues(GlobalConfig.RamWatchDefinePrevious);
 			label_Watch1.Text = $"First watch ({Watches[0].AddressString}) current value: {Watches[0].ValueString}";
 			label_Watch2.Text = $"Second watch ({Watches[1].AddressString}) current value: {Watches[1].ValueString}";
 			label_Watch3.Text = $"Third watch ({Watches[2].AddressString}) current value: {Watches[2].ValueString}";
 		}
 
-		private void button1_Click(object sender, EventArgs e) => ClientApi.DoFrameAdvance();
+		private void button1_Click(object sender, EventArgs e) => APIs.EmuClient.DoFrameAdvance();
 
-		private void button2_Click(object sender, EventArgs e) => ClientApi.GetInput(1);
-
-		private void button3_Click(object sender, EventArgs e)
-		{
-			for (var i = 0; i < 600; i++)
-			{
-				if (i % 60 == 0)
-				{
-					var j1 = ClientApi.GetInput(1);
-					j1.AddInput(JoypadButton.A);
-					ClientApi.SetInput(1, j1);
-
-					ClientApi.DoFrameAdvance();
-
-					j1.RemoveInput(JoypadButton.A);
-					ClientApi.SetInput(1, j1);
-					ClientApi.DoFrameAdvance();
-				}
-				ClientApi.DoFrameAdvance();
-			}
-			var j = ClientApi.GetInput(1);
-			j.ClearInputs();
-			ClientApi.SetInput(1, j);
-		}
-
-		private void label_GameHash_Click(object sender, EventArgs e) => Clipboard.SetText(Global.Game.Hash);
+		private void label_GameHash_Click(object sender, EventArgs e) => Clipboard.SetText(APIs.GameInfo.GetRomHash());
 
 		private void loadstate_Click(object sender, EventArgs e)
 		{
 			if (string.IsNullOrWhiteSpace(savestateName.Text)) return;
-			ClientApi.LoadState(savestateName.Text);
+			APIs.EmuClient.LoadState(savestateName.Text);
 #if false
 			static void Test(BinaryReader r)
 			{
@@ -146,7 +142,7 @@ namespace HelloWorld
 
 		private void saveState_Click(object sender, EventArgs e)
 		{
-			if (!string.IsNullOrWhiteSpace(savestateName.Text)) ClientApi.SaveState(savestateName.Text);
+			if (!string.IsNullOrWhiteSpace(savestateName.Text)) APIs.EmuClient.SaveState(savestateName.Text);
 		}
 	}
 }

@@ -5,16 +5,16 @@ using System.Windows.Forms;
 using BizHawk.Emulation.Common;
 
 using BizHawk.Client.Common;
+using BizHawk.Client.EmuHawk.Properties;
 using BizHawk.Client.EmuHawk.ToolExtensions;
 
-// TODO - select which memorydomains go out to the CDL file. will this cause a problem when re-importing it? 
+// TODO - select which memorydomains go out to the CDL file. will this cause a problem when re-importing it?
 // perhaps missing domains shouldn't fail a check
 // OR - just add a contextmenu option to the ListView item that selects it for export.
 // TODO - add a contextmenu option which warps to the HexEditor with the provided domain selected for visualizing on the hex editor.
 // TODO - consider setting colors for columns in CDL
 // TODO - option to print domain name in caption instead of 0x01 etc.
 // TODO - context menu should have copy option too
-
 namespace BizHawk.Client.EmuHawk
 {
 	public partial class CDL : ToolFormBase, IToolFormAutoConfig
@@ -40,9 +40,10 @@ namespace BizHawk.Client.EmuHawk
 		private void SetCurrentFilename(string fname)
 		{
 			_currentFilename = fname;
-			Text = _currentFilename == null
-				? "Code Data Logger"
-				: $"Code Data Logger - {fname}";
+			_windowTitle = _currentFilename == null
+				? WindowTitleStatic
+				: $"{WindowTitleStatic} - {fname}";
+			UpdateWindowTitle();
 		}
 
 		[RequiredService]
@@ -54,17 +55,32 @@ namespace BizHawk.Client.EmuHawk
 		private string _currentFilename;
 		private CodeDataLog _cdl;
 
+		private string _windowTitle = "Code Data Logger";
+
+		protected override string WindowTitle => _windowTitle;
+
+		protected override string WindowTitleStatic => "Code Data Logger";
+
 		public CDL()
 		{
 			SetStyle(ControlStyles.AllPaintingInWmPaint, true);
 			SetStyle(ControlStyles.UserPaint, true);
 			SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+
 			InitializeComponent();
+			NewMenuItem.Image = Resources.NewFile;
+			OpenMenuItem.Image = Resources.OpenFile;
+			SaveMenuItem.Image = Resources.SaveAs;
+			RecentSubMenu.Image = Resources.Recent;
+			tsbLoggingActive.Image = Resources.Placeholder;
+			tsbViewUpdate.Image = Resources.Placeholder;
+			tsbExportText.Image = Resources.LoadConfig;
+			Icon = Resources.CdLoggerIcon;
 
 			tsbViewStyle.SelectedIndex = 0;
 
 			lvCDL.AllColumns.Clear();
-			lvCDL.AllColumns.AddRange(new []
+			lvCDL.AllColumns.AddRange(new[]
 			{
 				new RollColumn { Name = "CDLFile", Text = "CDL File @", UnscaledWidth = 107, Type = ColumnType.Text  },
 				new RollColumn { Name = "Domain", Text = "Domain", UnscaledWidth = 126, Type = ColumnType.Text  },
@@ -84,7 +100,7 @@ namespace BizHawk.Client.EmuHawk
 
 		protected override void UpdateAfter() => UpdateDisplay(false);
 
-		public void Restart()
+		public override void Restart()
 		{
 			//don't try to recover the current CDL!
 			//even though it seems like it might be nice, it might get mixed up between games. even if we use CheckCDL. Switching games with the same memory map will be bad.
@@ -101,11 +117,12 @@ namespace BizHawk.Client.EmuHawk
 
 		private string[][] _listContents = new string[0][];
 
-		private void UpdateDisplay(bool force)
+		private unsafe void UpdateDisplay(bool force)
 		{
 			if (!tsbViewUpdate.Checked && !force)
 				return;
 
+			int* map = stackalloc int[256];
 
 			if (_cdl == null)
 			{
@@ -120,35 +137,32 @@ namespace BizHawk.Client.EmuHawk
 			{
 				int[] totals = new int[8];
 				int total = 0;
-				unsafe
+				
+				for (int i = 0; i < 256; i++)
+					map[i] = 0;
+
+				fixed (byte* data = kvp.Value)
 				{
-					int* map = stackalloc int[256];
-					for (int i = 0; i < 256; i++)
-						map[i] = 0;
-
-					fixed (byte* data = kvp.Value)
+					byte* src = data;
+					byte* end = data + kvp.Value.Length;
+					while (src < end)
 					{
-						byte* src = data;
-						byte* end = data + kvp.Value.Length;
-						while (src < end)
-						{
-							byte s = *src++;
-							map[s]++;
-						}
+						byte s = *src++;
+						map[s]++;
 					}
+				}
 
-					for (int i = 0; i < 256; i++)
-					{
-						if(i!=0) total += map[i];
-						if ((i & 0x01) != 0) totals[0] += map[i];
-						if ((i & 0x02) != 0) totals[1] += map[i];
-						if ((i & 0x04) != 0) totals[2] += map[i];
-						if ((i & 0x08) != 0) totals[3] += map[i];
-						if ((i & 0x10) != 0) totals[4] += map[i];
-						if ((i & 0x20) != 0) totals[5] += map[i];
-						if ((i & 0x40) != 0) totals[6] += map[i];
-						if ((i & 0x80) != 0) totals[7] += map[i];
-					}
+				for (int i = 0; i < 256; i++)
+				{
+					if(i!=0) total += map[i];
+					if ((i & 0x01) != 0) totals[0] += map[i];
+					if ((i & 0x02) != 0) totals[1] += map[i];
+					if ((i & 0x04) != 0) totals[2] += map[i];
+					if ((i & 0x08) != 0) totals[3] += map[i];
+					if ((i & 0x10) != 0) totals[4] += map[i];
+					if ((i & 0x20) != 0) totals[5] += map[i];
+					if ((i & 0x40) != 0) totals[6] += map[i];
+					if ((i & 0x80) != 0) totals[7] += map[i];
 				}
 
 				var bm = _cdl.GetBlockMap();
@@ -202,8 +216,8 @@ namespace BizHawk.Client.EmuHawk
 			}
 
 			// TODO - I don't like this system. It's hard to figure out how to use it. It should be done in multiple passes.
-			var result = MessageBox.Show("Save changes to CDL session?", "CDL Auto Save", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-			if (result == DialogResult.No)
+			var result = DialogController.ShowMessageBox2("Save changes to CDL session?", "CDL Auto Save", EMsgBoxIcon.Question);
+			if (!result)
 			{
 				ShutdownCDL();
 				return true;
@@ -240,7 +254,7 @@ namespace BizHawk.Client.EmuHawk
 				if (!newCDL.Check(testCDL))
 				{
 					if(!_autoloading)
-						MessageBox.Show(this, "CDL file does not match emulator's current memory map!");
+						this.ModalMessageBox("CDL file does not match emulator's current memory map!");
 					return;
 				}
 
@@ -276,10 +290,10 @@ namespace BizHawk.Client.EmuHawk
 		private void RecentSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
 			RecentSubMenu.DropDownItems.Clear();
-			RecentSubMenu.DropDownItems.AddRange(_recent.RecentMenu(LoadFile, "Session"));
+			RecentSubMenu.DropDownItems.AddRange(_recent.RecentMenu(MainForm, LoadFile, "Session"));
 		}
 
-		void NewFileLogic()
+		private void NewFileLogic()
 		{
 			_cdl = new CodeDataLog();
 			CodeDataLogger.NewCDL(_cdl);
@@ -298,9 +312,8 @@ namespace BizHawk.Client.EmuHawk
 			//take care not to clobber an existing CDL
 			if (_cdl != null)
 			{
-				var result = MessageBox.Show(this, "OK to create new CDL?", "Query", MessageBoxButtons.YesNo);
-				if (result != DialogResult.Yes)
-					return;
+				var result = this.ModalMessageBox2("OK to create new CDL?", "Query");
+				if (!result) return;
 			}
 
 			NewFileLogic();
@@ -320,15 +333,14 @@ namespace BizHawk.Client.EmuHawk
 			//take care not to clobber an existing CDL
 			if (_cdl != null)
 			{
-				var result = MessageBox.Show(this, "OK to load new CDL?", "Query", MessageBoxButtons.YesNo);
-				if (result != DialogResult.Yes)
-					return;
+				var result = this.ModalMessageBox2("OK to load new CDL?", "Query");
+				if (!result) return;
 			}
 
 			LoadFile(file.FullName);
 		}
 
-		void RunSave()
+		private void RunSave()
 		{
 			_recent.Add(_currentFilename);
 			using var fs = new FileStream(_currentFilename, FileMode.Create, FileAccess.Write);
@@ -339,7 +351,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (_cdl == null)
 			{
-				MessageBox.Show(this, "Cannot save with no CDL loaded!", "Alert");
+				this.ModalMessageBox("Cannot save with no CDL loaded!", "Alert");
 				return;
 			}
 
@@ -355,13 +367,20 @@ namespace BizHawk.Client.EmuHawk
 		/// <summary>
 		/// returns false if the operation was canceled
 		/// </summary>
-		bool RunSaveAs()
+		private bool RunSaveAs()
 		{
+			var fileName = _currentFilename;
+			if (string.IsNullOrWhiteSpace(fileName))
+			{
+				fileName = Game.FilesystemSafeName();
+			}
+
 			var file = SaveFileDialog(
-				_currentFilename,
+				fileName,
 				Config.PathEntries.LogAbsolutePath(),
 				"Code Data Logger Files",
-				"cdl");
+				"cdl",
+				this);
 
 			if (file == null)
 				return false;
@@ -380,7 +399,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (_cdl == null)
 			{
-				MessageBox.Show(this, "Cannot append with no CDL loaded!", "Alert");
+				this.ModalMessageBox("Cannot append with no CDL loaded!", "Alert");
 			}
 			else
 			{
@@ -397,7 +416,7 @@ namespace BizHawk.Client.EmuHawk
 					newCDL.Load(fs);
 					if (!_cdl.Check(newCDL))
 					{
-						MessageBox.Show(this, "CDL file does not match emulator's current memory map!");
+						this.ModalMessageBox("CDL file does not match emulator's current memory map!");
 						return;
 					}
 					_cdl.LogicalOrFrom(newCDL);
@@ -410,12 +429,12 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (_cdl == null)
 			{
-				MessageBox.Show(this, "Cannot clear with no CDL loaded!", "Alert");
+				this.ModalMessageBox("Cannot clear with no CDL loaded!", "Alert");
 			}
 			else
 			{
-				var result = MessageBox.Show(this, "OK to clear CDL?", "Query", MessageBoxButtons.YesNo);
-				if (result == DialogResult.Yes)
+				var result = this.ModalMessageBox2("OK to clear CDL?", "Query");
+				if (result)
 				{
 					_cdl.ClearData();
 					UpdateDisplay(true);
@@ -427,7 +446,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (_cdl == null)
 			{
-				MessageBox.Show(this, "Cannot disassemble with no CDL loaded!", "Alert");
+				this.ModalMessageBox("Cannot disassemble with no CDL loaded!", "Alert");
 				return;
 			}
 
@@ -440,16 +459,10 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void ExitMenuItem_Click(object sender, EventArgs e)
-		{
-			ShutdownCDL();
-			Close();
-		}
-
-		void ShutdownCDL()
+		private void ShutdownCDL()
 		{
 			_cdl = null;
-			CodeDataLogger.SetCDL(null);
+			CodeDataLogger?.SetCDL(null);
 		}
 
 		protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -476,6 +489,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void CDL_Load(object sender, EventArgs e)
 		{
+			Closing += (o, e) => ShutdownCDL();
 			if (CDLAutoResume)
 			{
 				try
@@ -527,16 +541,16 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void tsbViewStyle_SelectedIndexChanged(object sender, EventArgs e)
+		private void TsbViewStyle_SelectedIndexChanged(object sender, EventArgs e)
 		{
 			UpdateDisplay(true);
 		}
 
-		private void tsbLoggingActive_CheckedChanged(object sender, EventArgs e)
+		private void TsbLoggingActive_CheckedChanged(object sender, EventArgs e)
 		{
 			if (tsbLoggingActive.Checked && _cdl == null)
 			{
-				//implicitly create a new file
+				// implicitly create a new file
 				NewFileLogic();
 			}
 
@@ -546,13 +560,13 @@ namespace BizHawk.Client.EmuHawk
 				CodeDataLogger.SetCDL(null);
 		}
 
-		private void lvCDL_QueryItemText(int index, RollColumn column, out string text, ref int offsetX, ref int offsetY)
+		private void LvCDL_QueryItemText(int index, RollColumn column, out string text, ref int offsetX, ref int offsetY)
 		{
 			var subItem = lvCDL.AllColumns.IndexOf(column);
 			text = _listContents[index][subItem];
 		}
 
-		private void tsbExportText_Click(object sender, EventArgs e)
+		private void TsbExportText_Click(object sender, EventArgs e)
 		{
 			using var sw = new StringWriter();
 			foreach(var line in _listContents)
@@ -564,17 +578,17 @@ namespace BizHawk.Client.EmuHawk
 			Clipboard.SetText(sw.ToString());
 		}
 
-		private void miAutoSave_Click(object sender, EventArgs e)
+		private void MiAutoSave_Click(object sender, EventArgs e)
 		{
 			CDLAutoSave ^= true;
 		}
 
-		private void miAutoStart_Click(object sender, EventArgs e)
+		private void MiAutoStart_Click(object sender, EventArgs e)
 		{
 			CDLAutoStart ^= true;
 		}
 
-		private void miAutoResume_Click(object sender, EventArgs e)
+		private void MiAutoResume_Click(object sender, EventArgs e)
 		{
 			CDLAutoResume ^= true;
 		}

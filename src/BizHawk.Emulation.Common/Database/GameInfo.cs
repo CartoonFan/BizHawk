@@ -1,8 +1,7 @@
 ﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Globalization;
-
-using BizHawk.Common;
 
 namespace BizHawk.Emulation.Common
 {
@@ -65,11 +64,6 @@ namespace BizHawk.Emulation.Common
 			ParseOptionsDictionary(cgi.MetaData);
 		}
 
-		public void AddOption(string option)
-		{
-			Options[option] = "";
-		}
-
 		public void AddOption(string option, string param)
 		{
 			Options[option] = param;
@@ -115,12 +109,12 @@ namespace BizHawk.Emulation.Common
 		/// <returns> The boolean value from the database if present, otherwise the given default value</returns>
 		public bool GetBool(string parameter, bool defaultVal)
 		{
-			if (OptionPresent(parameter) && OptionValue(parameter) == "true")
+			if (OptionValue(parameter) == "true")
 			{
 				return true;
 			}
 
-			if (OptionPresent(parameter) && OptionValue(parameter) == "false")
+			if (OptionValue(parameter) == "false")
 			{
 				return false;
 			}
@@ -136,7 +130,7 @@ namespace BizHawk.Emulation.Common
 		/// <returns> The integer value from the database if present, otherwise the given default value</returns>
 		public int GetInt(string parameter, int defaultVal)
 		{
-			if (OptionPresent(parameter))
+			if (Options.ContainsKey(parameter))
 			{
 				try
 				{
@@ -151,7 +145,7 @@ namespace BizHawk.Emulation.Common
 			return defaultVal;
 		}
 
-		public IDictionary<string, string> GetOptionsDict()
+		public IReadOnlyDictionary<string, string> GetOptions()
 		{
 			return new ReadOnlyDictionary<string, string>(Options);
 		}

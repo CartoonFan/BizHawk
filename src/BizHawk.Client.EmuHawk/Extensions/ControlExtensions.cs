@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -18,28 +20,21 @@ namespace BizHawk.Client.EmuHawk
 	public static class ControlExtensions
 	{
 		/// <exception cref="ArgumentException"><typeparamref name="T"/> does not inherit <see cref="Enum"/></exception>
-		public static void PopulateFromEnum<T>(this ComboBox box, object enumVal)
-			where T : struct, IConvertible
+		public static void PopulateFromEnum<T>(this ComboBox box, T enumVal)
+			where T : Enum
 		{
-			if (!typeof(T).IsEnum)
-			{
-				throw new ArgumentException("T must be an enumerated type");
-			}
-
 			box.Items.Clear();
-			box.Items.AddRange(
-				typeof(T).GetEnumDescriptions()
-				.ToArray());
+			box.Items.AddRange(typeof(T).GetEnumDescriptions().Cast<object>().ToArray());
 			box.SelectedItem = enumVal.GetDescription();
 		}
 
-		// extension method to make Control.Invoke easier to use
+		/// <summary>extension method to make <see cref="Control.Invoke(Delegate)"/> easier to use</summary>
 		public static object Invoke(this Control control, Action action)
 		{
 			return control.Invoke(action);
 		}
 
-		// extension method to make Control.BeginInvoke easier to use
+		/// <summary>extension method to make <see cref="Control.BeginInvoke(Delegate)"/> easier to use</summary>
 		public static IAsyncResult BeginInvoke(this Control control, Action action)
 		{
 			return control.BeginInvoke(action);
@@ -93,17 +88,22 @@ namespace BizHawk.Client.EmuHawk
 			return Color.FromArgb(col);
 		}
 
+		/// <remarks>
+		/// Due to the way this is written, using it in a foreach (as is done in SNESGraphicsDebugger)
+		/// passes <c>Control</c> as the type parameter, meaning only properties on <see cref="Control"/> (and <see cref="Component"/>, etc.)
+		/// will be processed. Why is there even a type param at all? I certainly don't know. --yoshi
+		/// </remarks>
 		public static T Clone<T>(this T controlToClone)
 			where T : Control
 		{
 			PropertyInfo[] controlProperties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
 			Type t = controlToClone.GetType();
-			T instance = Activator.CreateInstance(t) as T;
+			var instance = (T) Activator.CreateInstance(t);
 
 			t.GetProperty("AutoSize")?.SetValue(instance, false, null);
 
-			for (int i = 0; i < 3; i++)
+			for (int i = 0; i < 3; i++) // why 3 passes of this? --yoshi
 			{
 				foreach (var propInfo in controlProperties)
 				{
@@ -119,10 +119,9 @@ namespace BizHawk.Client.EmuHawk
 				}
 			}
 
-			if (instance is RetainedViewportPanel panel)
+			if (controlToClone is RetainedViewportPanel rvpToClone && instance is RetainedViewportPanel rvpCloned)
 			{
-				var cloneBmp = (controlToClone as RetainedViewportPanel).GetBitmap().Clone() as Bitmap;
-				panel.SetBitmap(cloneBmp);
+				rvpCloned.SetBitmap((Bitmap) rvpToClone.GetBitmap().Clone());
 			}
 
 			return instance;
@@ -132,45 +131,11 @@ namespace BizHawk.Client.EmuHawk
 		/// Converts the outdated IEnumerable Controls property to an <see cref="IEnumerable{T}"/> like .NET should have done a long time ago
 		/// </summary>
 		public static IEnumerable<Control> Controls(this Control control)
-		{
-			return control.Controls
-				.OfType<Control>();
-		}
+			=> control.Controls.Cast<Control>();
 
 		public static IEnumerable<TabPage> TabPages(this TabControl tabControl)
 		{
 			return tabControl.TabPages.Cast<TabPage>();
-		}
-	}
-
-	public static class FormExtensions
-	{
-		/// <summary>
-		/// Handles EmuHawk specific issues before showing a modal dialog
-		/// </summary>
-		public static DialogResult ShowHawkDialog(this Form form, IWin32Window owner = null, Point position = default(Point))
-		{
-			GlobalWin.Sound.StopSound();
-			if (position != default(Point))
-			{
-				form.StartPosition = FormStartPosition.Manual;
-				form.Location = position;
-			}
-			var result = (owner == null ? form.ShowDialog(new Form { TopMost = true }) : form.ShowDialog(owner));
-			GlobalWin.Sound.StartSound();
-			return result;
-		}
-
-		/// <summary>
-		/// Handles EmuHawk specific issues before showing a modal dialog
-		/// </summary>
-		public static DialogResult ShowHawkDialog(this CommonDialog form)
-		{
-			GlobalWin.Sound.StopSound();
-			using var tempForm = new Form { TopMost = true };
-			var result = form.ShowDialog(tempForm);
-			GlobalWin.Sound.StartSound();
-			return result;
 		}
 	}
 
@@ -216,6 +181,8 @@ namespace BizHawk.Client.EmuHawk
 		/// <exception cref="Win32Exception">unmanaged call failed</exception>
 		public static void SetSortIcon(this ListView listViewControl, int columnIndex, SortOrder order)
 		{
+			if (OSTailoredCode.IsUnixHost) return;
+
 			const int LVM_GETHEADER = 4127;
 			const int HDM_GETITEM = 4619;
 			const int HDM_SETITEM = 4620;
@@ -272,7 +239,7 @@ namespace BizHawk.Client.EmuHawk
 			Clipboard.SetImage(img);
 		}
 
-		public static void SaveAsFile(this Bitmap bitmap, IGameInfo game, string suffix, string systemId, PathEntryCollection paths)
+		public static void SaveAsFile(this Bitmap bitmap, IGameInfo game, string suffix, string systemId, PathEntryCollection paths, IDialogParent parent)
 		{
 			using var sfd = new SaveFileDialog
 			{
@@ -282,27 +249,84 @@ namespace BizHawk.Client.EmuHawk
 				RestoreDirectory = true
 			};
 
-			var result = sfd.ShowHawkDialog();
-			if (result != DialogResult.OK)
-			{
-				return;
-			}
+			if (parent.ShowDialogWithTempMute(sfd) != DialogResult.OK) return;
 
 			var file = new FileInfo(sfd.FileName);
-			ImageFormat i;
 			string extension = file.Extension.ToUpper();
-			switch (extension)
+			ImageFormat i = extension switch
 			{
-				default:
-				case ".PNG":
-					i = ImageFormat.Png;
-					break;
-				case ".BMP":
-					i = ImageFormat.Bmp;
-					break;
-			}
-
+				".BMP" => ImageFormat.Bmp,
+				_ => ImageFormat.Png,
+			};
 			bitmap.Save(file.FullName, i);
+		}
+
+		public static void SetDistanceOrDefault(this SplitContainer splitter, int distance, int defaultDistance)
+		{
+			if (distance > 0)
+			{
+				try
+				{
+					splitter.SplitterDistance = distance;
+				}
+				catch (Exception)
+				{
+					splitter.SplitterDistance = defaultDistance;
+				}
+			}
+		}
+
+		public static bool IsPressed(this KeyEventArgs e, Keys key)
+			=> !e.Alt && !e.Control && !e.Shift && e.KeyCode == key;
+
+		public static bool IsShift(this KeyEventArgs e, Keys key)
+			=> !e.Alt && !e.Control && e.Shift && e.KeyCode == key;
+
+		public static bool IsCtrl(this KeyEventArgs e, Keys key)
+			=> !e.Alt && e.Control && !e.Shift && e.KeyCode == key;
+
+		public static bool IsAlt(this KeyEventArgs e, Keys key)
+			=> e.Alt && !e.Control && !e.Shift && e.KeyCode == key;
+
+		public static bool IsCtrlShift(this KeyEventArgs e, Keys key)
+			=> !e.Alt && e.Control && e.Shift && e.KeyCode == key;
+
+		/// <summary>
+		/// Changes the description heigh area to match the rows needed for the largest description in the list
+		/// </summary>
+		public static void AdjustDescriptionHeightToFit(this PropertyGrid grid)
+		{
+			try
+			{
+				int maxLength = 0;
+				string desc = "";
+
+				foreach (PropertyDescriptor property in TypeDescriptor.GetProperties(grid.SelectedObject))
+				{
+					var s = property.Description;
+					if (s != null && s.Length > maxLength)
+					{
+						maxLength = s.Length;
+						desc = s;
+					}
+				}
+
+				foreach (Control control in grid.Controls)
+				{
+					if (control.GetType().Name == "DocComment")
+					{
+						var field = control.GetType().GetField("userSized", BindingFlags.Instance | BindingFlags.NonPublic);
+						field?.SetValue(control, true);
+						int height = (int)Graphics.FromHwnd(control.Handle).MeasureString(desc, control.Font, grid.Width).Height;
+						control.Height = Math.Max(20, height) + 16; // magic for now
+						return;
+					}
+				}
+			}
+			catch
+			{
+				// Eat it
+			}
 		}
 	}
 }

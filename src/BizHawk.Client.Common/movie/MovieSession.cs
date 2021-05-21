@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores;
 using BizHawk.Emulation.Cores.Nintendo.Gameboy;
@@ -11,35 +12,34 @@ namespace BizHawk.Client.Common
 
 	public class MovieSession : IMovieSession
 	{
+		private readonly IDialogParent _dialogParent;
+
 		private readonly Action _pauseCallback;
 		private readonly Action _modeChangedCallback;
 		private readonly Action<string> _messageCallback;
-		private readonly Action<string> _popupCallback;
 
 		private IMovie _queuedMovie;
 
-		// Previous saved core preferences. Stored here so that when a movie
-		// overrides the values, they can be restored to user preferences 
-		private readonly IDictionary<string, string> _preferredCores = new Dictionary<string, string>();
+		private readonly IQuickBmpFile _quickBmpFile;
 
 		public MovieSession(
 			IMovieConfig settings,
 			string backDirectory,
+			IDialogParent dialogParent,
+			IQuickBmpFile quickBmpFile,
 			Action<string> messageCallback,
-			Action<string> popupCallback,
 			Action pauseCallback,
 			Action modeChangedCallback)
 		{
 			Settings = settings;
 			BackupDirectory = backDirectory;
 			_messageCallback = messageCallback;
-			_popupCallback = popupCallback;
+			_dialogParent = dialogParent;
+			_quickBmpFile = quickBmpFile;
 			_pauseCallback = pauseCallback
 				?? throw new ArgumentNullException($"{nameof(pauseCallback)} cannot be null.");
 			_modeChangedCallback = modeChangedCallback
 				?? throw new ArgumentNullException($"{nameof(modeChangedCallback)} CannotUnloadAppDomainException be null.");
-
-			MultiTrack.RewiringAdapter.Source = MovieIn;
 		}
 
 		public IMovieConfig Settings { get; }
@@ -51,13 +51,15 @@ namespace BizHawk.Client.Common
 		public bool NewMovieQueued => _queuedMovie != null;
 		public string QueuedSyncSettings => _queuedMovie.SyncSettingsJson;
 
-		public IInputAdapter MovieIn { get; } = new CopyControllerAdapter();
+		public string QueuedCoreName => _queuedMovie?.Core;
+
+		public IDictionary<string, object> UserBag { get; set; } = new Dictionary<string, object>();
+
+		public IInputAdapter MovieIn { private get; set; }
 		public IInputAdapter MovieOut { get; } = new CopyControllerAdapter();
-		public IStickyController StickySource { get; set; }
+		public IStickyAdapter StickySource { get; set; }
 
 		public IMovieController MovieController { get; private set; } = new Bk2Controller("", NullController.Instance.Definition);
-
-		public MultitrackRecorder MultiTrack { get; } = new MultitrackRecorder();
 
 		public IMovieController GenerateMovieController(ControllerDefinition definition = null)
 		{
@@ -98,6 +100,7 @@ namespace BizHawk.Client.Common
 			}
 		}
 
+		// TODO: this is a mess, simplify
 		public void HandleFrameAfter()
 		{
 			if (Movie is ITasMovie tasMovie)
@@ -105,7 +108,14 @@ namespace BizHawk.Client.Common
 				tasMovie.GreenzoneCurrentFrame();
 				if (tasMovie.IsPlayingOrFinished() && Movie.Emulator.Frame >= tasMovie.InputLogLength)
 				{
-					HandleFrameLoopForRecordMode();
+					if (Settings.MovieEndAction == MovieEndAction.Record)
+					{
+						HandleFrameLoopForRecordMode();
+					}
+					else
+					{
+						HandlePlaybackEnd();
+					}
 				}
 			}
 			else if (Movie.IsPlaying() && Movie.Emulator.Frame >= Movie.InputLogLength)
@@ -176,6 +186,8 @@ namespace BizHawk.Client.Common
 					Output(errorMsg);
 					return false;
 				}
+
+				LatchInputToUser();
 			}
 
 			return true;
@@ -202,20 +214,19 @@ namespace BizHawk.Client.Common
 
 			if (!record)
 			{
-				if (preferredCores.ContainsKey(systemId))
+				if (string.IsNullOrWhiteSpace(movie.Core))
 				{
-					string movieCore = preferredCores[systemId];
-					if (string.IsNullOrWhiteSpace(movie.Core))
+					PopupMessage(preferredCores.TryGetValue(systemId, out _)
+						? $"No core specified in the movie file, using the preferred core {preferredCores[systemId]} instead."
+						: "No core specified in the movie file, using the default core instead.");
+				}
+				else
+				{
+					var keys = preferredCores.Keys.ToList();
+					foreach (var k in keys)
 					{
-						PopupMessage($"No core specified in the movie file, using the preferred core {preferredCores[systemId]} instead.");
+						preferredCores[k] = movie.Core;
 					}
-					else
-					{
-						movieCore = movie.Core;
-					}
-
-					_preferredCores[systemId] = preferredCores[systemId];
-					preferredCores[systemId] = movieCore;
 				}
 			}
 
@@ -231,18 +242,13 @@ namespace BizHawk.Client.Common
 			_queuedMovie = movie;
 		}
 
-		public void RunQueuedMovie(bool recordMode, IEmulator emulator, IDictionary<string, string> preferredCores)
+		public void RunQueuedMovie(bool recordMode, IEmulator emulator)
 		{
 			MovieController = new Bk2Controller(emulator.ControllerDefinition);
-			_queuedMovie.Attach(emulator);
-			foreach (var previousPref in _preferredCores)
-			{
-				preferredCores[previousPref.Key] = previousPref.Value;
-			}
 
 			Movie = _queuedMovie;
+			Movie.Attach(emulator);
 			_queuedMovie = null;
-			MultiTrack.Restart(Movie.Emulator.ControllerDefinition.PlayerCount);
 
 			Movie.ProcessSavestate(Movie.Emulator);
 			Movie.ProcessSram(Movie.Emulator);
@@ -251,35 +257,12 @@ namespace BizHawk.Client.Common
 			{
 				Movie.StartNewRecording();
 				ReadOnly = false;
+				// If we are starting a movie recording while another one is playing, we need to switch back to user input
+				LatchInputToUser();
 			}
 			else
 			{
 				Movie.StartNewPlayback();
-			}
-		}
-
-		public void ToggleMultitrack()
-		{
-			if (Movie.IsActive())
-			{
-				if (Settings.VBAStyleMovieLoadState)
-				{
-					Output("Multi-track can not be used in Full Movie Loadstates mode");
-				}
-				else if (Movie is ITasMovie)
-				{
-					Output("Multi-track can not be used with tasproj movies");
-				}
-				else
-				{
-					MultiTrack.IsActive ^= true;
-					MultiTrack.SelectNone();
-					Output(MultiTrack.IsActive ? "MultiTrack Enabled" : "MultiTrack Disabled");
-				}
-			}
-			else
-			{
-				Output("MultiTrack cannot be enabled while not recording.");
 			}
 		}
 
@@ -299,8 +282,6 @@ namespace BizHawk.Client.Common
 
 				message += "stopped.";
 
-				MultiTrack.Restart(1);
-
 				var result = Movie.Stop(saveChanges);
 				if (result)
 				{
@@ -313,14 +294,17 @@ namespace BizHawk.Client.Common
 				_modeChangedCallback();
 			}
 
-			// TODO: we aren't ready for this line, keeping the old movie hanging around masks a lot of Tastudio problems
-			// Uncommenting this can cause drawing crashes in tastudio since it depends on a ITasMovie and doesn't have one between closing and opening a rom
-			//Movie = null;
+			if (Movie is IDisposable d
+				&& Movie != _queuedMovie) // Uberhack, remove this and Loading Tastudio with a bk2 already loaded breaks, probably other TAStudio scenarios as well
+			{
+				d.Dispose();
+			}
+
+			Movie = null;
 		}
 
 		public void ConvertToTasProj()
 		{
-			Movie.Save();
 			Movie = Movie.ToTasMovie();
 			Movie.Save();
 			Movie.SwitchToPlay();
@@ -331,61 +315,28 @@ namespace BizHawk.Client.Common
 			// TODO: change IMovies to take HawkFiles only and not path
 			if (Path.GetExtension(path)?.EndsWith("tasproj") ?? false)
 			{
-				return new TasMovie(this, path);
+				return new TasMovie(this, path, _quickBmpFile);
 			}
 
 			return new Bk2Movie(this, path);
 		}
 
-		private void PopupMessage(string message)
-		{
-			_popupCallback?.Invoke(message);
-		}
+		public void PopupMessage(string message) => _dialogParent.ModalMessageBox(message, "Warning", EMsgBoxIcon.Warning);
 
 		private void Output(string message)
 		{
 			_messageCallback?.Invoke(message);
 		}
 
-		private void LatchInputToMultitrackUser()
-		{
-			if (MultiTrack.IsActive)
-			{
-				var rewiredSource = MultiTrack.RewiringAdapter;
-				rewiredSource.PlayerSource = 1;
-				rewiredSource.PlayerTargetMask = 1 << MultiTrack.CurrentPlayer;
-				if (MultiTrack.RecordAll)
-				{
-					rewiredSource.PlayerTargetMask = unchecked((int)0xFFFFFFFF);
-				}
-
-				if (Movie.InputLogLength > Movie.Emulator.Frame)
-				{
-					var input = Movie.GetInputState(Movie.Emulator.Frame);
-					MovieController.SetFrom(input);
-				}
-
-				MovieController.SetPlayerFrom(rewiredSource, MultiTrack.CurrentPlayer);
-			}
-		}
-
 		private void LatchInputToUser()
 		{
 			MovieOut.Source = MovieIn;
-			MovieController.SetFrom(MovieIn); // TODO: this shouldn't be necessary anymore
 		}
 
 		// Latch input from the input log, if available
 		private void LatchInputToLog()
 		{
 			var input = Movie.GetInputState(Movie.Emulator.Frame);
-
-			// adelikat: TODO: this is likely the source of frame 0 TAStudio bugs, I think the intent is to check if the movie is 0 length?
-			if (Movie.Emulator.Frame == 0) // Hacky
-			{
-				HandleFrameAfter(); // Frame 0 needs to be handled.
-			}
-
 			if (input == null)
 			{
 				HandleFrameAfter();
@@ -398,13 +349,21 @@ namespace BizHawk.Client.Common
 
 		private void HandlePlaybackEnd()
 		{
-			if (Movie.Core ==  CoreNames.Gambatte)
+			if (Movie.IsAtEnd() && Movie.Core == CoreNames.Gambatte)
 			{
-				var movieCycles = Convert.ToUInt64(Movie.HeaderEntries[HeaderKeys.CycleCount]);
-				var coreCycles = ((Gameboy)Movie.Emulator).CycleCount;
-				if (movieCycles != (ulong)coreCycles)
+				var coreCycles = (ulong) ((Gameboy)Movie.Emulator).CycleCount;
+				var cyclesSaved = Movie.HeaderEntries.ContainsKey(HeaderKeys.CycleCount);
+				ulong previousCycles = 0;
+				if (cyclesSaved)
 				{
-					PopupMessage($"Cycle count in the movie ({movieCycles}) doesn't match the emulated value ({coreCycles}).");
+					previousCycles = Convert.ToUInt64(Movie.HeaderEntries[HeaderKeys.CycleCount]);
+				}
+				var cyclesMatch = previousCycles == coreCycles;
+				if (!cyclesSaved || !cyclesMatch)
+				{
+					var previousState = !cyclesSaved ? "The saved movie is currently missing a cycle count." : $"The previous cycle count ({previousCycles}) doesn't match.";
+					// TODO: Ideally, this would be a Yes/No MessageBox that saves when "Yes" is pressed.
+					PopupMessage($"The end of the movie has been reached.\n\n{previousState}\n\nSave to update to the new cycle count ({coreCycles}).");
 				}
 			}
 
@@ -439,14 +398,7 @@ namespace BizHawk.Client.Common
 			}
 			else
 			{
-				if (MultiTrack.IsActive)
-				{
-					LatchInputToMultitrackUser();
-				}
-				else
-				{
-					LatchInputToUser();
-				}
+				MovieController.SetFrom(MovieIn);
 			}
 
 			Movie.RecordFrame(Movie.Emulator.Frame, MovieController);

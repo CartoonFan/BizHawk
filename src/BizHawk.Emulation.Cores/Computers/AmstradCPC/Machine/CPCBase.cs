@@ -10,7 +10,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 	public abstract partial class CPCBase
 	{
 		/// <summary>
-		/// The calling ZXSpectrum class (piped in via constructor)
+		/// The calling AmstradCPC class (piped in via constructor)
 		/// </summary>
 		public AmstradCPC CPC { get; set; }
 
@@ -112,7 +112,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 		public bool _renderSound;
 
 		/// <summary>
-		/// Mask constants & misc
+		/// Mask constants &amp; misc
 		/// </summary>
 		protected const int BORDER_BIT = 0x07;
 		protected const int EAR_BIT = 0x10;

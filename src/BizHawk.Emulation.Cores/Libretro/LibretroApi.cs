@@ -11,32 +11,32 @@ namespace BizHawk.Emulation.Cores.Libretro
 {
 	public unsafe partial class LibretroApi : IDisposable
 	{
-		InstanceDll instanceDll, instanceDllCore;
-		string InstanceName;
+		private readonly InstanceDll instanceDll, instanceDllCore;
+		private string InstanceName;
 
 		//YUCK
 		public LibretroCore core;
 
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-		delegate IntPtr DllInit(IntPtr dllModule);
+		private delegate IntPtr DllInit(IntPtr dllModule);
 
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-		delegate void MessageApi(eMessage msg);
+		private delegate void MessageApi(eMessage msg);
 
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-		delegate void BufferApi(BufId id, void* ptr, ulong size); //size_t
+		private delegate void BufferApi(BufId id, void* ptr, ulong size); //size_t
 
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-		delegate void SetVariableApi(string key, string value);
+		private delegate void SetVariableApi(string key, string value);
 
 		//it's NOT the original plan to make this public
 		//however -- i need to merge the API and the core. theyre too closely related
 		public CommStruct* comm;
 
-		MessageApi Message;
-		BufferApi _copyBuffer; //TODO: consider making private and wrapping
-		BufferApi _setBuffer; //TODO: consider making private and wrapping
-		SetVariableApi SetVariable;
+		private readonly MessageApi Message;
+		private readonly BufferApi _copyBuffer; //TODO: consider making private and wrapping
+		private readonly BufferApi _setBuffer; //TODO: consider making private and wrapping
+		private SetVariableApi SetVariable;
 
 		public LibretroApi(string dllPath, string corePath)
 		{
@@ -139,7 +139,7 @@ namespace BizHawk.Emulation.Cores.Libretro
 			}
 		}
 
-		public unsafe struct CommStructEnv
+		public struct CommStructEnv
 		{
 			public retro_system_info retro_system_info;
 			public retro_system_av_info retro_system_av_info;

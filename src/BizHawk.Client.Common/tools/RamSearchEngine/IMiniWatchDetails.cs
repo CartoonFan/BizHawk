@@ -30,7 +30,7 @@ namespace  BizHawk.Client.Common.RamSearchEngine
 
 		public void SetPreviousToCurrent(MemoryDomain domain, bool bigEndian)
 		{
-			_previous = _prevFrame = domain.PeekByte(Address % domain.Size);
+			_previous = _prevFrame = MiniByteWatch.GetByte(Address, domain);
 		}
 
 		public long Previous => _previous;
@@ -39,7 +39,7 @@ namespace  BizHawk.Client.Common.RamSearchEngine
 
 		public void Update(PreviousType type, MemoryDomain domain, bool bigEndian)
 		{
-			var value = domain.PeekByte(Address % domain.Size);
+			var value = MiniByteWatch.GetByte(Address, domain);
 
 			if (value != _prevFrame)
 			{
@@ -67,6 +67,8 @@ namespace  BizHawk.Client.Common.RamSearchEngine
 		}
 
 		public void ClearChangeCount() => ChangeCount = 0;
+
+		public bool IsValid(MemoryDomain domain) => MiniByteWatch.IsValid(Address, domain);
 	}
 
 	internal sealed class MiniWordWatchDetailed : IMiniWatchDetails
@@ -84,7 +86,7 @@ namespace  BizHawk.Client.Common.RamSearchEngine
 
 		public void SetPreviousToCurrent(MemoryDomain domain, bool bigEndian)
 		{
-			_previous = _prevFrame = domain.PeekUshort(Address % domain.Size, bigEndian);
+			_previous = _prevFrame = MiniWordWatch.GetUshort(Address, domain, bigEndian);
 		}
 
 		public long Previous => _previous;
@@ -93,7 +95,7 @@ namespace  BizHawk.Client.Common.RamSearchEngine
 
 		public void Update(PreviousType type, MemoryDomain domain, bool bigEndian)
 		{
-			var value = domain.PeekUshort(Address % domain.Size, bigEndian);
+			var value = MiniWordWatch.GetUshort(Address, domain, bigEndian);
 			if (value != Previous)
 			{
 				ChangeCount++;
@@ -120,6 +122,8 @@ namespace  BizHawk.Client.Common.RamSearchEngine
 		}
 
 		public void ClearChangeCount() => ChangeCount = 0;
+
+		public bool IsValid(MemoryDomain domain) => MiniWordWatch.IsValid(Address, domain);
 	}
 
 	internal sealed class MiniDWordWatchDetailed : IMiniWatchDetails
@@ -137,7 +141,7 @@ namespace  BizHawk.Client.Common.RamSearchEngine
 
 		public void SetPreviousToCurrent(MemoryDomain domain, bool bigEndian)
 		{
-			_previous = _prevFrame = domain.PeekUint(Address % domain.Size, bigEndian);
+			_previous = _prevFrame = MiniDWordWatch.GetUint(Address, domain, bigEndian);
 		}
 
 		public long Previous => (int)_previous;
@@ -146,7 +150,7 @@ namespace  BizHawk.Client.Common.RamSearchEngine
 
 		public void Update(PreviousType type, MemoryDomain domain, bool bigEndian)
 		{
-			var value = domain.PeekUint(Address % domain.Size, bigEndian);
+			var value = MiniDWordWatch.GetUint(Address, domain, bigEndian);
 			if (value != Previous)
 			{
 				ChangeCount++;
@@ -173,5 +177,7 @@ namespace  BizHawk.Client.Common.RamSearchEngine
 		}
 
 		public void ClearChangeCount() => ChangeCount = 0;
+
+		public bool IsValid(MemoryDomain domain) => MiniDWordWatch.IsValid(Address, domain);
 	}
 }

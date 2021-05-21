@@ -20,20 +20,24 @@ namespace BizHawk.Client.Common
 		/// </summary>
 		string QueuedSyncSettings { get; }
 
+		/// <value>The Core header of the queued movie iff one is queued, else <see langword="null"/></value>
+		string QueuedCoreName { get; }
+
+		IDictionary<string, object> UserBag { get; set; }
+
 		IMovieController MovieController { get; }
-		MultitrackRecorder MultiTrack { get; }
 
 		/// <summary>
 		/// Provides a source for sticky controls ot use when recording
 		/// </summary>
-		IStickyController StickySource { get; set; }
+		IStickyAdapter StickySource { get; set; }
 
 		/// <summary>
 		/// Represents the input source that is fed to
 		/// the movie for the purpose of recording, if active,
 		/// or to simply pass through if inactive
 		/// </summary>
-		IInputAdapter MovieIn { get; }
+		IInputAdapter MovieIn { set; }
 
 		/// <summary>
 		/// Represents the movie input in the input chain
@@ -67,9 +71,7 @@ namespace BizHawk.Client.Common
 		/// <summary>
 		/// Sets the Movie property with the QueuedMovie, clears the queued movie, and starts the new movie
 		/// </summary>
-		void RunQueuedMovie(bool recordMode, IEmulator emulator, IDictionary<string, string> preferredCores);
-
-		void ToggleMultitrack();
+		void RunQueuedMovie(bool recordMode, IEmulator emulator);
 
 		void StopMovie(bool saveChanges = true);
 
@@ -81,5 +83,7 @@ namespace BizHawk.Client.Common
 		IMovie Get(string path);
 
 		string BackupDirectory { get; set; }
+
+		void PopupMessage(string message);
 	}
 }

@@ -1,23 +1,26 @@
 ﻿using System;
 using System.Linq;
 using System.Windows.Forms;
+
+using BizHawk.Client.Common;
 using BizHawk.Emulation.Cores.Computers.SinclairSpectrum;
 
 namespace BizHawk.Client.EmuHawk
 {
 	public partial class ZxSpectrumJoystickSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly ZXSpectrum.ZXSpectrumSyncSettings _syncSettings;
 		private string[] _possibleControllers;
 
 		public ZxSpectrumJoystickSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			ZXSpectrum.ZXSpectrumSyncSettings syncSettings)
 		{
 			_mainForm = mainForm;
 			_syncSettings = syncSettings;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void IntvControllerSettings_Load(object sender, EventArgs e)
@@ -77,7 +80,7 @@ namespace BizHawk.Client.EmuHawk
 						Port3ComboBox.SelectedItem = _possibleControllers.First();
 						selectionValid = false;
 					}
-				}   
+				}
 
 				var j3 = Port3ComboBox.SelectedItem.ToString();
 				if (j3 != _possibleControllers.First())
@@ -107,7 +110,7 @@ namespace BizHawk.Client.EmuHawk
 				}
 				else
 				{
-					MessageBox.Show("Invalid joystick configuration. \nDuplicates have automatically been changed to NULL.\n\nPlease review the configuration");
+					_mainForm.DialogController.ShowMessageBox("Invalid joystick configuration. \nDuplicates have automatically been changed to NULL.\n\nPlease review the configuration");
 				}
 			}
 			else

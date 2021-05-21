@@ -3,10 +3,10 @@ using System.IO;
 using System.Collections.Generic;
 using System.Drawing.Imaging;
 using System.Text;
-using System.Windows.Forms;
 
 using BizHawk.Emulation.Common;
 using BizHawk.Bizware.BizwareGL;
+using BizHawk.Client.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
@@ -21,7 +21,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 		}
 
-		public void SetDefaultVideoCodecToken()
+		public void SetDefaultVideoCodecToken(Config config)
 		{
 		}
 
@@ -82,7 +82,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public IDisposable AcquireVideoCodecToken(IWin32Window hwnd)
+		public IDisposable AcquireVideoCodecToken(Config config)
 		{
 			return new DummyDisposable();
 		}
@@ -152,9 +152,13 @@ namespace BizHawk.Client.EmuHawk
 
 		public static string GetPathFragmentForFrameNum(int index)
 		{
+#if true
+			return index.ToString();
+#else // not sure of the original purpose here, but the subfolders it makes don't seem to work right, just return frame number for now
 			var chunks = StringChunkSplit(index.ToString(), 2);
 			string subPath = string.Join("/", chunks);
 			return subPath;
+#endif
 		}
 	}
 }

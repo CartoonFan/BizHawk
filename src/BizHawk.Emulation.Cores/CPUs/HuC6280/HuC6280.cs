@@ -318,14 +318,19 @@ namespace BizHawk.Emulation.Cores.Components.H6280
 		public Func<int, byte> ReadMemory21;
 		public Action<int, byte> WriteMemory21;
 		public Action<int, byte> WriteVDC;
-		public Action<int> ThinkAction = delegate { };
+		public Action<int> ThinkAction = i => {};
 
 		public IMemoryCallbackSystem MemoryCallbacks;
 
-		public byte ReadMemory(ushort address)
+		public byte PeekMemory(ushort address)
 		{
 			byte page = MPR[address >> 13];
-			var result = ReadMemory21((page << 13) | (address & 0x1FFF));
+			return ReadMemory21((page << 13) | (address & 0x1FFF));
+		}
+
+		public byte ReadMemory(ushort address)
+		{
+			byte result = PeekMemory(address);
 
 			if (MemoryCallbacks.HasReads)
 			{
@@ -336,10 +341,15 @@ namespace BizHawk.Emulation.Cores.Components.H6280
 			return result;
 		}
 
-		public void WriteMemory(ushort address, byte value)
+		public void PokeMemory(ushort address, byte value)
 		{
 			byte page = MPR[address >> 13];
 			WriteMemory21((page << 13) | (address & 0x1FFF), value);
+		}
+
+		public void WriteMemory(ushort address, byte value)
+		{
+			PokeMemory(address, value);
 			if (MemoryCallbacks.HasWrites)
 			{
 				uint flags = (uint)(MemoryCallbackFlags.AccessWrite);

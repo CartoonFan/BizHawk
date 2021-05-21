@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
-
+using System.Linq;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.Common
@@ -12,16 +13,21 @@ namespace BizHawk.Client.Common
 		public new const string Extension = "tasproj";
 		private IInputPollable _inputPollable;
 
+		public const double CurrentVersion = 1.1;
+
 		/// <exception cref="InvalidOperationException">loaded core does not implement <see cref="IStatable"/></exception>
-		internal TasMovie(IMovieSession session, string path) : base(session, path)
+		internal TasMovie(IMovieSession session, string path, IQuickBmpFile quickBmpFile)
+			: base(session, path)
 		{
-			Branches = new TasBranchCollection(this);
+			Branches = new TasBranchCollection(this, quickBmpFile);
 			ChangeLog = new TasMovieChangeLog(this);
-			TasStateManager = new TasStateManager(this, session.Settings.DefaultTasStateManagerSettings);
-			Header[HeaderKeys.MovieVersion] = "BizHawk v2.0 Tasproj v1.0";
+			Header[HeaderKeys.MovieVersion] = $"BizHawk v2.0 Tasproj v{CurrentVersion.ToString(CultureInfo.InvariantCulture)}";
 			Markers = new TasMovieMarkerList(this);
 			Markers.CollectionChanged += Markers_CollectionChanged;
 			Markers.Add(0, "Power on");
+			TasStateManager = new ZwinderStateManager(
+				session.Settings.DefaultTasStateManagerSettings,
+				IsReserved);
 		}
 
 		public override void Attach(IEmulator emulator)
@@ -37,10 +43,31 @@ namespace BizHawk.Client.Common
 			}
 
 			_inputPollable = emulator.AsInputPollable();
-			TasStateManager.Attach(emulator);
+
+			if (StartsFromSavestate)
+			{
+				TasStateManager.Engage(BinarySavestate);
+			}
+			else
+			{
+				var ms = new MemoryStream();
+				if (StartsFromSaveRam && emulator.HasSaveRam())
+				{
+					emulator.AsSaveRam().StoreSaveRam(SaveRam);
+				}
+				emulator.AsStatable().SaveStateBinary(new BinaryWriter(ms));
+				TasStateManager.Engage(ms.ToArray());
+			}
 
 			base.Attach(emulator);
+
+			foreach (var button in emulator.ControllerDefinition.BoolButtons)
+			{
+				_mnemonicCache[button] = Bk2MnemonicLookup.Lookup(button, emulator.SystemId);
+			}
 		}
+
+		private readonly Dictionary<string, char> _mnemonicCache = new Dictionary<string, char>();
 
 		public override bool StartsFromSavestate
 		{
@@ -64,7 +91,9 @@ namespace BizHawk.Client.Common
 		public TasLagLog LagLog { get; } = new TasLagLog();
 
 		public override string PreferredExtension => Extension;
-		public IStateManager TasStateManager { get; }
+		public IStateManager TasStateManager { get; private set; }
+
+		public Action<int> GreenzoneInvalidated { get; set; }
 
 		public ITasMovieRecord this[int index]
 		{
@@ -72,9 +101,12 @@ namespace BizHawk.Client.Common
 			{
 				var lagIndex = index + 1;
 				var lagged = LagLog[lagIndex];
-				if (lagged == null && Emulator.Frame == lagIndex)
+				if (lagged == null)
 				{
-					lagged = _inputPollable.IsLagFrame;
+					if (IsAttached() && Emulator.Frame == lagIndex)
+					{
+						lagged = _inputPollable.IsLagFrame;
+					}
 				}
 
 				return new TasMovieRecord
@@ -99,15 +131,17 @@ namespace BizHawk.Client.Common
 		// Removes lag log and greenzone after this frame
 		private void InvalidateAfter(int frame)
 		{
-			var anyInvalidated = LagLog.RemoveFrom(frame);
-			TasStateManager.Invalidate(frame + 1);
-			if (anyInvalidated)
+			var anyLagInvalidated = LagLog.RemoveFrom(frame);
+			var anyStateInvalidated = TasStateManager.InvalidateAfter(frame);
+			GreenzoneInvalidated(frame + 1);
+			if (anyLagInvalidated || anyStateInvalidated)
 			{
 				Changes = true;
 			}
+
 			LastEditedFrame = frame;
 
-			if (anyInvalidated && IsCountingRerecords)
+			if (anyStateInvalidated && IsCountingRerecords)
 			{
 				Rerecords++;
 			}
@@ -117,7 +151,7 @@ namespace BizHawk.Client.Common
 		private (int Frame, IMovieController Controller) _displayCache = (-1, new Bk2Controller("", NullController.Instance.Definition));
 
 		/// <summary>
-		/// Returns the mnemonic value for boolean buttons, and actual value for floats,
+		/// Returns the mnemonic value for boolean buttons, and actual value for axes,
 		/// for a given frame and button.
 		/// </summary>
 		public string DisplayValue(int frame, string buttonName)
@@ -127,19 +161,19 @@ namespace BizHawk.Client.Common
 				_displayCache = (frame, GetInputState(frame));
 			}
 			
-			return CreateDisplayValueForButton(_displayCache.Controller, Emulator.SystemId, buttonName);
+			return CreateDisplayValueForButton(_displayCache.Controller, buttonName);
 		}
 
-		private static string CreateDisplayValueForButton(IController adapter, string systemId, string buttonName)
+		private string CreateDisplayValueForButton(IController adapter, string buttonName)
 		{
 			if (adapter.Definition.BoolButtons.Contains(buttonName))
 			{
 				return adapter.IsPressed(buttonName)
-					? Bk2MnemonicLookup.Lookup(buttonName, systemId).ToString()
+					? _mnemonicCache[buttonName].ToString()
 					: "";
 			}
 
-			if (adapter.Definition.AxisControls.Contains(buttonName))
+			if (adapter.Definition.Axes.ContainsKey(buttonName))
 			{
 				return adapter.AxisValue(buttonName).ToString();
 			}
@@ -151,7 +185,7 @@ namespace BizHawk.Client.Common
 		{
 			// todo: this isn't working quite right when autorestore is off and we're editing while seeking
 			// but accounting for that requires access to Mainform.IsSeeking
-			if (Emulator.Frame > LastEditedFrame)
+			if (Emulator.Frame != LastEditedFrame)
 			{
 				// emulated a new frame, current editing segment may change now. taseditor logic
 				LastPositionStable = false;
@@ -159,10 +193,8 @@ namespace BizHawk.Client.Common
 
 			LagLog[Emulator.Frame] = _inputPollable.IsLagFrame;
 
-			if (!TasStateManager.HasState(Emulator.Frame))
-			{
-				TasStateManager.Capture(Emulator.Frame == LastEditedFrame - 1);
-			}
+			// We will forbibly capture a state for the last edited frame (requested by #916 for case of "platforms with analog stick")
+			TasStateManager.Capture(Emulator.Frame, Emulator.AsStatable(), Emulator.Frame == LastEditedFrame - 1);
 		}
 
 		
@@ -258,7 +290,8 @@ namespace BizHawk.Client.Common
 			if (timelineBranchFrame.HasValue)
 			{
 				LagLog.RemoveFrom(timelineBranchFrame.Value);
-				TasStateManager.Invalidate(timelineBranchFrame.Value);
+				TasStateManager.InvalidateAfter(timelineBranchFrame.Value);
+				GreenzoneInvalidated(timelineBranchFrame.Value);
 			}
 
 			return true;
@@ -311,5 +344,21 @@ namespace BizHawk.Client.Common
 
 		public void ClearChanges() => Changes = false;
 		public void FlagChanges() => Changes = true;
+
+		private bool IsReserved(int frame)
+		{
+			
+			// Why the frame before?
+			// because we always navigate to the frame before and emulate 1 frame so that we ensure a proper frame buffer on the screen
+			// users want instant navigation to markers, so to do this, we need to reserve the frame before the marker, not the marker itself
+			return Markers.Any(m => m.Frame - 1 == frame)
+				|| Branches.Any(b => b.Frame == frame); // Branches should already be in the reserved list, but it doesn't hurt to check
+		}
+
+		public void Dispose()
+		{
+			TasStateManager?.Dispose();
+			TasStateManager = null;
+		}
 	}
 }

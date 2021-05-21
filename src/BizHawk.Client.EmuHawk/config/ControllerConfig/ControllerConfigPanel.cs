@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace BizHawk.Client.EmuHawk
@@ -20,9 +21,9 @@ namespace BizHawk.Client.EmuHawk
 		private readonly int _inputMarginLeft = UIHelper.ScaleX(0);
 		private readonly int _labelPadding = UIHelper.ScaleX(5);
 		private readonly int _marginTop = UIHelper.ScaleY(0);
-		private readonly int _spacing = UIHelper.ScaleY(24);
+		private readonly int _ySpacing = UIHelper.ScaleY(24);
 		private readonly int _inputSize = UIHelper.ScaleX(170);
-		private readonly int _columnWidth = UIHelper.ScaleX(280);
+		private readonly int _charWidth = UIHelper.ScaleX(9);
 
 		public ToolTip Tooltip { get; set; }
 
@@ -35,10 +36,6 @@ namespace BizHawk.Client.EmuHawk
 		public ControllerConfigPanel()
 		{
 			InitializeComponent();
-		}
-
-		private void ControllerConfigPanel_Load(object sender, EventArgs e)
-		{
 		}
 
 		private void ClearAll()
@@ -55,7 +52,15 @@ namespace BizHawk.Client.EmuHawk
 			var saveTo = saveConfigObject ?? _realConfigObject;
 			for (int button = 0; button < _buttons.Count; button++)
 			{
-				saveTo[_buttons[button]] = _inputs[button].Bindings;
+				var bindings = _inputs[button].Bindings;
+				if (!string.IsNullOrWhiteSpace(bindings))
+				{
+					saveTo[_buttons[button]] = bindings;
+				}
+				else
+				{
+					saveTo.Remove(_buttons[button]);
+				}
 			}
 		}
 
@@ -103,15 +108,17 @@ namespace BizHawk.Client.EmuHawk
 
 		private void Startup()
 		{
+			var labelWidth = _buttons.Max(b => b.Length) * _charWidth;
+			var columnWidth = _inputSize + (_labelPadding * 2) + labelWidth;
 			int x = _inputMarginLeft;
-			int y = _marginTop - _spacing;
+			int y = _marginTop - _ySpacing;
 			for (int i = 0; i < _buttons.Count; i++)
 			{
-				y += _spacing;
+				y += _ySpacing;
 				if (y > (_panelSize.Height - UIHelper.ScaleY(62)))
 				{
 					y = _marginTop;
-					x += _columnWidth;
+					x += columnWidth;
 				}
 
 				var iw = new InputCompositeWidget
@@ -130,11 +137,11 @@ namespace BizHawk.Client.EmuHawk
 				var label = new Label
 				{
 					Location = new Point(x + _inputSize + _labelPadding, y + UIHelper.ScaleY(3)),
-					Size = new Size(UIHelper.ScaleX(100), UIHelper.ScaleY(15)),
+					Size = new Size(UIHelper.ScaleX(labelWidth), UIHelper.ScaleY(15)),
 					Text = _buttons[i].Replace('_', ' ').Trim()
 				};
 
-				////Tooltip.SetToolTip(label, null); //??? not supported yet
+				Tooltip.SetToolTip(label, label.Text);
 
 				Controls.Add(label);
 			}

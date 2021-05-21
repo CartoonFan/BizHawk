@@ -1,13 +1,15 @@
-﻿using BizHawk.Common.StringExtensions;
+﻿using System.Collections.Generic;
+
+using BizHawk.Common.StringExtensions;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.Common
 {
 	/// <summary>
-	/// Filters input for things called Up and Down while considering the client's AllowUD_LR option. 
+	/// Filters input for things called Up and Down while considering the client's AllowUD_LR option.
 	/// This is a bit gross but it is unclear how to do it more nicely
 	/// </summary>
-	public class UdlrControllerAdapter : IController
+	public class UdlrControllerAdapter : IInputAdapter
 	{
 		public IController Source { get; set; }
 
@@ -62,5 +64,9 @@ namespace BizHawk.Client.Common
 
 		// The float format implies no U+D and no L+R no matter what, so just passthru
 		public int AxisValue(string name) => Source.AxisValue(name);
+
+		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => Source.GetHapticsSnapshot();
+
+		public void SetHapticChannelStrength(string name, int strength) => Source.SetHapticChannelStrength(name, strength);
 	}
 }

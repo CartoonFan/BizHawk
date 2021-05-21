@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -8,8 +8,8 @@ namespace BizHawk.Emulation.Common
 	/// <summary>
 	/// The base implementation of ICodeDataLog
 	/// </summary>
-	/// <seealso cref="ICodeDataLogger" /> 
-	/// <seealso cref="ICodeDataLog" /> 
+	/// <seealso cref="ICodeDataLogger" />
+	/// <seealso cref="ICodeDataLog" />
 	public class CodeDataLog : Dictionary<string, byte[]>, ICodeDataLog
 	{
 		public CodeDataLog()

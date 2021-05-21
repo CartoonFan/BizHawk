@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Forms;
 
+using BizHawk.Bizware.DirectX;
+using BizHawk.Bizware.OpenTK3;
 using BizHawk.Common;
 using BizHawk.Client.Common;
 
@@ -60,15 +62,6 @@ namespace BizHawk.Client.EmuHawk
 
 	public class Input
 	{
-		[Flags]
-		public enum InputFocus
-		{
-			None = 0,
-			Mouse = 1,
-			Keyboard = 2,
-			Pad = 4
-		}
-
 		public enum AllowInput
 		{
 			None = 0,
@@ -82,10 +75,10 @@ namespace BizHawk.Client.EmuHawk
 		/// Why is this receiving a control, but actually using it as a Form (where the WantingMouseFocus is checked?)
 		/// Because later we might change it to work off the control, specifically, if a control is supplied (normally actually a Form will be supplied)
 		/// </summary>
-		public void ControlInputFocus(Control c, InputFocus types, bool wants)
+		public void ControlInputFocus(Control c, ClientInputFocus types, bool wants)
 		{
-			if (types.HasFlag(InputFocus.Mouse) && wants) _wantingMouseFocus.Add(c);
-			if (types.HasFlag(InputFocus.Mouse) && !wants) _wantingMouseFocus.Remove(c);
+			if (types.HasFlag(ClientInputFocus.Mouse) && wants) _wantingMouseFocus.Add(c);
+			if (types.HasFlag(ClientInputFocus.Mouse) && !wants) _wantingMouseFocus.Remove(c);
 		}
 
 		private readonly HashSet<Control> _wantingMouseFocus = new HashSet<Control>();
@@ -114,27 +107,35 @@ namespace BizHawk.Client.EmuHawk
 			Alt = 262144
 		}
 
-		private static readonly Lazy<Input> _instance = new Lazy<Input>(() => new Input());
+		public static Input Instance;
 
-		public static Input Instance => _instance.Value;
+		private readonly Thread _updateThread;
 
-		private readonly Thread UpdateThread;
+		public readonly IHostInputAdapter Adapter;
 
-		public readonly HostInputAdapter Adapter = GlobalWin.Config.HostInputMethod switch
+		private readonly Func<Config> _getConfigCallback;
+
+		internal Input(IntPtr mainFormHandle, Func<Config> getConfigCallback, Func<bool, AllowInput> mainFormInputAllowedCallback)
 		{
-			EHostInputMethod.OpenTK => new OpenTKInputAdapter(),
-			EHostInputMethod.DirectInput => new DirectInputAdapter(),
-			_ => throw new Exception()
-		};
+			_getConfigCallback = getConfigCallback;
+			MainFormInputAllowedCallback = mainFormInputAllowedCallback;
 
-		private Input()
-		{
-			UpdateThread = new Thread(UpdateThreadProc)
+			var config = _getConfigCallback();
+			Adapter = config.HostInputMethod switch
 			{
-				IsBackground = true, 
+				EHostInputMethod.OpenTK => new OpenTKInputAdapter(),
+				_ when OSTailoredCode.IsUnixHost => new OpenTKInputAdapter(),
+				EHostInputMethod.DirectInput => new DirectInputAdapter(),
+				_ => throw new Exception()
+			};
+			Adapter.UpdateConfig(config);
+			Adapter.FirstInitAll(mainFormHandle);
+			_updateThread = new Thread(UpdateThreadProc)
+			{
+				IsBackground = true,
 				Priority = ThreadPriority.AboveNormal // why not? this thread shouldn't be very heavy duty, and we want it to be responsive
 			};
-			UpdateThread.Start();
+			_updateThread.Start();
 		}
 
 		public enum InputEventType
@@ -191,7 +192,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			public LogicalButton LogicalButton;
 			public InputEventType EventType;
-			public InputFocus Source;
+			public ClientInputFocus Source;
 			public override string ToString()
 			{
 				return $"{EventType}:{LogicalButton}";
@@ -205,13 +206,24 @@ namespace BizHawk.Client.EmuHawk
 		private bool _trackDeltas;
 		private bool _ignoreEventsNextPoll;
 
-		private void HandleButton(string button, bool newState, InputFocus source)
+		private void HandleButton(string button, bool newState, ClientInputFocus source)
 		{
-			ModifierKey currentModifier = ButtonToModifierKey(button);
+			var currentModifier = button switch
+			{
+//				"LeftWin" => ModifierKey.Win,
+//				"RightWin" => ModifierKey.Win,
+				"LeftShift" => ModifierKey.Shift,
+				"RightShift" => ModifierKey.Shift,
+				"LeftCtrl" => ModifierKey.Control,
+				"RightCtrl" => ModifierKey.Control,
+				"LeftAlt" => ModifierKey.Alt,
+				"RightAlt" => ModifierKey.Alt,
+				_ => ModifierKey.None
+			};
 			if (EnableIgnoreModifiers && currentModifier != ModifierKey.None) return;
 			if (_lastState[button] == newState) return;
 
-			// apply 
+			// apply
 			// NOTE: this is not quite right. if someone held leftshift+rightshift it would be broken. seems unlikely, though.
 			if (currentModifier != ModifierKey.None)
 			{
@@ -275,23 +287,6 @@ namespace BizHawk.Client.EmuHawk
 			_axisValues[axis] = newValue;
 		}
 
-		private static ModifierKey ButtonToModifierKey(string button) => button switch
-		{
-			"LeftShift" => ModifierKey.Shift,
-			"ShiftLeft" => ModifierKey.Shift,
-			"RightShift" => ModifierKey.Shift,
-			"ShiftRight" => ModifierKey.Shift,
-			"LeftControl" => ModifierKey.Control,
-			"ControlLeft" => ModifierKey.Control,
-			"RightControl" => ModifierKey.Control,
-			"RControl" => ModifierKey.Control, // no idea why this is different
-			"LeftAlt" => ModifierKey.Alt,
-			"LAlt" => ModifierKey.Alt,
-			"RightAlt" => ModifierKey.Alt,
-			"RAlt" => ModifierKey.Alt,
-			_ => ModifierKey.None
-		};
-
 		private ModifierKey _modifiers;
 		private readonly List<InputEvent> _newEvents = new List<InputEvent>();
 
@@ -334,12 +329,64 @@ namespace BizHawk.Client.EmuHawk
 		/// <summary>
 		/// Controls whether MainForm generates input events. should be turned off for most modal dialogs
 		/// </summary>
-		public Func<bool, AllowInput> MainFormInputAllowedCallback;
+		public readonly Func<bool, AllowInput> MainFormInputAllowedCallback;
 
 		private void UpdateThreadProc()
 		{
+			static string KeyName(DistinctKey k) => k switch
+			{
+				DistinctKey.Back => "Backspace",
+				DistinctKey.Enter => "Enter",
+				DistinctKey.CapsLock => "CapsLock",
+				DistinctKey.PageDown => "PageDown",
+				DistinctKey.D0 => "Number0",
+				DistinctKey.D1 => "Number1",
+				DistinctKey.D2 => "Number2",
+				DistinctKey.D3 => "Number3",
+				DistinctKey.D4 => "Number4",
+				DistinctKey.D5 => "Number5",
+				DistinctKey.D6 => "Number6",
+				DistinctKey.D7 => "Number7",
+				DistinctKey.D8 => "Number8",
+				DistinctKey.D9 => "Number9",
+				DistinctKey.LWin => "LeftWin",
+				DistinctKey.RWin => "RightWin",
+				DistinctKey.NumPad0 => "Keypad0",
+				DistinctKey.NumPad1 => "Keypad1",
+				DistinctKey.NumPad2 => "Keypad2",
+				DistinctKey.NumPad3 => "Keypad3",
+				DistinctKey.NumPad4 => "Keypad4",
+				DistinctKey.NumPad5 => "Keypad5",
+				DistinctKey.NumPad6 => "Keypad6",
+				DistinctKey.NumPad7 => "Keypad7",
+				DistinctKey.NumPad8 => "Keypad8",
+				DistinctKey.NumPad9 => "Keypad9",
+				DistinctKey.Multiply => "KeypadMultiply",
+				DistinctKey.Add => "KeypadAdd",
+				DistinctKey.Separator => "KeypadComma",
+				DistinctKey.Subtract => "KeypadSubtract",
+				DistinctKey.Decimal => "KeypadDecimal",
+				DistinctKey.Divide => "KeypadDivide",
+				DistinctKey.Scroll => "ScrollLock",
+				DistinctKey.OemSemicolon => "Semicolon",
+				DistinctKey.OemPlus => "Equals",
+				DistinctKey.OemComma => "Comma",
+				DistinctKey.OemMinus => "Minus",
+				DistinctKey.OemPeriod => "Period",
+				DistinctKey.OemQuestion => "Slash",
+				DistinctKey.OemTilde => "Backtick",
+				DistinctKey.OemOpenBrackets => "LeftBracket",
+				DistinctKey.OemPipe => "Backslash",
+				DistinctKey.OemCloseBrackets => "RightBracket",
+				DistinctKey.OemQuotes => "Apostrophe",
+				DistinctKey.OemBackslash => "OEM102",
+				DistinctKey.NumPadEnter => "KeypadEnter",
+				_ => k.ToString()
+			};
 			while (true)
 			{
+				Adapter.UpdateConfig(_getConfigCallback());
+
 				var keyEvents = Adapter.ProcessHostKeyboards();
 				Adapter.PreprocessHostGamepads();
 
@@ -350,7 +397,7 @@ namespace BizHawk.Client.EmuHawk
 
 					//analyze keys
 					foreach (var ke in keyEvents)
-						HandleButton(ke.Key.ToString(), ke.Pressed, InputFocus.Keyboard);
+						HandleButton(KeyName(ke.Key), ke.Pressed, ClientInputFocus.Keyboard);
 
 					lock (_axisValues)
 					{
@@ -373,21 +420,21 @@ namespace BizHawk.Client.EmuHawk
 							_axisValues["WMouse Y"] = mousePos.Y;
 
 							var mouseBtns = Control.MouseButtons;
-							HandleButton("WMouse L", (mouseBtns & MouseButtons.Left) != 0, InputFocus.Mouse);
-							HandleButton("WMouse C", (mouseBtns & MouseButtons.Middle) != 0, InputFocus.Mouse);
-							HandleButton("WMouse R", (mouseBtns & MouseButtons.Right) != 0, InputFocus.Mouse);
-							HandleButton("WMouse 1", (mouseBtns & MouseButtons.XButton1) != 0, InputFocus.Mouse);
-							HandleButton("WMouse 2", (mouseBtns & MouseButtons.XButton2) != 0, InputFocus.Mouse);
+							HandleButton("WMouse L", (mouseBtns & MouseButtons.Left) != 0, ClientInputFocus.Mouse);
+							HandleButton("WMouse C", (mouseBtns & MouseButtons.Middle) != 0, ClientInputFocus.Mouse);
+							HandleButton("WMouse R", (mouseBtns & MouseButtons.Right) != 0, ClientInputFocus.Mouse);
+							HandleButton("WMouse 1", (mouseBtns & MouseButtons.XButton1) != 0, ClientInputFocus.Mouse);
+							HandleButton("WMouse 2", (mouseBtns & MouseButtons.XButton2) != 0, ClientInputFocus.Mouse);
 						}
 						else
 						{
 #if false // don't do this: for now, it will interfere with the virtualpad. don't do something similar for the mouse position either
 							// unpress all buttons
-							HandleButton("WMouse L", false, InputFocus.Mouse);
-							HandleButton("WMouse C", false, InputFocus.Mouse);
-							HandleButton("WMouse R", false, InputFocus.Mouse);
-							HandleButton("WMouse 1", false, InputFocus.Mouse);
-							HandleButton("WMouse 2", false, InputFocus.Mouse);
+							HandleButton("WMouse L", false, ClientInputFocus.Mouse);
+							HandleButton("WMouse C", false, ClientInputFocus.Mouse);
+							HandleButton("WMouse R", false, ClientInputFocus.Mouse);
+							HandleButton("WMouse 1", false, ClientInputFocus.Mouse);
+							HandleButton("WMouse 2", false, ClientInputFocus.Mouse);
 #endif
 						}
 					}
@@ -419,7 +466,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private static bool ShouldSwallow(AllowInput allowInput, InputEvent inputEvent)
 		{
-			return allowInput == AllowInput.None || (allowInput == AllowInput.OnlyController && inputEvent.Source != InputFocus.Pad);
+			return allowInput == AllowInput.None || (allowInput == AllowInput.OnlyController && inputEvent.Source != ClientInputFocus.Pad);
 		}
 
 		public void StartListeningForAxisEvents()

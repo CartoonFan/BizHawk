@@ -6,7 +6,7 @@ using BizHawk.Common.NumberExtensions;
 
 namespace BizHawk.Common
 {
-	/// <summary>represents a closed range of <typeparamref name="T"/> (class invariant: <see cref="Start"/> &le; <see cref="EndInclusive"/>)</summary>
+	/// <summary>represents a closed range of <typeparamref name="T"/> (class invariant: <see cref="Start"/> ≤ <see cref="EndInclusive"/>)</summary>
 	public interface Range<out T> where T : unmanaged, IComparable<T>
 	{
 		T Start { get; }
@@ -14,13 +14,13 @@ namespace BizHawk.Common
 		T EndInclusive { get; }
 	}
 
-	/// <summary>represents a closed range of <typeparamref name="T"/> which can be grown or shrunk (class invariant: <see cref="Start"/> &le; <see cref="EndInclusive"/>)</summary>
+	/// <summary>represents a closed range of <typeparamref name="T"/> which can be grown or shrunk (class invariant: <see cref="Start"/> ≤ <see cref="EndInclusive"/>)</summary>
 	public class MutableRange<T> : Range<T> where T : unmanaged, IComparable<T>
 	{
 		private (T Start, T EndInclusive) r;
 
 		/// <inheritdoc cref="Overwrite"/>
-		public MutableRange(T start, T endInclusive) => Overwrite(start, endInclusive);
+		internal MutableRange(T start, T endInclusive) => Overwrite(start, endInclusive);
 
 		/// <exception cref="ArgumentOutOfRangeException">(from setter) <paramref name="value"/> > <see cref="EndInclusive"/></exception>
 		public T Start
@@ -78,7 +78,6 @@ namespace BizHawk.Common
 				: value;
 
 		/// <returns>true iff <paramref name="value"/> is contained in <paramref name="range"/> (<paramref name="value"/> is considered to be in the range if it's exactly equal to either bound)</returns>
-		/// <seealso cref="StrictlyBoundedBy"/>
 		public static bool Contains<T>(this Range<T> range, T value) where T : unmanaged, IComparable<T> => !(value.CompareTo(range.Start) < 0 || range.EndInclusive.CompareTo(value) < 0);
 
 		public static uint Count(this Range<byte> range) => (uint) (range.EndInclusive - range.Start + 1);
@@ -224,8 +223,8 @@ namespace BizHawk.Common
 		/// <inheritdoc cref="RangeToExclusive(int,int)"/>
 		public static Range<byte> RangeToExclusive(this byte start, byte endExclusive) => MutableRangeToExclusive(start, endExclusive);
 
-		/// <exception cref="ArgumentOutOfRangeException"><paramref name="endExclusive"/> &le; <paramref name="start"/> (empty ranges where <paramref name="start"/> = <paramref name="endExclusive"/> are not permitted)</exception>
-		/// <exception cref="ArithmeticException"><paramref name="endExclusive"/> is min value of integral type (therefore <paramref name="endExclusive"/> &le; <paramref name="start"/>)</exception>
+		/// <exception cref="ArgumentOutOfRangeException"><paramref name="endExclusive"/> ≤ <paramref name="start"/> (empty ranges where <paramref name="start"/> = <paramref name="endExclusive"/> are not permitted)</exception>
+		/// <exception cref="ArithmeticException"><paramref name="endExclusive"/> is min value of integral type (therefore <paramref name="endExclusive"/> ≤ <paramref name="start"/>)</exception>
 		public static Range<int> RangeToExclusive(this int start, int endExclusive) => MutableRangeToExclusive(start, endExclusive);
 
 		/// <inheritdoc cref="RangeToExclusive(int,int)"/>
@@ -247,7 +246,6 @@ namespace BizHawk.Common
 		public static Range<ushort> RangeToExclusive(this ushort start, ushort endExclusive) => MutableRangeToExclusive(start, endExclusive);
 
 		/// <returns>true iff <paramref name="value"/> is strictly contained in <paramref name="range"/> (<paramref name="value"/> is considered to be OUTSIDE the range if it's exactly equal to either bound)</returns>
-		/// <seealso cref="Contains"/>
 		public static bool StrictlyBoundedBy<T>(this T value, Range<T> range) where T : unmanaged, IComparable<T> => range.Start.CompareTo(value) < 0 && value.CompareTo(range.EndInclusive) < 0;
 	}
 }

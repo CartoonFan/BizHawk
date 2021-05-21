@@ -6,16 +6,17 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class AmstradCpcNonSyncSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly AmstradCPC.AmstradCPCSettings _settings;
 
 		public AmstradCpcNonSyncSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			AmstradCPC.AmstradCPCSettings settings)
 		{
 			_mainForm = mainForm;
 			_settings = settings;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void IntvControllerSettings_Load(object sender, EventArgs e)

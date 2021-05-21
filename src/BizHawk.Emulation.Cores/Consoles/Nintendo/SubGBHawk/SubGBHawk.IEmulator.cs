@@ -36,8 +36,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.SubGBHawk
 				_GBCore.cpu.TraceCallback = null;
 			}
 
-			_frame++;
-
 			reset_frame = false;
 			if (controller.IsPressed("P1 Power"))
 			{
@@ -60,7 +58,17 @@ namespace BizHawk.Emulation.Cores.Nintendo.SubGBHawk
 
 			bool ret = pass_a_frame;
 
-			if (pass_a_frame) { frame_cycle = 0; }
+			if (pass_a_frame) 
+			{
+				// clear the screen as needed
+				if (_GBCore.ppu.clear_screen)
+				{
+					_GBCore.clear_screen_func();
+				}
+
+				// reset the frame cycle counter
+				frame_cycle = 0; 
+			}
 			current_cycle = 0;
 			
 			_isLag = pass_a_frame;
@@ -71,6 +79,9 @@ namespace BizHawk.Emulation.Cores.Nintendo.SubGBHawk
 			}
 
 			reset_frame = false;
+
+			_frame++;
+
 			return ret;
 		}
 

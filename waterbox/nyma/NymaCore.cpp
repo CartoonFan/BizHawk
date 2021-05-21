@@ -23,9 +23,8 @@ struct InitData
 	const char* FileNameFull;
 };
 
-enum { MAX_PORTS = 16 };
-enum { MAX_PORT_DATA = 16 };
-static uint8_t InputPortData[(MAX_PORTS + 1) * MAX_PORT_DATA];
+enum { MAX_INPUT_DATA = 256 };
+static uint8_t InputPortData[MAX_INPUT_DATA];
 
 bool LagFlag;
 void (*InputCallback)();
@@ -46,13 +45,14 @@ static void Setup()
 	);
 	EES = new EmulateSpecStruct();
 	EES->surface = Surf;
-	EES->VideoFormatChanged = true;
 	EES->LineWidths = new int32_t[Game->fb_height];
 	memset(EES->LineWidths, 0xff, Game->fb_height * sizeof(int32_t));
 	EES->SoundBuf = samples;
 	EES->SoundBufMaxSize = 22050;
-	EES->SoundFormatChanged = true;
 	EES->SoundRate = 44100;
+
+	if (Game->FormatsChanged)
+		Game->FormatsChanged(EES);
 }
 
 ECL_EXPORT bool InitRom(const InitData& data)
@@ -142,8 +142,6 @@ ECL_EXPORT void FrameAdvance(MyFrameInfo& frame)
 		Game->TransformInput();
 	Game->Emulate(EES);
 
-	EES->VideoFormatChanged = false;
-	EES->SoundFormatChanged = false;
 	frame.Cycles = EES->MasterCycles;
 	frame.Lagged = LagFlag;
 	if (!(frame.BizhawkFlags & BizhawkFlags::SkipSoundening))
@@ -185,9 +183,13 @@ ECL_EXPORT void FrameAdvance(MyFrameInfo& frame)
 
 			for (int line = lineStart; line < lineEnd; line++)
 			{
-				memcpy(dst, src, (multiWidth ? EES->LineWidths[line] : w) * sizeof(uint32_t));
-				src += srcp;
-				dst += dstp;
+				auto lw = multiWidth ? EES->LineWidths[line] : w;
+				if (MDFN_LIKELY(lw > 0))
+				{
+					memcpy(dst, src, lw * sizeof(uint32_t));
+					src += srcp;
+					dst += dstp;
+				}
 			}
 		}
 		else
@@ -208,7 +210,7 @@ ECL_EXPORT void FrameAdvance(MyFrameInfo& frame)
 					memcpy(dst, src, w * sizeof(uint32_t));
 					dst += dstp;
 				}
-				else
+				else if (MDFN_LIKELY(w > 0))
 				{
 					// stretch horizontal
 					int wf = Game->lcm_width / w;
@@ -244,6 +246,10 @@ struct SystemInfo
 	int32_t FpsFixed;
 	int32_t LcmWidth;
 	int32_t LcmHeight;
+	int32_t PointerScaleX;
+	int32_t PointerScaleY;
+	int32_t PointerOffsetX;
+	int32_t PointerOffsetY;
 };
 SystemInfo SI;
 
@@ -257,6 +263,10 @@ ECL_EXPORT SystemInfo* GetSystemInfo()
 	SI.FpsFixed = Game->fps;
 	SI.LcmWidth = Game->lcm_width;
 	SI.LcmHeight = Game->lcm_height;
+	SI.PointerScaleX = Game->mouse_scale_x;
+	SI.PointerScaleY = Game->mouse_scale_y;
+	SI.PointerOffsetX = Game->mouse_offs_x;
+	SI.PointerOffsetY = Game->mouse_offs_y;
 	return &SI;
 } 
 
@@ -277,10 +287,16 @@ ECL_EXPORT void SetInputCallback(void (*cb)())
 
 ECL_EXPORT void SetInputDevices(const char** devices)
 {
-	for (unsigned port = 0; port < MAX_PORTS && devices[port]; port++)
+	for (unsigned port = 0, dataStart = 0; devices[port]; port++)
 	{
-		std::string dev(devices[port]);
-		Game->SetInput(port, dev.c_str(), &InputPortData[port * MAX_PORT_DATA]);
+		unsigned dataSize = 0;
+		for (auto const& device: Game->PortInfo[port].DeviceInfo)
+		{
+			if (strcmp(device.ShortName, devices[port]) == 0)
+				dataSize = device.IDII.InputByteSize;
+		}
+		Game->SetInput(port, devices[port], &InputPortData[dataStart]);
+		dataStart += dataSize;
 	}
 }
 
@@ -421,6 +437,19 @@ ECL_EXPORT void DumpSettings()
 	FileStream f("settings", FileStream::MODE_WRITE);
 	f.write(fbb.GetBufferPointer(), fbb.GetSize());
 }
+}
+
+ECL_EXPORT void NotifySettingChanged(const char* name)
+{
+	for (auto a = Game->Settings; a->name; a++)
+	{
+		if (strcmp(a->name, name) == 0)
+		{
+			if (a->ChangeNotification)
+				a->ChangeNotification(name);
+			return;
+		}
+	}
 }
 
 static FrameCallback FrameThreadProc = nullptr;

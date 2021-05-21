@@ -1,15 +1,16 @@
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using BizHawk.Client.Common;
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
-namespace BizHawk.Common.Tests.Client.Common.Movie
+namespace BizHawk.Tests.Client.Common.Movie
 {
 	[TestClass]
 	public class LogGeneratorTests
 	{
 		private SimpleController _boolController = null!;
-		private SimpleController _floatController = null!;
+		private SimpleController _axisController = null!;
 
 		[TestInitialize]
 		public void Initializer()
@@ -19,17 +20,9 @@ namespace BizHawk.Common.Tests.Client.Common.Movie
 				Definition = new ControllerDefinition { BoolButtons = { "A" } }
 			};
 
-			_floatController = new SimpleController
+			_axisController = new SimpleController
 			{
-				Definition = new ControllerDefinition
-				{
-					AxisControls = { "StickX", "StickY" },
-					AxisRanges =
-					{
-						new ControllerDefinition.AxisRange(0, 100, 200),
-						new ControllerDefinition.AxisRange(0, 100, 200)
-					}
-				}
+				Definition = new ControllerDefinition().AddXYPair("Stick{0}", AxisPairOrientation.RightAndUp, 0.RangeTo(200), 100)
 			};
 		}
 
@@ -71,7 +64,7 @@ namespace BizHawk.Common.Tests.Client.Common.Movie
 		[TestMethod]
 		public void GenerateLogEntry_Floats()
 		{
-			var lg = new Bk2LogEntryGenerator("NES", _floatController);
+			var lg = new Bk2LogEntryGenerator("NES", _axisController);
 			var actual = lg.GenerateLogEntry();
 			Assert.AreEqual("|    0,    0,|", actual);
 		}

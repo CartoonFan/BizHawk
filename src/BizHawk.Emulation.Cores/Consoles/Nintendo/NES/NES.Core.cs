@@ -3,6 +3,7 @@
 using System;
 using System.Linq;
 
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Components.M6502;
 
@@ -18,15 +19,17 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 		public APU apu;
 		public byte[] ram;
 		public byte[] CIRAM; //AKA nametables
-		string game_name = ""; //friendly name exposed to user and used as filename base
+		private string game_name = ""; //friendly name exposed to user and used as filename base
 		internal CartInfo cart; //the current cart prototype. should be moved into the board, perhaps
 		internal INesBoard Board; //the board hardware that is currently driving things
-		EDetectionOrigin origin = EDetectionOrigin.None;
-		int sprdma_countdown;
+		private EDetectionOrigin origin = EDetectionOrigin.None;
+		private int sprdma_countdown;
 
 		public bool _irq_apu; //various irq signals that get merged to the cpu irq pin
 		
-		/// <summary>clock speed of the main cpu in hz</summary>
+		/// <summary>
+		/// Clock speed of the main cpu in hz.  Used to time audio synthesis, which runs off the cpu clock.
+		/// </summary>
 		public int cpuclockrate { get; private set; }
 
 		//user configuration 
@@ -48,22 +51,24 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 
 		// cheat addr index tracker
 		// disables all cheats each frame
-		public int[] cheat_indexes = new int[0x10000];
-		public byte[] cheat_active = new byte[0x10000];
+		public int[] cheat_addresses = new int[0x1000];
+		public byte[] cheat_value = new byte[0x1000];
+		public int[] cheat_compare_val = new int[0x1000];
+		public int[] cheat_compare_type = new int[0x1000];
 		public int num_cheats;
 
 		// new input system
-		NESControlSettings ControllerSettings; // this is stored internally so that a new change of settings won't replace
-		IControllerDeck ControllerDeck;
-		byte latched4016;
+		private readonly NESControlSettings ControllerSettings; // this is stored internally so that a new change of settings won't replace
+		private IControllerDeck ControllerDeck;
+		private byte latched4016;
 
 		private DisplayType _display_type = DisplayType.NTSC;
 
 		//Sound config
 		public void SetVol1(int v) { apu.m_vol = v; }
 
-		BlipBuffer blip = new BlipBuffer(4096);
-		const int blipbuffsize = 4096;
+		private BlipBuffer blip = new BlipBuffer(4096);
+		private const int blipbuffsize = 4096;
 
 		public int old_s = 0;
 
@@ -157,11 +162,10 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 				}
 			}
 
-			// Add in the reset timing float control for subneshawk
-			if (using_reset_timing && ControllerDefinition.AxisControls.Count == 0)
+			// Add in the reset timing axis for subneshawk
+			if (using_reset_timing && ControllerDefinition.Axes.Count == 0)
 			{
-				ControllerDefinition.AxisControls.Add("Reset Cycle");
-				ControllerDefinition.AxisRanges.Add(new ControllerDefinition.AxisRange(0, 0, 500000));
+				ControllerDefinition.AddAxis("Reset Cycle", 0.RangeTo(500000), 0);
 			}
 
 			// don't replace the magicSoundProvider on reset, as it's not needed
@@ -173,9 +177,9 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 				case DisplayType.PAL:
 					apu = new APU(this, apu, true);
 					ppu.region = PPU.Region.PAL;
-					VsyncNum = 50;
-					VsyncDen = 1;
 					cpuclockrate = 1662607;
+					VsyncNum = cpuclockrate * 2;
+					VsyncDen = 66495;
 					cpu_sequence = cpu_sequence_PAL;
 					_display_type = DisplayType.PAL;
 					ClockRate = 5320342.5;
@@ -183,9 +187,9 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 				case DisplayType.NTSC:
 					apu = new APU(this, apu, false);
 					ppu.region = PPU.Region.NTSC;
-					VsyncNum = 39375000;
-					VsyncDen = 655171;
 					cpuclockrate = 1789773;
+					VsyncNum = cpuclockrate * 2;
+					VsyncDen = 59561;
 					cpu_sequence = cpu_sequence_NTSC;
 					ClockRate = 5369318.1818181818181818181818182;
 					break;
@@ -193,9 +197,9 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 				case DisplayType.Dendy:
 					apu = new APU(this, apu, false);
 					ppu.region = PPU.Region.Dendy;
-					VsyncNum = 50;
-					VsyncDen = 1;
 					cpuclockrate = 1773448;
+					VsyncNum = cpuclockrate;
+					VsyncDen = 35464;
 					cpu_sequence = cpu_sequence_NTSC;
 					_display_type = DisplayType.Dendy;
 					ClockRate = 5320342.5;
@@ -276,8 +280,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 
 		private IController _controller = NullController.Instance;
 
-		bool resetSignal;
-		bool hardResetSignal;
+		private bool resetSignal;
+		private bool hardResetSignal;
 		public bool FrameAdvance(IController controller, bool render, bool rendersound)
 		{
 			_controller = controller;
@@ -299,8 +303,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			{
 				HardReset();
 			}
-
-			Frame++;
 
 			//if (resetSignal)
 			//Controller.UnpressButton("Reset");   TODO fix this
@@ -377,6 +379,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			// any cheats still active will be re-applied by the buspoke at the start of the next frame
 			num_cheats = 0;
 
+			Frame++;
+
 			return true;
 		}
 
@@ -425,8 +429,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 		//NTSC:
 		//sequence of ppu clocks per cpu clock: 3
 		public byte[] cpu_sequence;
-		static byte[] cpu_sequence_NTSC = { 3, 3, 3, 3, 3 };
-		static byte[] cpu_sequence_PAL = { 3, 3, 3, 4, 3 };
+		private static readonly byte[] cpu_sequence_NTSC = { 3, 3, 3, 3, 3 };
+		private static readonly byte[] cpu_sequence_PAL = { 3, 3, 3, 4, 3 };
 		public int cpu_deadcounter;
 
 		public int oam_dma_index;
@@ -661,7 +665,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			return 0xFF;
 		}
 
-		void WriteReg(int addr, byte val)
+		private void WriteReg(int addr, byte val)
 		{
 			switch (addr)
 			{
@@ -738,7 +742,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			}
 		}
 
-		void write_joyport(byte value)
+		private void write_joyport(byte value)
 		{
 			var si = new StrobeInfo(latched4016, value);
 			ControllerDeck.Strobe(si, _controller);
@@ -751,7 +755,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			}
 		}
 
-		byte read_joyport(int addr)
+		private byte read_joyport(int addr)
 		{
 			InputCallbacks.Call();
 			lagged = false;
@@ -771,7 +775,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			return ret;
 		}
 
-		byte peek_joyport(int addr)
+		private byte peek_joyport(int addr)
 		{
 			// at the moment, the new system doesn't support peeks
 			return 0;
@@ -848,7 +852,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			else
 			{
 				// apply a cheat to non-writable memory
-				ApplyCheat(addr, value, null);
+				ApplyCheat(addr, value);
 			}
 		}
 
@@ -903,6 +907,25 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			{
 				// easy optimization, since rom reads are so common, move this up (reordering the rest of these else ifs is not easy)
 				ret = Board.ReadPrg(addr - 0x8000);
+
+				// handle cheats, currently all cheats are of game genie style only
+				if (num_cheats != 0)
+				{
+					for (int i = 0; i < num_cheats; i++)
+					{
+						if (cheat_addresses[i] == addr)
+						{
+							if (cheat_compare_type[i] == 0) 
+							{ 
+								ret = cheat_value[i]; 
+							}
+							else if ((cheat_compare_type[i] == 1) && ((int)ret == cheat_compare_val[i]))
+							{
+								ret = cheat_value[i];
+							}					
+						}
+					}
+				}
 			}
 			else if (addr < 0x0800)
 			{
@@ -929,19 +952,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 				ret = Board.ReadWram(addr - 0x6000);
 			}
 
-			// handle cheats (currently cheats can only freeze read only areas)
-			// there is no way to distinguish between a memory poke and a memory freeze
-			if (num_cheats !=0)
-			{
-				for (int i = 0; i < num_cheats; i++)
-				{
-					if(cheat_indexes[i] == addr)
-					{
-						ret = cheat_active[addr];
-					}
-				}
-			}
-
 			if (MemoryCallbacks.HasReads)
 			{
 				uint flags = (uint)(MemoryCallbackFlags.CPUZero | MemoryCallbackFlags.AccessRead);
@@ -952,13 +962,32 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			return ret;
 		}
 
-		public void ApplyCheat(int addr, byte value, byte? compare)
+		public void ApplyCheat(int addr, byte value)
 		{
 			if (addr <= 0xFFFF)
 			{
-				cheat_indexes[num_cheats] = addr;
-				cheat_active[addr] = value;
-				num_cheats++;
+				cheat_addresses[num_cheats] = addr;
+				cheat_value[num_cheats] = value;
+
+				// there is no compare here
+				cheat_compare_val[num_cheats] = -1;
+				cheat_compare_type[num_cheats] = 0;
+
+				if (num_cheats < 0x1000) { num_cheats++; }
+			}
+		}
+
+		public void ApplyCompareCheat(int addr, byte value, int compare, int comparetype)
+		{
+			if (addr <= 0xFFFF)
+			{
+				cheat_addresses[num_cheats] = addr;
+				cheat_value[num_cheats] = value;
+
+				cheat_compare_val[num_cheats] = compare;
+				cheat_compare_type[num_cheats] = comparetype;
+
+				if (num_cheats < 0x1000) { num_cheats++; }
 			}
 		}
 

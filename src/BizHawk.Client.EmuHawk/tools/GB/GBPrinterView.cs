@@ -21,15 +21,21 @@ namespace BizHawk.Client.EmuHawk
 		[RequiredService]
 		public IGameboyCommon Gb { get; private set; }
 
+		[RequiredService]
+		public IEmulator Emulator { get; set; }
+
 		// If we've connected the printer yet
 		private bool _connected;
 
 		// the entire bitmap
 		private Bitmap _printerHistory;
 
+		protected override string WindowTitleStatic => "Printer Viewer";
+
 		public GBPrinterView()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.GambatteIcon;
 
 			// adjust the color of the printed output to be more papery
 			_paperAdjustment = new ColorMatrix
@@ -52,7 +58,7 @@ namespace BizHawk.Client.EmuHawk
 			Gb?.SetPrinterCallback(null);
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			// Really, there's not necessarily a reason to clear it at all,
 			// since the paper would still be there,
@@ -169,7 +175,7 @@ namespace BizHawk.Client.EmuHawk
 			paperView.Refresh();
 		}
 
-		private void saveImageToolStripMenuItem_Click(object sender, EventArgs e)
+		private void SaveImageToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			// slight hack to use the nice SaveFile() feature of a BmpView
 
@@ -180,10 +186,11 @@ namespace BizHawk.Client.EmuHawk
 				g.DrawImage(_printerHistory, Point.Empty);
 				g.Flush();
 			}
-			toSave.SaveFile();
+
+			toSave.Bmp.SaveAsFile(Game, "Print", Emulator.SystemId, Config.PathEntries, this);
 		}
 
-		private void copyToolStripMenuItem_Click(object sender, EventArgs e)
+		private void CopyToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			Clipboard.SetImage(_printerHistory);
 		}

@@ -4,13 +4,35 @@ using System.IO;
 using BizHawk.Common;
 using BizHawk.Common.PathExtensions;
 using BizHawk.Emulation.Cores;
+using Newtonsoft.Json.Linq;
 
 namespace BizHawk.Client.Common
 {
 	public class Config
 	{
 		public static string ControlDefaultPath => Path.Combine(PathUtils.ExeDirectoryPath, "defctrl.json");
-		
+
+		/// <remarks>
+		/// <c>AppliesTo[0]</c> is used as the group label, and
+		/// <c>Config.PreferredCores[AppliesTo[0]]</c> (lookup on global <see cref="Config"/> instance) determines the currently selected option.
+		/// The tuples' order determines the order of menu items.
+		/// </remarks>
+		public static readonly IReadOnlyList<(string[] AppliesTo, string[] CoreNames)> CorePickerUIData = new List<(string[], string[])>
+		{
+			(new[] { "NES" },
+				new[] { CoreNames.QuickNes, CoreNames.NesHawk, CoreNames.SubNesHawk }),
+			(new[] { "SNES" },
+				new[] { CoreNames.Faust, CoreNames.Snes9X, CoreNames.Bsnes, CoreNames.Bsnes115 }),
+			(new[] { "SGB" },
+				new[] { CoreNames.SameBoy, CoreNames.Bsnes, CoreNames.Bsnes115}),
+			(new[] { "GB", "GBC" },
+				new[] { CoreNames.Gambatte, CoreNames.GbHawk, CoreNames.SubGbHawk }),
+			(new[] { "DGB" },
+				new[] { CoreNames.DualGambatte, CoreNames.GBHawkLink }),
+			(new[] { "PCE", "PCECD", "SGX" },
+				new[] { CoreNames.TurboNyma, CoreNames.HyperNyma, CoreNames.PceHawk })
+		};
+
 		public static string DefaultIniPath { get; private set; } = Path.Combine(PathUtils.ExeDirectoryPath, "config.ini");
 
 		// Shenanigans
@@ -21,12 +43,16 @@ namespace BizHawk.Client.Common
 
 		public Config()
 		{
-			if (AllTrollers.Count == 0 && AllTrollersAutoFire.Count == 0 && AllTrollersAnalog.Count == 0)
+			if (AllTrollers.Count == 0
+				&& AllTrollersAutoFire.Count == 0
+				&& AllTrollersAnalog.Count == 0
+				&& AllTrollersFeedbacks.Count == 0)
 			{
 				var cd = ConfigService.Load<DefaultControls>(ControlDefaultPath);
 				AllTrollers = cd.AllTrollers;
 				AllTrollersAutoFire = cd.AllTrollersAutoFire;
 				AllTrollersAnalog = cd.AllTrollersAnalog;
+				AllTrollersFeedbacks = cd.AllTrollersFeedbacks;
 			}
 		}
 
@@ -37,14 +63,18 @@ namespace BizHawk.Client.Common
 			PathEntries.RefreshTempPath();
 		}
 
-		// Core preference for generic file extension, key: file extension, value: a systemID or empty if no preference
+		/// <summary>
+		/// Used to determine the system a rom is classified as (and thus which core to use) for the times when our romloading autodetect magic can't determine a system.
+		/// Keys are file extensions, include the leading period in each, and use lowercase;
+		/// values are system IDs, use <see cref="string.Empty"/> for unset (though <see langword="null"/> should also work, omitting will remove from UI).
+		/// </summary>
 		public Dictionary<string, string> PreferredPlatformsForExtensions { get; set; } = new Dictionary<string, string>
 		{
-			[".bin"] =  "",
-			[".rom"] =  "",
-			[".iso"] =  "",
+			[".bin"] = "",
+			[".cue"] = "",
 			[".img"] = "",
-			[".cue"] =  ""
+			[".iso"] = "",
+			[".rom"] = "",
 		};
 
 		public PathEntryCollection PathEntries { get; set; } = new PathEntryCollection();
@@ -55,6 +85,8 @@ namespace BizHawk.Client.Common
 
 		// General Client Settings
 		public int InputHotkeyOverrideOptions { get; set; }
+		public bool NoMixedInputHokeyOverride { get; set; }
+
 		public bool StackOSDMessages { get; set; } = true;
 
 		public ZoomFactors TargetZoomFactors { get; set; } = new ZoomFactors();
@@ -89,6 +121,7 @@ namespace BizHawk.Client.Common
 		public bool SkipLagFrame { get; set; }
 		public bool SuppressAskSave { get; set; }
 		public bool AviCaptureOsd { get; set; }
+		public bool AviCaptureLua { get; set; }
 		public bool ScreenshotCaptureOsd { get; set; }
 		public bool FirstBoot { get; set; } = true;
 		public bool UpdateAutoCheckEnabled { get; set; }
@@ -167,7 +200,6 @@ namespace BizHawk.Client.Common
 		public MessagePosition LagCounter { get; set; } = DefaultMessagePositions.LagCounter.Clone();
 		public MessagePosition InputDisplay { get; set; } = DefaultMessagePositions.InputDisplay.Clone();
 		public MessagePosition ReRecordCounter { get; set; } = DefaultMessagePositions.ReRecordCounter.Clone();
-		public MessagePosition MultitrackRecorder { get; set; } = DefaultMessagePositions.MultitrackRecorder.Clone();
 		public MessagePosition Messages { get; set; } = DefaultMessagePositions.Messages.Clone();
 		public MessagePosition Autohold { get; set; } = DefaultMessagePositions.Autohold.Clone();
 		public MessagePosition RamWatches { get; set; } = DefaultMessagePositions.RamWatches.Clone();
@@ -176,7 +208,7 @@ namespace BizHawk.Client.Common
 		public int AlertMessageColor { get; set; } = DefaultMessagePositions.AlertMessageColor;
 		public int LastInputColor { get; set; } = DefaultMessagePositions.LastInputColor;
 		public int MovieInput { get; set; } = DefaultMessagePositions.MovieInput;
-		
+
 		public int DispPrescale { get; set; } = 1;
 
 		private static bool DetectDirectX()
@@ -188,7 +220,6 @@ namespace BizHawk.Client.Common
 			return true;
 		}
 
-		/// <remarks>warning: we don't even want to deal with changing this at runtime. but we want it changed here for config purposes. so don't check this variable. check in GlobalWin or something like that.</remarks>
 		public EDispMethod DispMethod { get; set; } = DetectDirectX() ? EDispMethod.SlimDX9 : EDispMethod.OpenGL;
 
 		public int DispChromeFrameWindowed { get; set; } = 2;
@@ -253,8 +284,8 @@ namespace BizHawk.Client.Common
 		public bool VideoWriterAudioSync { get; set; } = true;
 
 		// Emulation core settings
-		public Dictionary<string, object> CoreSettings { get; set; } = new Dictionary<string, object>();
-		public Dictionary<string, object> CoreSyncSettings { get; set; } = new Dictionary<string, object>();
+		internal Dictionary<string, JToken> CoreSettings { get; set; } = new Dictionary<string, JToken>();
+		internal Dictionary<string, JToken> CoreSyncSettings { get; set; } = new Dictionary<string, JToken>();
 
 		public Dictionary<string, ToolDialogSettings> CommonToolSettings { get; set; } = new Dictionary<string, ToolDialogSettings>();
 		public Dictionary<string, Dictionary<string, object>> CustomToolSettings { get; set; } = new Dictionary<string, Dictionary<string, object>>();
@@ -287,12 +318,10 @@ namespace BizHawk.Client.Common
 		public Dictionary<string, Dictionary<string, string>> AllTrollers { get; set; } = new Dictionary<string, Dictionary<string, string>>();
 		public Dictionary<string, Dictionary<string, string>> AllTrollersAutoFire { get; set; } = new Dictionary<string, Dictionary<string, string>>();
 		public Dictionary<string, Dictionary<string, AnalogBind>> AllTrollersAnalog { get; set; } = new Dictionary<string, Dictionary<string, AnalogBind>>();
+		public Dictionary<string, Dictionary<string, FeedbackBind>> AllTrollersFeedbacks { get; set; } = new Dictionary<string, Dictionary<string, FeedbackBind>>();
 
-		// Core Pick
-		// as this setting spans multiple cores and doesn't actually affect the behavior of any core,
-		// it hasn't been absorbed into the new system
+		/// <remarks>as this setting spans multiple cores and doesn't actually affect the behavior of any core, it hasn't been absorbed into the new system</remarks>
 		public bool GbAsSgb { get; set; }
-		public bool SgbUseBsnes { get; set; }
 		public string LibretroCore { get; set; }
 
 		public Dictionary<string, string> PreferredCores = new Dictionary<string, string>
@@ -301,10 +330,14 @@ namespace BizHawk.Client.Common
 			["SNES"] = CoreNames.Snes9X,
 			["GB"] = CoreNames.Gambatte,
 			["GBC"] = CoreNames.Gambatte,
-			["PCE"] = CoreNames.PceHawk,
-			["PCECD"] = CoreNames.PceHawk,
-			["SGX"] = CoreNames.PceHawk
+			["DGB"] = CoreNames.DualGambatte,
+			["SGB"] = CoreNames.SameBoy,
+			["PCE"] = CoreNames.TurboNyma,
+			["PCECD"] = CoreNames.TurboNyma,
+			["SGX"] = CoreNames.TurboNyma
 		};
+
+		public bool DontTryOtherCores { get; set; }
 
 		// ReSharper disable once UnusedMember.Global
 		public string LastWrittenFrom { get; set; } = VersionInfo.MainVersion;
@@ -312,6 +345,8 @@ namespace BizHawk.Client.Common
 		// ReSharper disable once UnusedMember.Global
 		public string LastWrittenFromDetailed { get; set; } = VersionInfo.GetEmuVersion();
 
-		public EHostInputMethod HostInputMethod { get; set; } = EHostInputMethod.OpenTK;
+		public EHostInputMethod HostInputMethod { get; set; } = OSTailoredCode.IsUnixHost ? EHostInputMethod.OpenTK : EHostInputMethod.DirectInput;
+
+		public bool UseStaticWindowTitles { get; set; }
 	}
 }

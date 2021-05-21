@@ -6,11 +6,7 @@ using Jellyfish.Virtu;
 
 namespace BizHawk.Emulation.Cores.Computers.AppleII
 {
-	[Core(
-		"Virtu",
-		"fool",
-		isPorted: true,
-		isReleased: true)]
+	[PortedCore(CoreNames.Virtu, "fool")]
 	[ServiceNotApplicable(new[] { typeof(IBoardInfo), typeof(IRegionable), typeof(ISaveRam) })]
 	public partial class AppleII : IEmulator, ISoundProvider, IVideoProvider, IStatable, IDriveLight
 	{
@@ -21,15 +17,10 @@ namespace BizHawk.Emulation.Cores.Computers.AppleII
 			AppleIIController.BoolButtons.AddRange(ExtraButtons);
 		}
 
-		public AppleII(CoreComm comm, IEnumerable<byte[]> romSet, Settings settings)
-			: this(comm, romSet.First(), settings)
-		{
-			_romSet = romSet.ToList();
-		}
-
 		[CoreConstructor("AppleII")]
-		public AppleII(CoreComm comm, byte[] rom, Settings settings)
+		public AppleII(CoreLoadParameters<Settings, object> lp)
 		{
+			_romSet = lp.Roms.Select(r => r.RomData).ToList();
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;
 
@@ -38,12 +29,11 @@ namespace BizHawk.Emulation.Cores.Computers.AppleII
 				Header = "6502: PC, opcode, register (A, X, Y, P, SP, Cy), flags (NVTBDIZC)"
 			};
 
-			_disk1 = rom;
-			_romSet.Add(rom);
+			_disk1 = _romSet[0];
 
-			_appleIIRom = comm.CoreFileProvider.GetFirmware(
+			_appleIIRom = lp.Comm.CoreFileProvider.GetFirmware(
 				SystemId, "AppleIIe", true, "The Apple IIe BIOS firmware is required");
-			_diskIIRom = comm.CoreFileProvider.GetFirmware(
+			_diskIIRom = lp.Comm.CoreFileProvider.GetFirmware(
 				SystemId, "DiskII", true, "The DiskII firmware is required");
 
 			_machine = new Components(_appleIIRom, _diskIIRom);
@@ -57,7 +47,7 @@ namespace BizHawk.Emulation.Cores.Computers.AppleII
 			SetCallbacks();
 
 			SetupMemoryDomains();
-			PutSettings(settings ?? new Settings());
+			PutSettings(lp.Settings ?? new Settings());
 		}
 
 		private static readonly ControllerDefinition AppleIIController;
@@ -65,7 +55,7 @@ namespace BizHawk.Emulation.Cores.Computers.AppleII
 		private readonly List<byte[]> _romSet = new List<byte[]>();
 		private readonly ITraceable _tracer;
 
-		private Components _machine;
+		private readonly Components _machine;
 		private byte[] _disk1;
 		private readonly byte[] _appleIIRom;
 		private readonly byte[] _diskIIRom;

@@ -23,15 +23,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.SubGBHawk
 			SyncState(new Serializer(br));
 		}
 
-		public byte[] SaveStateBinary()
-		{
-			using var ms = new MemoryStream();
-			using var bw = new BinaryWriter(ms);
-			SaveStateBinary(bw);
-			bw.Flush();
-			return ms.ToArray();
-		}
-
 		private void SyncState(Serializer ser)
 		{
 			ser.Sync("Lag", ref _lagCount);
@@ -45,6 +36,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SubGBHawk
 			ser.Sync(nameof(input_frame_length), ref input_frame_length);
 			ser.Sync(nameof(input_frame_length_int), ref input_frame_length_int);
 			ser.Sync(nameof(CycleCount), ref CycleCount);
+			ser.Sync(nameof(_GBCore.audio.master_audio_clock), ref _GBCore.audio.master_audio_clock);
 		}
 	}
 }

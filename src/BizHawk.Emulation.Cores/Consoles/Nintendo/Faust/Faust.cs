@@ -4,33 +4,57 @@ using BizHawk.Emulation.Cores.Waterbox;
 
 namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Faust
 {
-	[Core("Faust", "Mednafen Team", true, false, "1.24.3", "https://mednafen.github.io/releases/", false)]
+	[PortedCore(CoreNames.Faust, "Mednafen Team", "1.26.1", "https://mednafen.github.io/releases/")]
 	public class Faust : NymaCore, IRegionable
 	{
 		[CoreConstructor("SNES")]
 		public Faust(GameInfo game, byte[] rom, CoreComm comm, string extension,
 			NymaSettings settings, NymaSyncSettings syncSettings, bool deterministic)
-			: base(comm, "SNES", "I don't think anything uses this parameter", settings, syncSettings)
+			: base(comm, "SNES", "SNES Controller", settings, syncSettings)
 		{
 			if (deterministic)
 				// force ST renderer
-				SettingsOverrides.Add("snes_faust.renderer", "0");
+				SettingOverrides.Add("snes_faust.renderer", new() { Hide = true, Default = "0" });
 
 			DoInit<LibNymaCore>(game, rom, null, "faust.wbx", extension, deterministic);
 		}
 
-		protected override IDictionary<string, string> SettingsOverrides { get; } = new Dictionary<string, string>
+		protected override HashSet<string> ComputeHiddenPorts()
 		{
-			// { "snes_faust.renderer", null },
-			{ "snes_faust.affinity.ppu", null },
-			{ "snes_faust.affinity.msu1.audio", null },
-			{ "snes_faust.affinity.msu1.data", null },
-			{ "snes_faust.frame_begin_vblank", null },
-			{ "snes_faust.msu1.resamp_quality", null },
-			{ "snes_faust.spex", null },
-			{ "snes_faust.spex.sound", null },
-			{ "nyma.rtcinitialtime", null },
-			{ "nyma.rtcrealtime", null },
+			var devCount = 8;
+			if (SettingsQuery("snes_faust.input.sport1.multitap") != "1")
+				devCount -= 3;
+			if (SettingsQuery("snes_faust.input.sport2.multitap") != "1")
+				devCount -= 3;
+			var ret = new HashSet<string>();
+			for (var i = 1; i <= 8; i++)
+			{
+				if (i > devCount)
+					ret.Add($"port{i}");
+			}
+			return ret;
+		}
+
+		protected override IDictionary<string, SettingOverride> SettingOverrides { get; } = new Dictionary<string, SettingOverride>
+		{
+			{ "snes_faust.affinity.ppu", new() { Hide = true } },
+			{ "snes_faust.affinity.msu1.audio", new() { Hide = true } },
+			{ "snes_faust.affinity.msu1.data", new() { Hide = true } },
+			{ "snes_faust.frame_begin_vblank", new() { Hide = true } },
+			{ "snes_faust.msu1.resamp_quality", new() { Hide = true } },
+			{ "snes_faust.spex", new() { Hide = true } },
+			{ "snes_faust.spex.sound", new() { Hide = true } },
+			{ "nyma.rtcinitialtime", new() { Hide = true } },
+			{ "nyma.rtcrealtime", new() { Hide = true } },
+
+			{ "snes_faust.resamp_rate_error", new() { Hide = true } },
+			{ "snes_faust.resamp_quality", new() { NonSync = true } },
+			{ "snes_faust.correct_aspect", new() { NonSync = true } },
+			{ "snes_faust.slstart", new() { NonSync = true } },
+			{ "snes_faust.slend", new() { NonSync = true } },
+			{ "snes_faust.slstartp", new() { NonSync = true } },
+			{ "snes_faust.slendp", new() { NonSync = true } },
+			{ "snes_faust.h_filter", new() { NonSync = true } },
 		};
 	}
 }

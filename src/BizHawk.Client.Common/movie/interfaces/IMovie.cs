@@ -1,7 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
-
-using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.Common
@@ -50,7 +49,7 @@ namespace BizHawk.Client.Common
 		int FrameCount { get; }
 
 		/// <summary>
-		/// Gets the actual length of the input log, should only be used by code that needs a the input log length
+		/// Gets the actual length of the input log, should only be used by code that needs the input log length
 		/// specifically, not the frame count
 		/// </summary>
 		int InputLogLength { get; }
@@ -58,7 +57,12 @@ namespace BizHawk.Client.Common
 		/// <summary>
 		/// Gets the actual length of time a movie lasts for. For subframe cores, this will be different then the above two options
 		/// </summary>
-		ulong TimeLength { get; }
+		TimeSpan TimeLength { get; }
+
+		/// <summary>
+		/// Gets the frame rate in frames per second for the movie's system.
+		/// </summary>
+		double FrameRate { get; }
 
 		/// <summary>
 		/// Gets the file extension for the current <see cref="IMovie"/> implementation
@@ -90,14 +94,15 @@ namespace BizHawk.Client.Common
 		string Author { get; set; }
 		string Core { get; set; }
 		string EmulatorVersion { get; set; }
+		string OriginalEmulatorVersion { get; set; }
 		string FirmwareHash { get; set; }
 		string BoardName { get; set; }
 
 		/// <summary>
-		/// Loads from the HawkFile the minimal amount of information needed to determine Header info and Movie length
+		/// Loads from the HawkFile the minimal amount of information needed to determine Header info and Movie length.
 		/// This method is intended to be more performant than a full load
 		/// </summary>
-		bool PreLoadHeaderAndLength(HawkFile hawkFile);
+		bool PreLoadHeaderAndLength();
 		
 		/// <summary>
 		/// Gets the header key value pairs stored in the movie file
@@ -207,8 +212,7 @@ namespace BizHawk.Client.Common
 		void RecordFrame(int frame, IController source);
 
 		/// <summary>
-		/// Instructs the movie to remove all input from its input log after frame,
-		/// After truncating, frame will be the last frame of input in the movie's input log
+		/// Instructs the movie to remove all input from its input log starting with the input at frame.
 		/// </summary>
 		/// <param name="frame">The frame at which to truncate</param>
 		void Truncate(int frame);
@@ -254,6 +258,11 @@ namespace BizHawk.Client.Common
 		public static bool IsFinished(this IMovie movie) => movie?.Mode == MovieMode.Finished;
 		public static bool IsPlayingOrFinished(this IMovie movie) => movie?.Mode == MovieMode.Play || movie?.Mode == MovieMode.Finished;
 		public static bool IsPlayingOrRecording(this IMovie movie) => movie?.Mode == MovieMode.Play || movie?.Mode == MovieMode.Record;
+		/// <summary>
+		/// Emulation is currently right after the movie's last input frame,
+		/// but no further frames have been emulated.
+		/// </summary>
+		public static bool IsAtEnd(this IMovie movie) => movie != null && movie.Emulator?.Frame == movie.InputLogLength;
 
 
 		/// <summary>
@@ -284,7 +293,7 @@ namespace BizHawk.Client.Common
 		}
 
 		/// <summary>
-		/// Sets the given <see cref="emulator"/> save ram if the movie contains save ram
+		/// Sets the given <paramref name="emulator"/> save ram if the movie contains save ram
 		/// and the core supports save ram
 		/// </summary>
 		public static void ProcessSram(this IMovie movie, IEmulator emulator)

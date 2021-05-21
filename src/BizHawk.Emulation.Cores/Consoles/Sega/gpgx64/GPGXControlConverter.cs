@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
@@ -8,7 +10,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 	{
 		// this isn't all done
 
-		struct CName
+		private struct CName
 		{
 			public readonly string Name;
 			public readonly LibGPGX.INPUT_KEYS Key;
@@ -59,6 +61,8 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 		{
 			new CName("Lightgun Trigger", LibGPGX.INPUT_KEYS.INPUT_MENACER_TRIGGER),
 			new CName("Lightgun Start", LibGPGX.INPUT_KEYS.INPUT_MENACER_START),
+			new CName("Lightgun B", LibGPGX.INPUT_KEYS.INPUT_MENACER_B),
+			new CName("Lightgun C", LibGPGX.INPUT_KEYS.INPUT_MENACER_C),
 		};
 
 		private static readonly CName[] Activator = 
@@ -93,13 +97,6 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 			new CName("XE E2", LibGPGX.INPUT_KEYS.INPUT_XE_E2),
 		};
 
-		private static readonly ControllerDefinition.AxisRange MouseRange = new ControllerDefinition.AxisRange(-256, 0, 255);
-		
-		// lightgun needs to be transformed to match the current screen resolution
-		private static readonly ControllerDefinition.AxisRange LightgunRange = new ControllerDefinition.AxisRange(0, 5000, 10000);
-
-		private static readonly ControllerDefinition.AxisRange Xea1PRange = new ControllerDefinition.AxisRange(-128, 0, 127);
-
 		private LibGPGX.InputData _target;
 		private IController _source;
 
@@ -107,14 +104,14 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 		public ControllerDefinition ControllerDef { get; }
 
-		void AddToController(int idx, int player, IEnumerable<CName> buttons)
+		private void AddToController(int idx, int player, IEnumerable<CName> buttons)
 		{
 			foreach (var button in buttons)
 			{
 				string name = $"P{player} {button.Name}";
 				ControllerDef.BoolButtons.Add(name);
 				var buttonFlag = button.Key;
-				_converts.Add(delegate
+				_converts.Add(() =>
 				{
 					if (_source.IsPressed(name))
 					{
@@ -126,13 +123,17 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 		private void DoMouseAnalog(int idx, int player)
 		{
-			string nx = $"P{player} Mouse X";
-			string ny = $"P{player} Mouse Y";
-			ControllerDef.AxisControls.Add(nx);
-			ControllerDef.AxisControls.Add(ny);
-			ControllerDef.AxisRanges.Add(MouseRange);
-			ControllerDef.AxisRanges.Add(MouseRange);
-			_converts.Add(delegate
+			// In "Genesis Technical Bulletin #27" (last seen at http://techdocs.exodusemulator.com/Console/SegaMegaDrive/Documentation.html), some example code for the Genesis is given which describes the 32 bits of Mouse data:
+			// ` ignored YXYX     XXXXXXXX YYYYYYYY`
+			// `0-------_oossCMRL_########_########`
+			// Each axis is represented as 10 bits: 1 `s` bit for sign, 8 bits for the value, and 1 `o` bit indicating whether the value fell outside the range (i.e. abs(val)>=256).
+			// So the range -256..256 includes every normal state, though nothing outside -10..10 is at all useful based on my in-game testing. (Games probably didn't have special checks for -0 or for the overflow bit being used with a value <=255.)
+			// The game in question is Eye of the Beholder, you can FFW to the main menu and get a cursor right away.
+			// --yoshi
+			ControllerDef.AddXYPair($"P{player} Mouse {{0}}", AxisPairOrientation.RightAndUp, (-256).RangeTo(256), 0);
+			var nx = $"P{player} Mouse X";
+			var ny = $"P{player} Mouse Y";
+			_converts.Add(() =>
 			{
 				_target.analog[(2 * idx) + 0] = (short)_source.AxisValue(nx);
 				_target.analog[(2 * idx) + 1] = (short)_source.AxisValue(ny);
@@ -141,13 +142,11 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 		private void DoLightgunAnalog(int idx, int player)
 		{
-			string nx = $"P{player} Lightgun X";
-			string ny = $"P{player} Lightgun Y";
-			ControllerDef.AxisControls.Add(nx);
-			ControllerDef.AxisControls.Add(ny);
-			ControllerDef.AxisRanges.Add(LightgunRange);
-			ControllerDef.AxisRanges.Add(LightgunRange);
-			_converts.Add(delegate
+			// lightgun needs to be transformed to match the current screen resolution
+			ControllerDef.AddXYPair($"P{player} Lightgun {{0}}", AxisPairOrientation.RightAndUp, 0.RangeTo(10000), 5000); //TODO verify direction against hardware
+			var nx = $"P{player} Lightgun X";
+			var ny = $"P{player} Lightgun Y";
+			_converts.Add(() =>
 			{
 				_target.analog[(2 * idx) + 0] = (short)(_source.AxisValue(nx) / 10000.0f * (ScreenWidth - 1));
 				_target.analog[(2 * idx) + 1] = (short)(_source.AxisValue(ny) / 10000.0f * (ScreenHeight - 1));
@@ -156,16 +155,11 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 		private void DoXea1PAnalog(int idx, int player)
 		{
-			string nx = $"P{player} Stick X";
-			string ny = $"P{player} Stick Y";
-			string nz = $"P{player} Stick Z";
-			ControllerDef.AxisControls.Add(nx);
-			ControllerDef.AxisControls.Add(ny);
-			ControllerDef.AxisControls.Add(nz);
-			ControllerDef.AxisRanges.Add(Xea1PRange);
-			ControllerDef.AxisRanges.Add(Xea1PRange);
-			ControllerDef.AxisRanges.Add(Xea1PRange);
-			_converts.Add(delegate
+			ControllerDef.AddXYZTriple($"P{player} Stick {{0}}", (-128).RangeTo(127), 0);
+			var nx = $"P{player} Stick X";
+			var ny = $"P{player} Stick Y";
+			var nz = $"P{player} Stick Z";
+			_converts.Add(() =>
 			{
 				_target.analog[(2 * idx) + 0] = (short)_source.AxisValue(nx);
 				_target.analog[(2 * idx) + 1] = (short)_source.AxisValue(ny);

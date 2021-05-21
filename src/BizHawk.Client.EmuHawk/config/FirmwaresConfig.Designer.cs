@@ -1,4 +1,6 @@
-﻿namespace BizHawk.Client.EmuHawk
+﻿using BizHawk.WinForms.Controls;
+
+namespace BizHawk.Client.EmuHawk
 {
     partial class FirmwaresConfig
     {
@@ -40,26 +42,26 @@
 			this.columnHeader8 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.columnHeader7 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.lvFirmwaresContextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
-			this.tsmiSetCustomization = new System.Windows.Forms.ToolStripMenuItem();
-			this.tsmiClearCustomization = new System.Windows.Forms.ToolStripMenuItem();
-			this.tsmiInfo = new System.Windows.Forms.ToolStripMenuItem();
-			this.tsmiCopy = new System.Windows.Forms.ToolStripMenuItem();
+			this.tsmiSetCustomization = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.tsmiClearCustomization = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.tsmiInfo = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.tsmiCopy = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.toolStrip1 = new ToolStripEx();
 			this.tbbGroup = new System.Windows.Forms.ToolStripButton();
-			this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
+			this.toolStripSeparator2 = new BizHawk.WinForms.Controls.ToolStripSeparatorEx();
 			this.tbbScan = new System.Windows.Forms.ToolStripButton();
 			this.tbbOrganize = new System.Windows.Forms.ToolStripButton();
 			this.tbbImport = new System.Windows.Forms.ToolStripButton();
 			this.tbbClose = new System.Windows.Forms.ToolStripButton();
-			this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
+			this.toolStripSeparator1 = new BizHawk.WinForms.Controls.ToolStripSeparatorEx();
 			this.tbbCloseReload = new System.Windows.Forms.ToolStripButton();
 			this.tbbOpenFolder = new System.Windows.Forms.ToolStripButton();
 			this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
 			this.panel2 = new System.Windows.Forms.Panel();
-			this.linkBasePath = new System.Windows.Forms.LinkLabel();
-			this.label1 = new System.Windows.Forms.Label();
-			this.label2 = new System.Windows.Forms.Label();
+			this.linkBasePath = new System.Windows.Forms.Label();
+			this.label1 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label2 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
 			this.lvFirmwaresContextMenuStrip.SuspendLayout();
 			this.panel1.SuspendLayout();
@@ -98,11 +100,11 @@
 			this.lvFirmwares.TabIndex = 24;
 			this.lvFirmwares.UseCompatibleStateImageBehavior = false;
 			this.lvFirmwares.View = System.Windows.Forms.View.Details;
-			this.lvFirmwares.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.lvFirmwares_ColumnClick);
-			this.lvFirmwares.DragDrop += new System.Windows.Forms.DragEventHandler(this.lvFirmwares_DragDrop);
-			this.lvFirmwares.DragEnter += new System.Windows.Forms.DragEventHandler(this.lvFirmwares_DragEnter);
-			this.lvFirmwares.KeyDown += new System.Windows.Forms.KeyEventHandler(this.lvFirmwares_KeyDown);
-			this.lvFirmwares.MouseClick += new System.Windows.Forms.MouseEventHandler(this.lvFirmwares_MouseClick);
+			this.lvFirmwares.ColumnClick += new System.Windows.Forms.ColumnClickEventHandler(this.LvFirmwares_ColumnClick);
+			this.lvFirmwares.DragDrop += new System.Windows.Forms.DragEventHandler(this.LvFirmwares_DragDrop);
+			this.lvFirmwares.DragEnter += new System.Windows.Forms.DragEventHandler(this.LvFirmwares_DragEnter);
+			this.lvFirmwares.KeyDown += new System.Windows.Forms.KeyEventHandler(this.LvFirmwares_KeyDown);
+			this.lvFirmwares.MouseClick += new System.Windows.Forms.MouseEventHandler(this.LvFirmwares_MouseClick);
 			// 
 			// columnHeader5
 			// 
@@ -150,35 +152,27 @@
             this.tsmiCopy});
 			this.lvFirmwaresContextMenuStrip.Name = "lvFirmwaresContextMenuStrip";
 			this.lvFirmwaresContextMenuStrip.Size = new System.Drawing.Size(182, 92);
-			this.lvFirmwaresContextMenuStrip.Opening += new System.ComponentModel.CancelEventHandler(this.lvFirmwaresContextMenuStrip_Opening);
+			this.lvFirmwaresContextMenuStrip.Opening += new System.ComponentModel.CancelEventHandler(this.LvFirmwaresContextMenuStrip_Opening);
 			// 
 			// tsmiSetCustomization
 			// 
-			this.tsmiSetCustomization.Name = "tsmiSetCustomization";
-			this.tsmiSetCustomization.Size = new System.Drawing.Size(181, 22);
 			this.tsmiSetCustomization.Text = "&Set Customization";
-			this.tsmiSetCustomization.Click += new System.EventHandler(this.tsmiSetCustomization_Click);
+			this.tsmiSetCustomization.Click += new System.EventHandler(this.TsmiSetCustomization_Click);
 			// 
 			// tsmiClearCustomization
 			// 
-			this.tsmiClearCustomization.Name = "tsmiClearCustomization";
-			this.tsmiClearCustomization.Size = new System.Drawing.Size(181, 22);
 			this.tsmiClearCustomization.Text = "C&lear Customization";
-			this.tsmiClearCustomization.Click += new System.EventHandler(this.tsmiClearCustomization_Click);
+			this.tsmiClearCustomization.Click += new System.EventHandler(this.TsmiClearCustomization_Click);
 			// 
 			// tsmiInfo
 			// 
-			this.tsmiInfo.Name = "tsmiInfo";
-			this.tsmiInfo.Size = new System.Drawing.Size(181, 22);
 			this.tsmiInfo.Text = "&Info";
-			this.tsmiInfo.Click += new System.EventHandler(this.tsmiInfo_Click);
+			this.tsmiInfo.Click += new System.EventHandler(this.TsmiInfo_Click);
 			// 
 			// tsmiCopy
 			// 
-			this.tsmiCopy.Name = "tsmiCopy";
-			this.tsmiCopy.Size = new System.Drawing.Size(181, 22);
 			this.tsmiCopy.Text = "&Copy";
-			this.tsmiCopy.Click += new System.EventHandler(this.tsmiCopy_Click);
+			this.tsmiCopy.Click += new System.EventHandler(this.TsmiCopy_Click);
 			// 
 			// panel1
 			// 
@@ -192,7 +186,6 @@
 			// 
 			// toolStrip1
 			// 
-			this.toolStrip1.ClickThrough = true;
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tbbGroup,
             this.toolStripSeparator2,
@@ -205,9 +198,7 @@
             this.tbbOpenFolder});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
 			this.toolStrip1.Name = "toolStrip1";
-			this.toolStrip1.Size = new System.Drawing.Size(824, 25);
 			this.toolStrip1.TabIndex = 23;
-			this.toolStrip1.Text = "toolStrip1";
 			// 
 			// tbbGroup
 			// 
@@ -215,65 +206,50 @@
 			this.tbbGroup.CheckOnClick = true;
 			this.tbbGroup.CheckState = System.Windows.Forms.CheckState.Checked;
 			this.tbbGroup.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-			this.tbbGroup.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.placeholder_bitmap;
 			this.tbbGroup.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tbbGroup.Name = "tbbGroup";
 			this.tbbGroup.Size = new System.Drawing.Size(44, 22);
 			this.tbbGroup.Text = "Group";
-			this.tbbGroup.Click += new System.EventHandler(this.tbbGroup_Click);
-			// 
-			// toolStripSeparator2
-			// 
-			this.toolStripSeparator2.Name = "toolStripSeparator2";
-			this.toolStripSeparator2.Size = new System.Drawing.Size(6, 25);
+			this.tbbGroup.Click += new System.EventHandler(this.TbbGroup_Click);
 			// 
 			// tbbScan
 			// 
 			this.tbbScan.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-			this.tbbScan.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.placeholder_bitmap;
 			this.tbbScan.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tbbScan.Name = "tbbScan";
 			this.tbbScan.Size = new System.Drawing.Size(36, 22);
 			this.tbbScan.Text = "Scan";
-			this.tbbScan.Click += new System.EventHandler(this.tbbScan_Click);
+			this.tbbScan.Click += new System.EventHandler(this.TbbScan_Click);
 			// 
 			// tbbOrganize
 			// 
 			this.tbbOrganize.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-			this.tbbOrganize.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.placeholder_bitmap;
 			this.tbbOrganize.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tbbOrganize.Name = "tbbOrganize";
 			this.tbbOrganize.Size = new System.Drawing.Size(58, 22);
 			this.tbbOrganize.Text = "Organize";
-			this.tbbOrganize.Click += new System.EventHandler(this.tbbOrganize_Click);
+			this.tbbOrganize.Click += new System.EventHandler(this.TbbOrganize_Click);
 			// 
 			// tbbImport
 			// 
 			this.tbbImport.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-			this.tbbImport.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.placeholder_bitmap;
 			this.tbbImport.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tbbImport.Name = "tbbImport";
 			this.tbbImport.Size = new System.Drawing.Size(47, 22);
 			this.tbbImport.Text = "Import";
-			this.tbbImport.Click += new System.EventHandler(this.tbbImport_Click);
+			this.tbbImport.Click += new System.EventHandler(this.TbbImport_Click);
 			// 
 			// tbbClose
 			// 
 			this.tbbClose.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
 			this.tbbClose.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-			this.tbbClose.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.placeholder_bitmap;
 			this.tbbClose.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tbbClose.Margin = new System.Windows.Forms.Padding(0, 1, 2, 2);
 			this.tbbClose.Name = "tbbClose";
 			this.tbbClose.Size = new System.Drawing.Size(40, 22);
 			this.tbbClose.Text = "Close";
-			this.tbbClose.Click += new System.EventHandler(this.tbbClose_Click);
-			// 
-			// toolStripSeparator1
-			// 
+			this.tbbClose.Click += new System.EventHandler(this.TbbClose_Click);
 			this.toolStripSeparator1.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
-			this.toolStripSeparator1.Name = "toolStripSeparator1";
-			this.toolStripSeparator1.Size = new System.Drawing.Size(6, 25);
 			this.toolStripSeparator1.Visible = false;
 			// 
 			// tbbCloseReload
@@ -281,24 +257,22 @@
 			this.tbbCloseReload.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
 			this.tbbCloseReload.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
 			this.tbbCloseReload.Enabled = false;
-			this.tbbCloseReload.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.placeholder_bitmap;
 			this.tbbCloseReload.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tbbCloseReload.Name = "tbbCloseReload";
 			this.tbbCloseReload.Size = new System.Drawing.Size(129, 22);
 			this.tbbCloseReload.Text = "Close and reload ROM";
 			this.tbbCloseReload.ToolTipText = "Close and reload ROM";
 			this.tbbCloseReload.Visible = false;
-			this.tbbCloseReload.Click += new System.EventHandler(this.tbbCloseReload_Click);
+			this.tbbCloseReload.Click += new System.EventHandler(this.TbbCloseReload_Click);
 			// 
 			// tbbOpenFolder
 			// 
 			this.tbbOpenFolder.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-			this.tbbOpenFolder.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.placeholder_bitmap;
 			this.tbbOpenFolder.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tbbOpenFolder.Name = "tbbOpenFolder";
 			this.tbbOpenFolder.Size = new System.Drawing.Size(128, 22);
 			this.tbbOpenFolder.Text = "Open Firmware Folder";
-			this.tbbOpenFolder.Click += new System.EventHandler(this.tbbOpenFolder_Click);
+			this.tbbOpenFolder.Click += new System.EventHandler(this.TbbOpenFolder_Click);
 			// 
 			// tableLayoutPanel1
 			// 
@@ -333,31 +307,24 @@
 			// linkBasePath
 			// 
 			this.linkBasePath.AutoSize = true;
-			this.linkBasePath.Location = new System.Drawing.Point(125, 0);
+			this.linkBasePath.Location = new System.Drawing.Point(295, 0);
 			this.linkBasePath.Name = "linkBasePath";
 			this.linkBasePath.Size = new System.Drawing.Size(55, 13);
 			this.linkBasePath.TabIndex = 27;
 			this.linkBasePath.TabStop = true;
 			this.linkBasePath.Text = "linkLabel1";
-			this.linkBasePath.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkBasePath_LinkClicked);
 			// 
 			// label1
 			// 
-			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(3, 0);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(119, 13);
-			this.label1.TabIndex = 25;
-			this.label1.Text = "Firmwares Search Path:";
+			this.label1.Text = "Scan will look under (change in Config > Paths... > Global):";
 			// 
 			// label2
 			// 
-			this.label2.AutoSize = true;
 			this.label2.Location = new System.Drawing.Point(5, 5);
 			this.label2.Margin = new System.Windows.Forms.Padding(5, 5, 3, 0);
 			this.label2.Name = "label2";
-			this.label2.Size = new System.Drawing.Size(395, 13);
-			this.label2.TabIndex = 27;
 			this.label2.Text = "Firmware such as BIOS files are copyrighted material and not provided by BizHawk";
 			// 
 			// FirmwaresConfig
@@ -395,7 +362,7 @@
 				private System.Windows.Forms.Panel panel1;
 				private ToolStripEx toolStrip1;
 				private System.Windows.Forms.ToolStripButton tbbGroup;
-				private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
+				private BizHawk.WinForms.Controls.ToolStripSeparatorEx toolStripSeparator2;
 				private System.Windows.Forms.ToolStripButton tbbScan;
 				private System.Windows.Forms.ToolStripButton tbbOrganize;
 				private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
@@ -405,19 +372,19 @@
 				private System.Windows.Forms.ColumnHeader columnHeader3;
 				private System.Windows.Forms.ColumnHeader columnHeader7;
 				private System.Windows.Forms.ContextMenuStrip lvFirmwaresContextMenuStrip;
-				private System.Windows.Forms.ToolStripMenuItem tsmiSetCustomization;
-				private System.Windows.Forms.ToolStripMenuItem tsmiClearCustomization;
-				private System.Windows.Forms.ToolStripMenuItem tsmiInfo;
-				private System.Windows.Forms.ToolStripMenuItem tsmiCopy;
+				private BizHawk.WinForms.Controls.ToolStripMenuItemEx tsmiSetCustomization;
+				private BizHawk.WinForms.Controls.ToolStripMenuItemEx tsmiClearCustomization;
+				private BizHawk.WinForms.Controls.ToolStripMenuItemEx tsmiInfo;
+				private BizHawk.WinForms.Controls.ToolStripMenuItemEx tsmiCopy;
 				private System.Windows.Forms.Panel panel2;
-				private System.Windows.Forms.LinkLabel linkBasePath;
-				private System.Windows.Forms.Label label1;
+				private System.Windows.Forms.Label linkBasePath;
+				private BizHawk.WinForms.Controls.LocLabelEx label1;
 				private System.Windows.Forms.ToolStripButton tbbImport;
 				private System.Windows.Forms.ColumnHeader columnHeader8;
 				private System.Windows.Forms.ToolStripButton tbbClose;
 				private System.Windows.Forms.ToolStripButton tbbCloseReload;
-				private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-		private System.Windows.Forms.Label label2;
+				private BizHawk.WinForms.Controls.ToolStripSeparatorEx toolStripSeparator1;
+		private BizHawk.WinForms.Controls.LocLabelEx label2;
         private System.Windows.Forms.ToolStripButton tbbOpenFolder;
     }
 }

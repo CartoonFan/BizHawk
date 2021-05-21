@@ -4,11 +4,12 @@ using System.IO;
 
 namespace BizHawk.Common
 {
-	/// <seealso cref="IFileDearchivalMethod"/>
+	/// <seealso cref="IFileDearchivalMethod{T}"/>
 	public interface IHawkArchiveFile : IDisposable
 	{
 		void ExtractFile(int index, Stream stream);
 
-		List<HawkArchiveFileItem> Scan();
+		/// <returns><see langword="null"/> on failure</returns>
+		List<HawkArchiveFileItem>? Scan();
 	}
 }

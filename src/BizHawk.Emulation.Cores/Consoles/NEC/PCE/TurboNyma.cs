@@ -11,58 +11,81 @@ using BizHawk.Emulation.DiscSystem;
 
 namespace BizHawk.Emulation.Cores.Consoles.NEC.PCE
 {
-	[Core(CoreNames.TurboNyma, "Mednafen Team", true, true, "1.24.3", "https://mednafen.github.io/releases/", false)]
+	[PortedCore(CoreNames.TurboNyma, "Mednafen Team", "1.26.1", "https://mednafen.github.io/releases/")]
 	public class TurboNyma : NymaCore, IRegionable, IPceGpuView
 	{
-		private readonly LibTurboNyma _terboGrafix;
+		private readonly LibTurboNyma _turboNyma;
+		private readonly bool _hasCds;
 
-		[CoreConstructor(new[] { "PCE", "SGX" })]
-		public TurboNyma(GameInfo game, byte[] rom, CoreComm comm, string extension,
-			NymaSettings settings, NymaSyncSettings syncSettings, bool deterministic)
-			: base(comm, "PCE", "PC Engine Controller", settings, syncSettings)
+		[CoreConstructor("PCE")]
+		[CoreConstructor("SGX")]
+		[CoreConstructor("PCECD")]
+		public TurboNyma(CoreLoadParameters<NymaSettings, NymaSyncSettings> lp)
+			: base(lp.Comm, "PCE", "PC Engine Controller", lp.Settings, lp.SyncSettings)
 		{
-			if (game["BRAM"])
-				SettingsOverrides["pce.disable_bram_hucard"] = "0";
-			_terboGrafix = DoInit<LibTurboNyma>(game, rom, null, "pce.wbx", extension, deterministic);
-		}
-		public TurboNyma(GameInfo game, Disc[] discs, CoreComm comm,
-			NymaSettings settings, NymaSyncSettings syncSettings, bool deterministic)
-			: base(comm, "PCE", "PC Engine Controller", settings, syncSettings)
-		{
-			var firmwares = new Dictionary<string, ValueTuple<string, string>>
+			var firmwares = new Dictionary<string, FirmwareID>();
+			if (lp.Discs.Count > 0)
 			{
-				{ "FIRMWARE:syscard3.pce", ("PCECD", "Bios") },
-				{ "FIRMWARE:gecard.pce", ("PCECD", "GE-Bios") },
-			};
-			_terboGrafix = DoInit<LibTurboNyma>(game, null, discs, "pce.wbx", null, deterministic, firmwares);
+				_hasCds = true;
+				var ids = lp.Discs.Select(dg => dg.DiscType).ToList();
+				if (ids.Contains(DiscType.TurboCD))
+					firmwares.Add("FIRMWARE:syscard3.pce", new("PCECD", "Bios"));
+				if (ids.Contains(DiscType.TurboGECD))
+					firmwares.Add("FIRMWARE:gecard.pce", new("PCECD", "GE-Bios"));
+			}
+			else if (lp.Roms.Count == 1)
+			{
+				if (lp.Game["BRAM"])
+					SettingOverrides["pce.disable_bram_hucard"].Default = "0";
+			}
+
+			_turboNyma = DoInit<LibTurboNyma>(lp, "turbo.wbx", firmwares);
 		}
 
-		public override string SystemId => IsSgx ? "SGX" : "PCE";
+		public override string SystemId => IsSgx
+			? _hasCds ? "SGXCD" : "SGX"
+			: _hasCds ? "PCECD" : "PCE";
 
-		protected override IDictionary<string, string> SettingsOverrides { get; } = new Dictionary<string, string>
+		protected override IDictionary<string, SettingOverride> SettingOverrides { get; } = new Dictionary<string, SettingOverride>
 		{
 			// handled by hawk
-			{ "pce.cdbios", null },
-			{ "pce.gecdbios", null },
+			{ "pce.cdbios", new() { Hide = true } },
+			{ "pce.gecdbios", new() { Hide = true } },
 			// so fringe i don't want people bothering me about it
-			{ "pce.resamp_rate_error", null },
-			{ "pce.vramsize", null },
+			{ "pce.resamp_rate_error", new() { Hide = true } },
+			{ "pce.vramsize", new() { Hide = true } },
 			// match hawk behavior on BRAM, instead of giving every game BRAM
-			{ "pce.disable_bram_hucard", "1" },
+			{ "pce.disable_bram_hucard", new() { Hide = true, Default = "1" } },
 			// nyma settings that don't apply here
 			// TODO: not quite happy with how this works out
-			{ "nyma.rtcinitialtime", null },
-			{ "nyma.rtcrealtime", null },
-		};
-		protected override ISet<string> NonSyncSettingNames { get; } = new HashSet<string>
-		{
-			"pce.slstart", "pce.slend",
+			{ "nyma.rtcinitialtime", new() { Hide = true } },
+			{ "nyma.rtcrealtime", new() { Hide = true } },
+			// these can be changed dynamically
+			{ "pce.slstart", new() { NonSync = true, NoRestart = true } },
+			{ "pce.slend", new() { NonSync = true, NoRestart = true } },
+
+			{ "pce.h_overscan", new() { NonSync = true } },
+			{ "pce.mouse_sensitivity", new() { Hide = true } },
+			{ "pce.nospritelimit", new() { NonSync = true } },
+			{ "pce.resamp_quality", new() { NonSync = true } },
+
+			{ "pce.cdpsgvolume", new() { NonSync = true, NoRestart = true } },
+			{ "pce.cddavolume", new() { NonSync = true, NoRestart = true } },
+			{ "pce.adpcmvolume", new() { NonSync = true, NoRestart = true } },
 		};
 
-		protected override IDictionary<string, string> ButtonNameOverrides { get; } = new Dictionary<string, string>
+		protected override HashSet<string> ComputeHiddenPorts()
 		{
-			{ "RIGHT →", "Right up my arse" },
-		};
+			if (SettingsQuery("pce.input.multitap") == "1")
+			{
+				return new HashSet<string>();
+			}
+
+			return new HashSet<string>
+			{
+				"port2", "port3", "port4", "port5"
+			};
+		}
 
 		// pce always has two layers, sgx always has 4, and mednafen knows this
 		public bool IsSgx => SettingsInfo.LayerNames.Count == 4;
@@ -73,7 +96,7 @@ namespace BizHawk.Emulation.Cores.Consoles.NEC.PCE
 			{
 				var palScratch = new int[512];
 				var v = new PceGpuData();
-				_terboGrafix.GetVramInfo(v, vdc);
+				_turboNyma.GetVramInfo(v, vdc);
 				fixed(int* p = palScratch)
 				{
 					for (var i = 0; i < 512; i++)

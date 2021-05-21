@@ -1,6 +1,6 @@
 ﻿using System;
-
 using BizHawk.Client.Common;
+using BizHawk.Client.EmuHawk.Properties;
 using BizHawk.Emulation.Cores.Calculators;
 using BizHawk.Emulation.Common;
 
@@ -12,9 +12,16 @@ namespace BizHawk.Client.EmuHawk
 		// ReSharper disable once UnusedAutoPropertyAccessor.Local
 		public TI83 Emu { get; private set; }
 
+		protected override string WindowTitleStatic => "TI-83 Virtual KeyPad";
+
 		public TI83KeyPad()
 		{
 			InitializeComponent();
+			Icon = Resources.CalculateIcon;
+			LeftButton.Image = Resources.WhiteTriLeft;
+			RightButton.Image = Resources.WhiteTriRight;
+			DownButton.Image = Resources.WhiteTriDown;
+			UpButton.Image = Resources.WhiteTriUp;
 		}
 
 		[ConfigPersist]
@@ -30,12 +37,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void KeyClick(string name)
 		{
-			GlobalWin.InputManager.ClickyVirtualPadController.Click(name);
-		}
-
-		public void Restart()
-		{
-			// Do nothing
+			InputManager.ClickyVirtualPadController.Click(name);
 		}
 
 		private void SetToolTips()
@@ -97,11 +99,6 @@ namespace BizHawk.Client.EmuHawk
 		private void StopToolTips()
 		{
 			KeyPadToolTips.RemoveAll();
-		}
-
-		private void ExitMenuItem_Click(object sender, EventArgs e)
-		{
-			Close();
 		}
 
 		private void OptionsSubMenu_DropDownOpened(object sender, EventArgs e)

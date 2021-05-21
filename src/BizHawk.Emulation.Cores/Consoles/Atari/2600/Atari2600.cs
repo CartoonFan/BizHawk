@@ -6,17 +6,13 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Atari.Atari2600
 {
-	[Core(
-		"Atari2600Hawk",
-		"Micro500, Alyosha, adelikat, natt",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.Atari2600Hawk, "Micro500, Alyosha, adelikat, natt")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight), typeof(ISaveRam) })]
 	public partial class Atari2600 : IEmulator, IDebuggable, IInputPollable, IBoardInfo, IRomInfo,
 		IRegionable, ICreateGameDBEntries, ISettable<Atari2600.A2600Settings, Atari2600.A2600SyncSettings>
 	{
 		[CoreConstructor("A26")]
-		public Atari2600(GameInfo game, byte[] rom, object settings, object syncSettings)
+		public Atari2600(GameInfo game, byte[] rom, Atari2600.A2600Settings settings, Atari2600.A2600SyncSettings syncSettings)
 		{
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;
@@ -33,7 +29,7 @@ namespace BizHawk.Emulation.Cores.Atari.Atari2600
 			Rom = rom;
 			_game = game;
 
-			if (!game.GetOptionsDict().ContainsKey("m"))
+			if (!game.GetOptions().ContainsKey("m"))
 			{
 				game.AddOption("m", DetectMapper(rom));
 			}
@@ -46,7 +42,7 @@ namespace BizHawk.Emulation.Cores.Atari.Atari2600
 				game.AddOption("m", "F8_sega");
 			}
 
-			Console.WriteLine("Game uses mapper " + game.GetOptionsDict()["m"]);
+			Console.WriteLine("Game uses mapper " + game.GetOptions()["m"]);
 			Console.WriteLine(Rom.HashSHA1());
 			RebootCore();
 			SetupMemoryDomains();
@@ -90,21 +86,21 @@ namespace BizHawk.Emulation.Cores.Atari.Atari2600
 		private static bool DetectPal(GameInfo game, byte[] rom)
 		{
 			// force NTSC mode for the new core we instantiate
-			var newgame = game.Clone();
-			if (newgame["PAL"])
+			var newGame = game.Clone();
+			if (newGame["PAL"])
 			{
-				newgame.RemoveOption("PAL");
+				newGame.RemoveOption("PAL");
 			}
 
-			if (!newgame["NTSC"])
+			if (!newGame["NTSC"])
 			{
-				newgame.AddOption("NTSC");
+				newGame.AddOption("NTSC", "");
 			}
 
 			// here we advance past start up irregularities to see how long a frame is based on calls to Vsync
 			// we run 72 frames, then run 270 scanlines worth of cycles.
 			// if we don't hit a new frame, we can be pretty confident we are in PAL
-			using var emu = new Atari2600(newgame, rom, null, null);
+			using var emu = new Atari2600(newGame, rom, null, null);
 			for (int i = 0; i < 72; i++)
 			{
 				emu.FrameAdvance(NullController.Instance, false, false);

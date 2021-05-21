@@ -3,6 +3,9 @@ using System.IO;
 using System.Net;
 using System.Threading;
 
+using BizHawk.Client.Common;
+using BizHawk.Common;
+
 using Newtonsoft.Json.Linq;
 
 namespace BizHawk.Client.EmuHawk
@@ -12,28 +15,30 @@ namespace BizHawk.Client.EmuHawk
 		private static readonly string _latestVersionInfoURL = "https://api.github.com/repos/TASVideos/BizHawk/releases/latest";
 		private static readonly TimeSpan _minimumCheckDuration = TimeSpan.FromHours(8);
 
+		public static Config GlobalConfig;
+
 		private static bool AutoCheckEnabled
 		{
-			get => GlobalWin.Config.UpdateAutoCheckEnabled;
-			set => GlobalWin.Config.UpdateAutoCheckEnabled = value;
+			get => GlobalConfig.UpdateAutoCheckEnabled;
+			set => GlobalConfig.UpdateAutoCheckEnabled = value;
 		}
 
 		private static DateTime? LastCheckTimeUTC
 		{
-			get => GlobalWin.Config.UpdateLastCheckTimeUtc;
-			set => GlobalWin.Config.UpdateLastCheckTimeUtc = value;
+			get => GlobalConfig.UpdateLastCheckTimeUtc;
+			set => GlobalConfig.UpdateLastCheckTimeUtc = value;
 		}
 
 		private static string LatestVersion
 		{
-			get => GlobalWin.Config.UpdateLatestVersion;
-			set => GlobalWin.Config.UpdateLatestVersion = value;
+			get => GlobalConfig.UpdateLatestVersion;
+			set => GlobalConfig.UpdateLatestVersion = value;
 		}
 
 		private static string IgnoreVersion
 		{
-			get => GlobalWin.Config.UpdateIgnoreVersion;
-			set => GlobalWin.Config.UpdateIgnoreVersion = value;
+			get => GlobalConfig.UpdateIgnoreVersion;
+			set => GlobalConfig.UpdateIgnoreVersion = value;
 		}
 
 		public static void BeginCheck(bool skipCheck = false)
@@ -50,8 +55,8 @@ namespace BizHawk.Client.EmuHawk
 		public static bool IsNewVersionAvailable =>
 			AutoCheckEnabled
 			&& LatestVersion != IgnoreVersion
-			&& ParseVersion(VersionInfo.MainVersion) != 0 // Avoid notifying if current version string is invalid
-			&& ParseVersion(LatestVersion) > ParseVersion(VersionInfo.MainVersion);
+			&& VersionInfo.VersionStrToInt(VersionInfo.MainVersion) != 0U // Avoid notifying if current version string is invalid
+			&& VersionInfo.VersionStrToInt(LatestVersion) > VersionInfo.VersionStrToInt(VersionInfo.MainVersion);
 
 		public static void IgnoreNewVersion()
 		{
@@ -95,26 +100,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private static string ValidateVersionNumberString(string versionNumber)
 		{
-			return versionNumber != null && ParseVersion(versionNumber) != 0 ? versionNumber : "";
-		}
-
-		// Major version goes in the first 16 bits, and so on, up to 4 parts
-		private static ulong ParseVersion(string str)
-		{
-			string[] split = str.Split('.');
-			if (split.Length > 4) return 0;
-			ulong version = 0;
-			for (int i = 0; i < split.Length; i++)
-			{
-				if (!ushort.TryParse(split[i], out var versionPart))
-				{
-					return 0;
-				}
-
-				version |= (ulong)versionPart << (48 - (i * 16));
-			}
-
-			return version;
+			return versionNumber != null && VersionInfo.VersionStrToInt(versionNumber) != 0U ? versionNumber : "";
 		}
 
 		private static void OnCheckComplete()

@@ -5,6 +5,19 @@ using BizHawk.Common.NumberExtensions;
 namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 {
 	// Timer Emulation
+	// NOTES: 
+	//
+	// Currently, a starting value of 0xFFFE passes all tests. GBA is not explicitly tested but for now is set to 0xFFFE as well.
+	//
+	// Some additional glitches happen on GBC, but they are non-deterministic and not emulated here
+	//
+	// TODO: On GBA models, there is a race condition when enabling with a change in bit check
+	// that would result in a state change that is not consistent in all models, see tac_set_disabled.gbc
+	//
+	// TODO: On GBA only, there is a glitch where if the current timer control is 7 and the written value is 7 and
+	// there is a coincident timer increment, there will be an additional increment along with this write.
+	// not sure it effects all models or of exact details, see test tac_set_timer_disabled.gbc
+
 	public class Timer
 	{
 		public GBHawk Core { get; set; }
@@ -15,6 +28,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		public byte timer_old;
 		public byte timer_control;
 		public byte pending_reload;
+		public bool IRQ_block; // if the timer IRQ happens on the same cycle as a previous one was cleared, the IRQ is set
 		public bool old_state;
 		public bool state;
 		public bool reload_block;
@@ -26,7 +40,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 			switch (addr)
 			{
-				case 0xFF04: ret = (byte)(divider_reg >> 8);		break; // DIV register
+				case 0xFF04: ret = (byte)(divider_reg >> 8); 		break; // DIV register
 				case 0xFF05: ret = timer;							break; // TIMA (Timer Counter)
 				case 0xFF06: ret = timer_reload;					break; // TMA (Timer Modulo)
 				case 0xFF07: ret = timer_control;					break; // TAC (Timer Control)
@@ -41,6 +55,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			{
 				// DIV register
 				case 0xFF04:
+					// NOTE: even though there is an automatic increment directly after the CPU loop, 
+					// it is still expected that 0 is written here
 					divider_reg = 0;
 					break;
 
@@ -66,19 +82,70 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 				// TAC (Timer Control)
 				case 0xFF07:
-					timer_control = (byte)((timer_control & 0xf8) | (value & 0x7)); // only bottom 3 bits function
+					byte timer_control_old = timer_control;
 
-					// NOTE: On GBA only, there is a glitch where if the current timer control is 7 and the written value is 7 and
-					// there is a coincident timer increment, there will be an additional increment along with this write.
-					// not sure it effects all models or of exact details, see test tac_set_timer_disabled.gbc
+					// Console.WriteLine("tac: " + timer_control + " " + value + " " + timer + " " + divider_reg);
+					timer_control = (byte)((timer_control & 0xf8) | (value & 0x7)); // only bottom 3 bits function
+					
+					if (!timer_control_old.Bit(2) && timer_control.Bit(2) && Core.is_GBC && Core._syncSettings.GBACGB)
+					{
+						bool temp_check_old = false;
+						bool temp_check = false;
+
+						switch (timer_control_old & 3)
+						{
+							case 0:
+								temp_check_old = divider_reg.Bit(9);
+								break;
+							case 1:
+								temp_check_old = divider_reg.Bit(3);
+								break;
+							case 2:
+								temp_check_old = divider_reg.Bit(5);
+								break;
+							case 3:
+								temp_check_old = divider_reg.Bit(7);
+								break;
+						}
+
+						switch (timer_control & 3)
+						{
+							case 0:
+								temp_check = divider_reg.Bit(9);
+								break;
+							case 1:
+								temp_check = divider_reg.Bit(3);
+								break;
+							case 2:
+								temp_check = divider_reg.Bit(5);
+								break;
+							case 3:
+								temp_check = divider_reg.Bit(7);
+								break;
+						}
+
+						if (temp_check_old && !temp_check)
+						{
+							timer_old = timer;
+							timer++;
+							Console.WriteLine("glitch");
+							// if overflow happens, set the interrupt flag and reload the timer (if applicable)
+							if (timer < timer_old)
+							{
+								pending_reload = 4;
+								reload_block = false;
+							}
+						}
+					}
+					
 					break;
 			}
 		}
 
 		public void tick()
 		{
-			divider_reg++;
-
+			IRQ_block = false;
+			
 			// pick a bit to test based on the current value of timer control
 			switch (timer_control & 3)
 			{
@@ -101,7 +168,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 			// this procedure allows several glitchy timer ticks, since it only measures falling edge of the state
 			// so things like turning the timer off and resetting the divider will tick the timer
-			// NOTE: Some additional glitches happen on GBC, but they are non-deterministic and not emulated here
 			if (old_state && !state)
 			{
 				timer_old = timer;
@@ -117,10 +183,9 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					}
 					else
 					{
-						//TODO: Check if timer still gets reloaded if TAC diabled causes overflow
-						if (Core.REG_FFFF.Bit(2)) { Core.cpu.FlagI = true; }
-						Core.REG_FF0F |= 0x04;
-					}				
+						pending_reload = 3;
+						reload_block = false;
+					}					
 				}
 			}
 
@@ -138,19 +203,22 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 					// set interrupts
 					if (Core.REG_FFFF.Bit(2)) { Core.cpu.FlagI = true; }
+					//Console.WriteLine("timer " + Core.cpu.TotalExecutedCycles);
 					Core.REG_FF0F |= 0x04;
+					IRQ_block = true;
 				}
 			}
 		}
 
 		public void Reset()
 		{
-			divider_reg = 0;
+			divider_reg = (ushort)(Core.is_GBC ?  0xFFFE : 0xFFFE);
 			timer_reload = 0;
 			timer = 0;
 			timer_old = 0;
 			timer_control = 0xF8;
 			pending_reload = 0;
+			IRQ_block = false;
 			old_state = false;
 			state = false;
 			reload_block = false;
@@ -165,6 +233,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			ser.Sync(nameof(timer_old), ref timer_old);
 			ser.Sync(nameof(timer_control), ref timer_control);
 			ser.Sync(nameof(pending_reload), ref pending_reload);
+			ser.Sync(nameof(IRQ_block), ref IRQ_block);
 			ser.Sync(nameof(old_state), ref old_state);
 			ser.Sync(nameof(state), ref state);
 			ser.Sync(nameof(reload_block), ref reload_block);

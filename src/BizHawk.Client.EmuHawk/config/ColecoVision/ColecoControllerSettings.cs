@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Windows.Forms;
 using BizHawk.Emulation.Cores.ColecoVision;
 
@@ -7,23 +6,22 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class ColecoControllerSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly ColecoVision.ColecoSyncSettings _syncSettings;
 
 		public ColecoControllerSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			ColecoVision.ColecoSyncSettings settings)
 		{
 			_mainForm = mainForm;
 			_syncSettings = settings;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void ColecoControllerSettings_Load(object sender, EventArgs e)
 		{
-			var possibleControllers = ColecoVisionControllerDeck.ValidControllerTypes.Select(t => t.Key);
-
-			foreach (var val in possibleControllers)
+			foreach (var val in ColecoVisionControllerDeck.ControllerCtors.Keys)
 			{
 				Port1ComboBox.Items.Add(val);
 				Port2ComboBox.Items.Add(val);

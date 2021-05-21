@@ -10,29 +10,46 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 {
 	public class O2HawkControllerDeck
 	{
-		public O2HawkControllerDeck(string controller1Name, string controller2Name)
+		public O2HawkControllerDeck(string controller1Name, string controller2Name, bool is_G7400)
 		{
-			if (!ValidControllerTypes.ContainsKey(controller1Name))
-			{
-				throw new InvalidOperationException("Invalid controller type: " + controller1Name);
-			}
+			Port1 = ControllerCtors.TryGetValue(controller1Name, out var ctor1)
+				? ctor1(1)
+				: throw new InvalidOperationException($"Invalid controller type: {controller1Name}");
+			Port2 = ControllerCtors.TryGetValue(controller2Name, out var ctor2)
+				? ctor2(2)
+				: throw new InvalidOperationException($"Invalid controller type: {controller2Name}");
 
-			if (!ValidControllerTypes.ContainsKey(controller2Name))
+			if (is_G7400)
 			{
-				throw new InvalidOperationException("Invalid controller type: " + controller2Name);
-			}
-
-			Port1 = (IPort)Activator.CreateInstance(ValidControllerTypes[controller1Name], 1);
-			Port2 = (IPort)Activator.CreateInstance(ValidControllerTypes[controller2Name], 2);
-
-			Definition = new ControllerDefinition
-			{
-				Name = Port1.Definition.Name,
-				BoolButtons = Port1.Definition.BoolButtons
+				Definition = new ControllerDefinition
+				{
+					Name = Port1.Definition.Name,
+					BoolButtons = Port1.Definition.BoolButtons
 					.Concat(Port2.Definition.BoolButtons)
 					.Concat(new[]
 					{
-						"0", "1", "2", "3", "4", "5", "6", "7", 
+						"0", "1", "2", "3", "4", "5", "6", "7",
+						"8", "9",         "SPC", "?", "L", "P",
+						"+", "W", "E", "R", "T", "U", "I", "O",
+						"Q", "S", "D", "F", "G", "H", "J", "K",
+						"A", "Z", "X", "C", "V", "B", "M", "PERIOD",
+						"-", "*", "/", "=", "YES", "NO", "CLR", "ENT",
+						"Reset","Power", 
+						"SHIFT", "LOCK", "CTNL", ":", "|", "]", "..", ",", "<", "ESC", "BREAK", "RET"
+					})
+					.ToList()
+				};
+			}
+			else
+			{
+				Definition = new ControllerDefinition
+				{
+					Name = Port1.Definition.Name,
+					BoolButtons = Port1.Definition.BoolButtons
+					.Concat(Port2.Definition.BoolButtons)
+					.Concat(new[]
+					{
+						"0", "1", "2", "3", "4", "5", "6", "7",
 						"8", "9",         "SPC", "?", "L", "P",
 						"+", "W", "E", "R", "T", "U", "I", "O",
 						"Q", "S", "D", "F", "G", "H", "J", "K",
@@ -41,11 +58,10 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 						"Reset","Power"
 					})
 					.ToList()
-			};
+				};
+			}
 
-			Definition.AxisControls.AddRange(Port1.Definition.AxisControls);
-
-			Definition.AxisRanges.AddRange(Port1.Definition.AxisRanges);
+			foreach (var kvp in Port1.Definition.Axes) Definition.Axes.Add(kvp);
 		}
 
 		public byte ReadPort1(IController c)
@@ -72,24 +88,13 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 
 		private readonly IPort Port1, Port2;
 
-		private static Dictionary<string, Type> _controllerTypes;
+		private static IReadOnlyDictionary<string, Func<int, IPort>> _controllerCtors;
 
-		public static Dictionary<string, Type> ValidControllerTypes
-		{
-			get
+		public static IReadOnlyDictionary<string, Func<int, IPort>> ControllerCtors => _controllerCtors
+			??= new Dictionary<string, Func<int, IPort>>
 			{
-				if (_controllerTypes == null)
-				{
-					_controllerTypes = typeof(O2HawkControllerDeck).Assembly
-						.GetTypes()
-						.Where(t => typeof(IPort).IsAssignableFrom(t))
-						.Where(t => !t.IsAbstract && !t.IsInterface)
-						.ToDictionary(tkey => tkey.DisplayName());
-				}
-
-				return _controllerTypes;
-			}
-		}
+				[typeof(StandardControls).DisplayName()] = portNum => new StandardControls(portNum)
+			};
 
 		public static string DefaultControllerName => typeof(StandardControls).DisplayName();
 	}

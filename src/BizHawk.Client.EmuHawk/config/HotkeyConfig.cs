@@ -16,19 +16,20 @@ namespace BizHawk.Client.EmuHawk
 		{
 			_config = config;
 			InitializeComponent();
+			Icon = Properties.Resources.HotKeysIcon;
 			tabPage1.Focus();
 		}
 
 		protected override void OnActivated(EventArgs e)
 		{
 			base.OnActivated(e);
-			Input.Instance.ControlInputFocus(this, Input.InputFocus.Mouse, true);
+			Input.Instance.ControlInputFocus(this, ClientInputFocus.Mouse, true);
 		}
 
 		protected override void OnDeactivate(EventArgs e)
 		{
 			base.OnDeactivate(e);
-			Input.Instance.ControlInputFocus(this, Input.InputFocus.Mouse, false);
+			Input.Instance.ControlInputFocus(this, ClientInputFocus.Mouse, false);
 		}
 
 		private void HotkeyConfig_Load(object sender, EventArgs e)
@@ -207,9 +208,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SearchBox_KeyDown(object sender, KeyEventArgs e)
 		{
-			// Tab or Enter
-			if (!e.Control && !e.Alt && !e.Shift &&
-				(e.KeyCode == Keys.Enter || e.KeyCode == Keys.Tab))
+			if (e.IsPressed(Keys.Enter) || e.IsPressed(Keys.Tab))
 			{
 				var b = _config.HotkeyBindings.FirstOrDefault(x => string.Compare(x.DisplayName, SearchBox.Text, true) == 0);
 

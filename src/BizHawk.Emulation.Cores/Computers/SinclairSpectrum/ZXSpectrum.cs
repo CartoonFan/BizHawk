@@ -14,39 +14,30 @@ namespace BizHawk.Emulation.Cores.Computers.SinclairSpectrum
 	/// ZXHawk: Core Class
 	/// * Main Initialization *
 	/// </summary>
-	[Core(
-		"ZXHawk",
-		"Asnivor, Alyosha",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.ZXHawk, "Asnivor, Alyosha")]
 	public partial class ZXSpectrum : IRegionable, IDriveLight
 	{
-		public ZXSpectrum(CoreComm comm, IEnumerable<byte[]> files, List<GameInfo> game, object settings, object syncSettings, bool? deterministic)
+		[CoreConstructor("ZXSpectrum")]
+		public ZXSpectrum(
+			CoreLoadParameters<ZXSpectrumSettings, ZXSpectrumSyncSettings> lp)
 		{
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;
-			CoreComm = comm;
+			CoreComm = lp.Comm;
 
-			_gameInfo = game;
+			_gameInfo = lp.Roms.Select(r => r.Game).ToList();
 
 			_cpu = new Z80A();
 
 			_tracer = new TraceBuffer { Header = _cpu.TraceHeader };
 
-			_files = files?.ToList() ?? new List<byte[]>();
+			_files = lp.Roms.Select(r => r.RomData).ToList();
 
-			if (settings == null)
-			{
-				settings = new ZXSpectrumSettings();
-			}
+			var settings = lp.Settings ?? new ZXSpectrumSettings();
+			var syncSettings = lp.SyncSettings ?? new ZXSpectrumSyncSettings();
 
-			if (syncSettings == null)
-			{
-				syncSettings = new ZXSpectrumSyncSettings();
-			}
-
-			PutSyncSettings((ZXSpectrumSyncSettings)syncSettings);
-			PutSettings((ZXSpectrumSettings)settings);
+			PutSyncSettings(syncSettings);
+			PutSettings(settings);
 
 			var joysticks = new List<JoystickType>
 			{
@@ -57,14 +48,14 @@ namespace BizHawk.Emulation.Cores.Computers.SinclairSpectrum
 
 			DeterministicEmulation = ((ZXSpectrumSyncSettings)syncSettings).DeterministicEmulation;
 
-			if (deterministic != null && deterministic == true)
+			if (lp.DeterministicEmulationRequested)
 			{
 				if (!DeterministicEmulation)
 				{
 					CoreComm.Notify("Forcing Deterministic Emulation");
 				}
 
-				DeterministicEmulation = deterministic.Value;
+				DeterministicEmulation = lp.DeterministicEmulationRequested;
 			}
 
 			MachineType = SyncSettings.MachineType;
@@ -164,8 +155,8 @@ namespace BizHawk.Emulation.Cores.Computers.SinclairSpectrum
 
 		public List<GameInfo> _gameInfo;
 
-		public List<GameInfo> _tapeInfo = new List<GameInfo>();
-		public List<GameInfo> _diskInfo = new List<GameInfo>();
+		public readonly IList<GameInfo> _tapeInfo = new List<GameInfo>();
+		public readonly IList<GameInfo> _diskInfo = new List<GameInfo>();
 
 		private SyncSoundMixer SoundMixer;
 
@@ -173,12 +164,12 @@ namespace BizHawk.Emulation.Cores.Computers.SinclairSpectrum
 
 		public bool DiagRom = false;
 
-		private List<string> diagRoms = new List<string>
+		private readonly List<string> diagRoms = new List<string>
 		{
 			@"\DiagROM.v28",
 			@"\zx-diagnostics\testrom.bin"
 		};
-		private int diagIndex = 1;
+		private readonly int diagIndex = 1;
 
 		internal CoreComm CoreComm { get; }
 

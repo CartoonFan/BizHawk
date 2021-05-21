@@ -6,17 +6,31 @@ using System.Linq;
 using System.Windows.Forms;
 
 using BizHawk.Client.Common;
+using BizHawk.Client.EmuHawk.Properties;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class MarkerControl : UserControl
+	public partial class MarkerControl : UserControl, IDialogParent
 	{
 		public TAStudio Tastudio { get; set; }
 		public TasMovieMarkerList Markers => Tastudio.CurrentTasMovie.Markers;
 
+		public IDialogController DialogController => Tastudio.MainForm;
+
 		public MarkerControl()
 		{
 			InitializeComponent();
+			JumpToMarkerToolStripMenuItem.Image = Resources.JumpTo;
+			ScrollToMarkerToolStripMenuItem.Image = Resources.ScrollTo;
+			EditMarkerToolStripMenuItem.Image = Resources.Pencil;
+			AddMarkerToolStripMenuItem.Image = Resources.Add;
+			RemoveMarkerToolStripMenuItem.Image = Resources.Delete;
+			JumpToMarkerButton.Image = Resources.JumpTo;
+			EditMarkerButton.Image = Resources.Pencil;
+			AddMarkerButton.Image = Resources.Add;
+			RemoveMarkerButton.Image = Resources.Delete;
+			ScrollToMarkerButton.Image = Resources.ScrollTo;
+			AddMarkerWithTextButton.Image = Resources.AddEdit;
 			SetupColumns();
 			MarkerView.QueryItemBkColor += MarkerView_QueryItemBkColor;
 			MarkerView.QueryItemText += MarkerView_QueryItemText;
@@ -31,13 +45,15 @@ namespace BizHawk.Client.EmuHawk
 				{
 					Name = "FrameColumn",
 					Text = "Frame",
-					UnscaledWidth = 52
+					UnscaledWidth = 52,
+					Type = ColumnType.Text
 				},
 				new RollColumn
 				{
 					Name = "LabelColumn",
 					Text = "",
-					UnscaledWidth = 125
+					UnscaledWidth = 125,
+					Type = ColumnType.Text
 				}
 			});
 		}
@@ -46,6 +62,12 @@ namespace BizHawk.Client.EmuHawk
 
 		private void MarkerView_QueryItemBkColor(int index, RollColumn column, ref Color color)
 		{
+			// This could happen if the control is told to redraw while Tastudio is rebooting, as we would not have a TasMovie just yet
+			if (Tastudio.CurrentTasMovie == null)
+			{
+				return;
+			}
+
 			var prev = Markers.PreviousOrCurrent(Tastudio.Emulator.Frame);
 
 			if (prev != null && index == Markers.IndexOf(prev))
@@ -75,6 +97,12 @@ namespace BizHawk.Client.EmuHawk
 		private void MarkerView_QueryItemText(int index, RollColumn column, out string text, ref int offsetX, ref int offsetY)
 		{
 			text = "";
+
+			// This could happen if the control is told to redraw while Tastudio is rebooting, as we would not have a TasMovie just yet
+			if (Tastudio.CurrentTasMovie == null)
+			{
+				return;
+			}
 
 			if (column.Name == "FrameColumn")
 			{
@@ -128,14 +156,12 @@ namespace BizHawk.Client.EmuHawk
 
 		private void AddMarkerToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			AddMarker();
-			MarkerView_SelectedIndexChanged(null, null);
+			AddMarker(Tastudio.Emulator.Frame);
 		}
 
 		private void AddMarkerWithTextToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			AddMarker(editText: true);
-			MarkerView_SelectedIndexChanged(null, null);
+			AddMarker(Tastudio.Emulator.Frame, true);
 		}
 
 		private void RemoveMarkerToolStripMenuItem_Click(object sender, EventArgs e)
@@ -143,64 +169,51 @@ namespace BizHawk.Client.EmuHawk
 			if (MarkerView.AnyRowsSelected)
 			{
 				SelectedMarkers.ForEach(i => Markers.Remove(i));
-				ShrinkSelection();
+				MarkerView.RowCount = Markers.Count;
 				Tastudio.RefreshDialog();
-				MarkerView_SelectedIndexChanged(null, null);
 			}
 		}
 
-		// feos: not the same as InputRoll.TruncateSelection(), since multiple selection of markers is forbidden
-		// moreover, when the last marker is removed, we need its selection to move to the previous marker
-		// still iterate, so things don't break if multiple selection is allowed someday
-		public void ShrinkSelection()
+		public void UpdateMarkerCount()
 		{
-			if (MarkerView.AnyRowsSelected)
-			{
-				while (MarkerView.SelectedRows.Last() > Markers.Count - 1)
-				{
-					MarkerView.SelectRow(Markers.Count, false);
-					MarkerView.SelectRow(Markers.Count - 1, true);
-				}
-			}
-
+			MarkerView.RowCount = Markers.Count;
 		}
 
-		public void AddMarker(bool editText = false, int? frame = null)
+		public void AddMarker(int frame, bool editText = false)
 		{
-			// feos: we specify the selected frame if we call this from TasView, otherwise marker should be added to the emulated frame
-			var markerFrame = frame ?? Tastudio.Emulator.Frame;
-
+			TasMovieMarker marker;
 			if (editText)
 			{
 				var i = new InputPrompt
 				{
-					Text = $"Marker for frame {markerFrame}",
+					Text = $"Marker for frame {frame}",
 					TextInputType = InputPrompt.InputType.Text,
 					Message = "Enter a message",
 					InitialValue =
-						Markers.IsMarker(markerFrame) ?
-						Markers.PreviousOrCurrent(markerFrame).Message :
+						Markers.IsMarker(frame) ?
+						Markers.PreviousOrCurrent(frame).Message :
 						""
 				};
 
 				var point = Cursor.Position;
 				point.Offset(i.Width / -2, i.Height / -2);
+				i.StartPosition = FormStartPosition.Manual;
+				i.Location = point;
 
-				var result = i.ShowHawkDialog(position: point);
-				if (result == DialogResult.OK)
-				{
-					Markers.Add(new TasMovieMarker(markerFrame, i.PromptText));
-					UpdateTextColumnWidth();
-					UpdateValues();
-				}
+				if (!this.ShowDialogWithTempMute(i).IsOk()) return;
+
+				UpdateTextColumnWidth();
+				marker = new TasMovieMarker(frame, i.PromptText);
 			}
 			else
 			{
-				Markers.Add(new TasMovieMarker(markerFrame));
-				UpdateValues();
+				marker = new TasMovieMarker(frame);
 			}
 
-			MarkerView.ScrollToIndex(Markers.Count - 1);
+			UpdateValues();
+			Markers.Add(marker);
+			var index = Markers.IndexOf(marker);
+			MarkerView.MakeIndexVisible(index);
 			Tastudio.RefreshDialog();
 		}
 
@@ -220,7 +233,6 @@ namespace BizHawk.Client.EmuHawk
 		public void EditMarkerPopUp(TasMovieMarker marker, bool followCursor = false)
 		{
 			var markerFrame = marker.Frame;
-			var point = default(Point);
 			var i = new InputPrompt
 			{
 				Text = $"Marker for frame {markerFrame}",
@@ -234,13 +246,13 @@ namespace BizHawk.Client.EmuHawk
 
 			if (followCursor)
 			{
-				point = Cursor.Position;
+				var point = Cursor.Position;
 				point.Offset(i.Width / -2, i.Height / -2);
+				i.StartPosition = FormStartPosition.Manual;
+				i.Location = point;
 			}
 
-			var result = i.ShowHawkDialog(position: point);
-
-			if (result == DialogResult.OK)
+			if (this.ShowDialogWithTempMute(i) == DialogResult.OK)
 			{
 				marker.Message = i.PromptText;
 				UpdateTextColumnWidth();
@@ -282,11 +294,12 @@ namespace BizHawk.Client.EmuHawk
 
 		// SuuperW: Marker renaming can be done with a right-click.
 		// A much more useful feature would be to easily jump to it.
-		private void MarkerView_MouseDoubleClick(object sender, MouseEventArgs e)
+		private void MarkerView_MouseDoubleClick(object sender, EventArgs e)
 		{
-			if (MarkerView.CurrentCell?.RowIndex != null && MarkerView.CurrentCell.RowIndex < MarkerView.RowCount)
+			if (MarkerView.AnyRowsSelected)
 			{
-				var marker = Markers[MarkerView.CurrentCell.RowIndex.Value];
+				var index = MarkerView.SelectedRows.First();
+				var marker = Markers[index];
 				Tastudio.GoToFrame(marker.Frame);
 			}
 		}
@@ -297,16 +310,10 @@ namespace BizHawk.Client.EmuHawk
 			{
 				var index = MarkerView.SelectedRows.First();
 				var marker = Markers[index];
-
 				return marker.Frame;
 			}
 
 			return -1;
-		}
-
-		private void MarkerView_MouseClick(object sender, MouseEventArgs e)
-		{
-			MarkerContextMenu.Close();
 		}
 	}
 }

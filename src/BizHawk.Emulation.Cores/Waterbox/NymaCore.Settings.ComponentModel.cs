@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Linq;
 using NymaTypes;
@@ -47,7 +47,8 @@ namespace BizHawk.Emulation.Cores.Waterbox
 			var s1 = SettingsInfo.Ports
 				.Select((p, i) => new PortPropertyDescriptor(p, i))
 				.Cast<PropertyDescriptor>();
-			var s2 = SettingsInfo.SyncSettings
+			var s2 = SettingsInfo.AllSettings
+				.Where(s => { var o = SettingsInfo.AllOverrides[s.SettingsKey]; return !o.Hide && !o.NonSync; })
 				.Select(m => MednaPropertyDescriptor.Create(m, true));
 			return new PropertyDescriptorCollection(s1.Concat(s2).ToArray());
 		}
@@ -68,7 +69,8 @@ namespace BizHawk.Emulation.Cores.Waterbox
 		{
 			var s1 = SettingsInfo.LayerNames.Select(l => new LayerPropertyDescriptor(l))
 				.Cast<PropertyDescriptor>();
-			var s2 = SettingsInfo.Settings
+			var s2 = SettingsInfo.AllSettings
+				.Where(s => { var o = SettingsInfo.AllOverrides[s.SettingsKey]; return !o.Hide && o.NonSync; })
 				.Select(m => MednaPropertyDescriptor.Create(m, true));
 			return new PropertyDescriptorCollection(s1.Concat(s2).ToArray());
 		}
@@ -78,7 +80,7 @@ namespace BizHawk.Emulation.Cores.Waterbox
 	public abstract class MednaPropertyDescriptor : PropertyDescriptor
 	{
 		public SettingT Setting { get; private set; }
-		private bool _isSyncSetting;
+		private readonly bool _isSyncSetting;
 		public MednaPropertyDescriptor(SettingT setting, bool isSyncSetting)
 			: base(setting.SettingsKey, new Attribute[0])
 		{
@@ -168,12 +170,16 @@ namespace BizHawk.Emulation.Cores.Waterbox
 		private class MyTypeConverter : TypeConverter
 		{
 			public SettingT Setting { get; set; }
+			// Mednafen includes extra fallback aliases of enums that are nameless, just one way value aliases.
+			// They confuse our code and are not needed here.
+			private IEnumerable<EnumValueT> ValidSettingEnums => Setting.SettingEnums
+				.Where(e => e.Name != null);
 
 			public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType) => sourceType == typeof(string);
 			public override bool CanConvertTo(ITypeDescriptorContext context, Type destinationType) => destinationType == typeof(string);
 			public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
 			{
-				return Setting.SettingEnums
+				return ValidSettingEnums
 					.SingleOrDefault(d => d.Name == (string)value)
 					?.Value
 					?? Setting.DefaultValue;
@@ -181,16 +187,16 @@ namespace BizHawk.Emulation.Cores.Waterbox
 			}
 			public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
 			{
-				return Setting.SettingEnums
+				return ValidSettingEnums
 					.SingleOrDefault(d => d.Value == (string)value)
 					?.Name
-					?? Setting.SettingEnums
+					?? ValidSettingEnums
 					.Single(d => d.Value == Setting.DefaultValue)
 					.Name;
 			}
 
 			public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context) => new StandardValuesCollection(
-				Setting.SettingEnums.Select(e => e.Value).ToList()
+				ValidSettingEnums.Select(e => e.Value).ToList()
 			);
 
 			public override bool GetStandardValuesExclusive(ITypeDescriptorContext context) => true;

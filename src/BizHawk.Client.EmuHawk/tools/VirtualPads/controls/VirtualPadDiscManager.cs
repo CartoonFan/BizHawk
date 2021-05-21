@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Sony.PSX;
@@ -10,40 +9,35 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class VirtualPadDiscManager : UserControl, IVirtualPadControl
 	{
-		public VirtualPadDiscManager(IReadOnlyList<string> buttonNames)
+		private readonly InputManager _inputManager;
+
+		public VirtualPadDiscManager(
+			InputManager inputManager,
+			IEmulator ownerEmulator,
+			string name,
+			IReadOnlyList<string> buttonNames)
 		{
+			_inputManager = inputManager;
+			_ownerEmulator = ownerEmulator;
+			Name = name;
 			InitializeComponent();
+			btnOpen.InputManager = _inputManager;
+			btnClose.InputManager = _inputManager;
 			btnOpen.Name = buttonNames[0];
 			btnClose.Name = buttonNames[1];
 			_discSelectName = buttonNames[2];
 
+			// these need to follow InitializeComponent call
 			UpdateCoreAssociation();
+			UpdateValues();
 		}
 
 		private readonly string _discSelectName;
-		private object _lastCoreOwner;
-		private object _ownerEmulator;
-
-		public object OwnerEmulator
-		{
-			get => _ownerEmulator;
-			set
-			{
-				_ownerEmulator = value;
-				UpdateValues();
-			}
-		}
+		private readonly object _ownerEmulator;
 
 		private void UpdateCoreAssociation()
 		{
-			if (_lastCoreOwner == OwnerEmulator)
-			{
-				return;
-			}
-
-			_lastCoreOwner = OwnerEmulator;
-
-			if (!(OwnerEmulator is Octoshock psx))
+			if (!(_ownerEmulator is Octoshock psx))
 			{
 				return;
 			}
@@ -70,8 +64,7 @@ namespace BizHawk.Client.EmuHawk
 
 		public void UpdateValues()
 		{
-			UpdateCoreAssociation();
-			if (OwnerEmulator is Octoshock psx)
+			if (_ownerEmulator is Octoshock psx)
 			{
 				bool eject = psx.CurrentTrayOpen;
 				bool enableDiscs = eject;
@@ -133,7 +126,7 @@ namespace BizHawk.Client.EmuHawk
 		private void lvDiscs_SelectedIndexChanged(object sender, EventArgs e)
 		{
 			// emergency measure: if no selection, set no disc
-			GlobalWin.InputManager.StickyXorAdapter.SetAxis(_discSelectName, lvDiscs.SelectedIndices.Count == 0 ? 0 : lvDiscs.SelectedIndices[0]);
+			_inputManager.StickyXorAdapter.SetAxis(_discSelectName, lvDiscs.SelectedIndices.Count == 0 ? 0 : lvDiscs.SelectedIndices[0]);
 		}
 
 		private void btnClose_Click(object sender, EventArgs e)

@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -17,7 +15,7 @@ namespace BizHawk.Common
 			//LogFilename = "d:/bizhawk.log";
 			//EnableDomain("CD");
 			//EnableDomain("CPU");
-			//EnableDomain("VDC");  
+			//EnableDomain("VDC");
 			//EnableDomain("MEM");
 		}
 
@@ -50,7 +48,7 @@ namespace BizHawk.Common
 		{
 			if (EnabledLogDomains.Contains(domain))
 			{
-				LogAction(String.Format(msg, vals));
+				LogAction(string.Format(msg, vals));
 			}
 		}
 
@@ -60,13 +58,13 @@ namespace BizHawk.Common
 		}
 
 		// ============== Default Logger Action ==============
-		public static Stream HACK_LOG_STREAM;
+		public static Stream? HACK_LOG_STREAM;
 
 		private static readonly bool LogToConsole = false;
-		private static bool LogToFile = false;
+		private static readonly bool LogToFile = false;
 
 		private const string LogFilename = "bizhawk.txt";
-		private static StreamWriter writer;
+		private static StreamWriter? _writer;
 
 		private static void DefaultLogger(string message)
 		{
@@ -75,15 +73,11 @@ namespace BizHawk.Common
 				Console.WriteLine(message);
 			}
 
-			if (LogToFile && writer == null)
-			{
-				writer = new StreamWriter(LogFilename);
-			}
-
 			if (LogToFile)
 			{
-				writer.WriteLine(message);
-				writer.Flush();
+				_writer ??= new StreamWriter(LogFilename);
+				_writer.WriteLine(message);
+				_writer.Flush();
 			}
 		}
 	}

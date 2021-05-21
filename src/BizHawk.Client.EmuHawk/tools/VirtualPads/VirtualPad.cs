@@ -1,16 +1,50 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 
 using BizHawk.Emulation.Common;
-using System.Drawing;
+using BizHawk.Client.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
 	public partial class VirtualPad : UserControl
 	{
+		private static readonly IReadOnlyDictionary<VGamepadButtonImage, Bitmap> _buttonImages = new Dictionary<VGamepadButtonImage, Bitmap>
+		{
+			[VGamepadButtonImage.BlueArrE] = Properties.Resources.Forward,
+			[VGamepadButtonImage.BlueArrENE] = Properties.Resources.ENE,
+			[VGamepadButtonImage.BlueArrESE] = Properties.Resources.ESE,
+			[VGamepadButtonImage.BlueArrN] = Properties.Resources.BlueUp,
+			[VGamepadButtonImage.BlueArrNE] = Properties.Resources.NE,
+			[VGamepadButtonImage.BlueArrNNE] = Properties.Resources.NNE,
+			[VGamepadButtonImage.BlueArrNNW] = Properties.Resources.NNW,
+			[VGamepadButtonImage.BlueArrNW] = Properties.Resources.NW,
+			[VGamepadButtonImage.BlueArrS] = Properties.Resources.BlueDown,
+			[VGamepadButtonImage.BlueArrSE] = Properties.Resources.SE,
+			[VGamepadButtonImage.BlueArrSSE] = Properties.Resources.SSE,
+			[VGamepadButtonImage.BlueArrSSW] = Properties.Resources.SSW,
+			[VGamepadButtonImage.BlueArrSW] = Properties.Resources.SW,
+			[VGamepadButtonImage.BlueArrW] = Properties.Resources.Back,
+			[VGamepadButtonImage.BlueArrWNW] = Properties.Resources.WNW,
+			[VGamepadButtonImage.BlueArrWSW] = Properties.Resources.WSW,
+			[VGamepadButtonImage.C64Symbol] = Properties.Resources.C64Symbol,
+			[VGamepadButtonImage.Circle] = Properties.Resources.Circle,
+			[VGamepadButtonImage.Cross] = Properties.Resources.Cross,
+			[VGamepadButtonImage.Play] = Properties.Resources.Play,
+			[VGamepadButtonImage.SkipBack] = Properties.Resources.BackMore,
+			[VGamepadButtonImage.Square] = Properties.Resources.Square,
+			[VGamepadButtonImage.Stop] = Properties.Resources.Stop,
+			[VGamepadButtonImage.Triangle] = Properties.Resources.Triangle,
+			[VGamepadButtonImage.YellowArrE] = Properties.Resources.YellowRight,
+			[VGamepadButtonImage.YellowArrN] = Properties.Resources.YellowUp,
+			[VGamepadButtonImage.YellowArrS] = Properties.Resources.YellowDown,
+			[VGamepadButtonImage.YellowArrW] = Properties.Resources.YellowLeft,
+		};
+
 		private readonly PadSchema _schema;
+		private readonly InputManager _inputManager;
 		private bool _readOnly;
 
 		public void UpdateValues()
@@ -36,7 +70,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public VirtualPad(PadSchema schema)
+		public VirtualPad(PadSchema schema, InputManager inputManager)
 		{
 			SetStyle(ControlStyles.AllPaintingInWmPaint, true);
 			SetStyle(ControlStyles.UserPaint, true);
@@ -44,24 +78,27 @@ namespace BizHawk.Client.EmuHawk
 			InitializeComponent();
 			Dock = DockStyle.Top | DockStyle.Left;
 			_schema = schema;
+			_inputManager = inputManager;
 		}
 
 		private void VirtualPadControl_Load(object sender, EventArgs e)
 		{
-			static VirtualPadButton GenVirtualPadButton(ButtonSchema button)
+			static VirtualPadButton GenVirtualPadButton(InputManager inputManager, ButtonSchema button)
 			{
+				var icon = button.Icon == null ? null : _buttonImages[button.Icon.Value];
 				var buttonControl = new VirtualPadButton
 				{
+					InputManager = inputManager,
 					Name = button.Name,
-					Text = button.Icon != null ? null : button.DisplayName,
+					Text = icon != null ? null : button.DisplayName,
 					Location = UIHelper.Scale(button.Location),
-					Image = button.Icon
+					Image = icon
 				};
-				if (button.Icon != null && UIHelper.AutoScaleFactorX > 1F && UIHelper.AutoScaleFactorY > 1F)
+				if (icon != null && UIHelper.AutoScaleFactorX > 1F && UIHelper.AutoScaleFactorY > 1F)
 				{
 					// When scaling up, unfortunately the icon will look too small, but at least we can make the rest of the button bigger
 					buttonControl.AutoSize = false;
-					buttonControl.Size = UIHelper.Scale(button.Icon.Size) + new Size(6, 6);
+					buttonControl.Size = UIHelper.Scale(icon.Size) + new Size(6, 6);
 				}
 				return buttonControl;
 			}
@@ -72,48 +109,57 @@ namespace BizHawk.Client.EmuHawk
 
 			if (_schema.IsConsole)
 			{
-				this.PadBox.ForeColor = SystemColors.HotTrack;
+				PadBox.ForeColor = SystemColors.HotTrack;
 			}
 
 			foreach (var controlSchema in _schema.Buttons)
 			{
 				PadBox.Controls.Add(controlSchema switch
 				{
-					ButtonSchema button => GenVirtualPadButton(button),
-					SingleAxisSchema singleAxis => new VirtualPadAnalogButton
+					ButtonSchema button => GenVirtualPadButton(_inputManager, button),
+					SingleAxisSchema singleAxis => new VirtualPadAnalogButton(
+						_inputManager.StickyXorAdapter,
+						singleAxis.Name,
+						singleAxis.DisplayName,
+						singleAxis.MinValue,
+						singleAxis.MaxValue,
+						singleAxis.IsVertical ? Orientation.Vertical : Orientation.Horizontal
+					)
 					{
-						Name = singleAxis.Name,
-						DisplayName = singleAxis.DisplayName,
 						Location = UIHelper.Scale(singleAxis.Location),
-						Size = UIHelper.Scale(singleAxis.TargetSize),
-						MinValue = singleAxis.MinValue,
-						MaxValue = singleAxis.MaxValue,
-						Orientation = singleAxis.Orientation
+						Size = UIHelper.Scale(singleAxis.TargetSize)
 					},
-					AnalogSchema analog => new VirtualPadAnalogStick
+					AnalogSchema analog => new VirtualPadAnalogStick(
+						_inputManager,
+						analog.Name,
+						analog.SecondaryName,
+						analog.Spec,
+						analog.SecondarySpec
+					)
 					{
-						Name = analog.Name,
-						SecondaryName = analog.SecondaryName,
 						Location = UIHelper.Scale(analog.Location),
-						Size = UIHelper.Scale(new Size(180 + 79, 200 + 9)),
-						RangeX = analog.AxisRange,
-						RangeY = analog.SecondaryAxisRange
+						Size = UIHelper.Scale(new Size(180 + 79, 200 + 9))
 					},
-					TargetedPairSchema targetedPair => new VirtualPadTargetScreen
+					TargetedPairSchema targetedPair => new VirtualPadTargetScreen(
+						_inputManager.StickyXorAdapter,
+						targetedPair.Name,
+						targetedPair.SecondaryName,
+						targetedPair.MaxX,
+						targetedPair.MaxY
+					)
 					{
-						Name = targetedPair.Name,
 						Location = UIHelper.Scale(targetedPair.Location),
 						TargetSize = targetedPair.TargetSize,
-						XName = targetedPair.Name,
-						YName = targetedPair.SecondaryName,
-						RangeX = targetedPair.MaxValue,
-						RangeY = targetedPair.MaxValue //TODO split into MaxX and MaxY, and rename VirtualPadTargetScreen.RangeX/RangeY
 					},
-					DiscManagerSchema discManager => new VirtualPadDiscManager(discManager.SecondaryNames) {
-						Name = discManager.Name,
+					DiscManagerSchema discManager => new VirtualPadDiscManager(
+						_inputManager,
+						discManager.OwnerEmulator,
+						discManager.Name,
+						discManager.SecondaryNames
+					)
+					{
 						Location = UIHelper.Scale(discManager.Location),
-						Size = UIHelper.Scale(discManager.TargetSize),
-						OwnerEmulator = discManager.OwnerEmulator
+						Size = UIHelper.Scale(discManager.TargetSize)
 					},
 					_ => throw new InvalidOperationException()
 				});

@@ -8,12 +8,16 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class LuaRegisteredFunctionsList : Form
 	{
+		private readonly IMainFormForApi _mainForm;
+
 		private readonly LuaFunctionList _registeredFunctions;
 
-		public LuaRegisteredFunctionsList(LuaFunctionList registeredFunctions)
+		public LuaRegisteredFunctionsList(IMainFormForApi mainForm, LuaFunctionList registeredFunctions)
 		{
+			_mainForm = mainForm;
 			_registeredFunctions = registeredFunctions;
 			InitializeComponent();
+			Icon = Properties.Resources.TextDocIcon;
 		}
 
 		public Point StartLocation { get; set; } = new Point(0, 0);
@@ -88,7 +92,7 @@ namespace BizHawk.Client.EmuHawk
 				{
 					var guid = FunctionView.Items[index].SubItems[2].Text;
 					var nlf = _registeredFunctions[guid];
-					_registeredFunctions.Remove(nlf, GlobalWin.Emulator); // TODO: don't use Global
+					_registeredFunctions.Remove(nlf, _mainForm.Emulator);
 				}
 
 				PopulateListView();
@@ -107,7 +111,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void RemoveAllBtn_Click(object sender, EventArgs e)
 		{
-			_registeredFunctions.Clear(GlobalWin.Emulator); // TODO: don't use Global
+			_registeredFunctions.Clear(_mainForm.Emulator);
 			PopulateListView();
 		}
 
@@ -121,15 +125,15 @@ namespace BizHawk.Client.EmuHawk
 
 		private void FunctionView_KeyDown(object sender, KeyEventArgs e)
 		{
-			if (e.KeyCode == Keys.Delete && !e.Control && !e.Alt && !e.Shift) // Delete
+			if (e.IsPressed(Keys.Delete))
 			{
 				RemoveFunctionButton();
 			}
-			else if (e.KeyCode == Keys.Space && !e.Control && !e.Alt && !e.Shift) // Space
+			else if (e.IsPressed(Keys.Space))
 			{
 				CallFunction();
 			}
-			else if (e.KeyCode == Keys.Enter && !e.Control && !e.Alt && !e.Shift) // Enter
+			else if (e.IsPressed(Keys.Enter))
 			{
 				CallFunction();
 			}

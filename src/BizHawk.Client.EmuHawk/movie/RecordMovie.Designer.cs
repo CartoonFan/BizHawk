@@ -36,9 +36,9 @@
 			this.groupBox1 = new System.Windows.Forms.GroupBox();
 			this.DefaultAuthorCheckBox = new System.Windows.Forms.CheckBox();
 			this.AuthorBox = new System.Windows.Forms.TextBox();
-			this.label3 = new System.Windows.Forms.Label();
-			this.label2 = new System.Windows.Forms.Label();
-			this.label1 = new System.Windows.Forms.Label();
+			this.label3 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label2 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label1 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.groupBox1.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -68,7 +68,6 @@
 			// BrowseBtn
 			// 
 			this.BrowseBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.BrowseBtn.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.OpenFile;
 			this.BrowseBtn.Location = new System.Drawing.Point(423, 13);
 			this.BrowseBtn.Name = "BrowseBtn";
 			this.BrowseBtn.Size = new System.Drawing.Size(25, 23);
@@ -143,29 +142,20 @@
 			// 
 			// label3
 			// 
-			this.label3.AutoSize = true;
 			this.label3.Location = new System.Drawing.Point(36, 41);
 			this.label3.Name = "label3";
-			this.label3.Size = new System.Drawing.Size(41, 13);
-			this.label3.TabIndex = 2;
 			this.label3.Text = "Author:";
 			// 
 			// label2
 			// 
-			this.label2.AutoSize = true;
 			this.label2.Location = new System.Drawing.Point(6, 68);
 			this.label2.Name = "label2";
-			this.label2.Size = new System.Drawing.Size(71, 13);
-			this.label2.TabIndex = 5;
 			this.label2.Text = "Record From:";
 			// 
 			// label1
 			// 
-			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(51, 16);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(26, 13);
-			this.label1.TabIndex = 4;
 			this.label1.Text = "File:";
 			// 
 			// RecordMovie
@@ -178,7 +168,6 @@
 			this.Controls.Add(this.groupBox1);
 			this.Controls.Add(this.OK);
 			this.Controls.Add(this.Cancel);
-			this.Icon = global::BizHawk.Client.EmuHawk.Properties.Resources.TAStudio_MultiSize;
 			this.MaximizeBox = false;
 			this.MaximumSize = new System.Drawing.Size(1440, 201);
 			this.MinimizeBox = false;
@@ -201,9 +190,9 @@
 		private System.Windows.Forms.TextBox RecordBox;
 		private System.Windows.Forms.ComboBox StartFromCombo;
 		private System.Windows.Forms.GroupBox groupBox1;
-		private System.Windows.Forms.Label label3;
-		private System.Windows.Forms.Label label2;
-		private System.Windows.Forms.Label label1;
+		private BizHawk.WinForms.Controls.LocLabelEx label3;
+		private BizHawk.WinForms.Controls.LocLabelEx label2;
+		private BizHawk.WinForms.Controls.LocLabelEx label1;
 		private System.Windows.Forms.TextBox AuthorBox;
 		private System.Windows.Forms.CheckBox DefaultAuthorCheckBox;
 	}

@@ -27,9 +27,12 @@ namespace BizHawk.Client.EmuHawk
 
 		private int _scanline;
 
+		protected override string WindowTitleStatic => "Nametable Viewer";
+
 		public NESNameTableViewer()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.NesControllerIcon;
 		}
 
 		private void NESNameTableViewer_Load(object sender, EventArgs e)
@@ -37,7 +40,7 @@ namespace BizHawk.Client.EmuHawk
 			Generate(true);
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			Generate(true);
 		}
@@ -185,17 +188,12 @@ namespace BizHawk.Client.EmuHawk
 		{
 			NameTableView
 				.ToBitMap()
-				.SaveAsFile(Game, "Nametables", "NES", Config.PathEntries);
+				.SaveAsFile(Game, "Nametables", "NES", Config.PathEntries, this);
 		}
 
 		private void ScreenshotToClipboardMenuItem_Click(object sender, EventArgs e)
 		{
 			NameTableView.ToBitMap().ToClipBoard();
-		}
-
-		private void ExitMenuItem_Click(object sender, EventArgs e)
-		{
-			Close();
 		}
 
 		private void RefreshImageContextMenuItem_Click(object sender, EventArgs e)

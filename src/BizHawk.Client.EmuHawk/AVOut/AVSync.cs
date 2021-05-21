@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Windows.Forms;
 
+using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
-	[VideoWriterIgnore]
 	public class AudioStretcher : AVStretcher
 	{
 		public AudioStretcher(IVideoWriter w)
@@ -17,7 +16,7 @@ namespace BizHawk.Client.EmuHawk
 
 		/// <exception cref="InvalidOperationException">
 		/// <paramref name="asyncSoundProvider"/>'s mode is not <see cref="SyncSoundMode.Async"/>, or
-		/// A/V parameters haven't been set (need to call <see cref="SetAudioParameters"/> and <see cref="SetMovieParameters"/>)
+		/// A/V parameters haven't been set (need to call <see cref="AVStretcher.SetAudioParameters"/> and <see cref="AVStretcher.SetMovieParameters"/>)
 		/// </exception>
 		public void DumpAV(IVideoProvider v, ISoundProvider asyncSoundProvider, out short[] samples, out int samplesProvided)
 		{
@@ -45,7 +44,6 @@ namespace BizHawk.Client.EmuHawk
 		}
 	}
 
-	[VideoWriterIgnore]
 	public class VideoStretcher : AVStretcher
 	{
 		public VideoStretcher(IVideoWriter w)
@@ -185,6 +183,12 @@ namespace BizHawk.Client.EmuHawk
 		public new virtual void SetFrame(int frame)
 		{
 			// this writer will never support this capability
+
+			// but it needs to for syncless recorder, otherwise it won't work at all
+			if (W is SynclessRecorder)
+			{
+				W.SetFrame(frame);
+			}
 		}
 
 		/// <exception cref="InvalidOperationException">always</exception>
@@ -213,9 +217,9 @@ namespace BizHawk.Client.EmuHawk
 			W.SetVideoCodecToken(token);
 		}
 
-		public void SetDefaultVideoCodecToken()
+		public void SetDefaultVideoCodecToken(Config config)
 		{
-			W.SetDefaultVideoCodecToken();
+			W.SetDefaultVideoCodecToken(config);
 		}
 
 		public void OpenFile(string baseName)
@@ -243,9 +247,9 @@ namespace BizHawk.Client.EmuHawk
 			W.AddSamples(samples);
 		}
 
-		public IDisposable AcquireVideoCodecToken(IWin32Window hwnd)
+		public IDisposable AcquireVideoCodecToken(Config config)
 		{
-			return W.AcquireVideoCodecToken(hwnd);
+			return W.AcquireVideoCodecToken(config);
 		}
 
 		public void SetMovieParameters(int fpsNum, int fpsDen)

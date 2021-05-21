@@ -1,5 +1,7 @@
 using System;
 using BizHawk.Bizware.BizwareGL;
+using BizHawk.Bizware.DirectX;
+using BizHawk.Bizware.OpenTK3;
 
 namespace BizHawk.Client.EmuHawk
 {
@@ -16,18 +18,9 @@ namespace BizHawk.Client.EmuHawk
 		{
 		}
 
-		public static GLManager Instance { get; private set; }
+		private static readonly Lazy<GLManager> _lazyInstance = new Lazy<GLManager>(() => new GLManager());
 
-		/// <exception cref="InvalidOperationException">instance already created</exception>
-		public static void CreateInstance()
-		{
-			if (Instance != null)
-			{
-				throw new InvalidOperationException($"Attempted to create more than one {nameof(GLManager)}");
-			}
-
-			Instance = new GLManager();
-		}
+		public static GLManager Instance => _lazyInstance.Value;
 
 		public void ReleaseGLContext(object o)
 		{

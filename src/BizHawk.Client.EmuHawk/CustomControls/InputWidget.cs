@@ -33,13 +33,12 @@ namespace BizHawk.Client.EmuHawk
 			new SpecialBindingInfo { BindingName = "WMouse L", TooltipText = "Binds the left mouse button" },
 			new SpecialBindingInfo { BindingName = "WMouse M", TooltipText = "Binds the middle mouse button" },
 			new SpecialBindingInfo { BindingName = "WMouse R", TooltipText = "Binds the right mouse button" },
-			new SpecialBindingInfo { BindingName = "WMouse 1", TooltipText = "Binds the mouse auxiliary button 1" }, 
+			new SpecialBindingInfo { BindingName = "WMouse 1", TooltipText = "Binds the mouse auxiliary button 1" },
 			new SpecialBindingInfo { BindingName = "WMouse 2", TooltipText = "Binds the mouse auxiliary button 2" }
 		};
 
 		public InputWidget()
 		{
-			ContextMenu = new ContextMenu();
 			_timer.Tick += Timer_Tick;
 			ClearBindings();
 			AutoTab = true;
@@ -177,7 +176,7 @@ namespace BizHawk.Client.EmuHawk
 
 		protected override void OnKeyUp(KeyEventArgs e)
 		{
-			if (e.KeyCode == Keys.F4 && e.Modifiers == Keys.Alt)
+			if (e.IsAlt(Keys.F4))
 			{
 				base.OnKeyUp(e);
 			}
@@ -185,7 +184,7 @@ namespace BizHawk.Client.EmuHawk
 
 		protected override void OnKeyDown(KeyEventArgs e)
 		{
-			if (e.KeyCode == Keys.F4 && e.Modifiers == Keys.Alt)
+			if (e.IsAlt(Keys.F4))
 			{
 				base.OnKeyDown(e);
 				return;

@@ -37,13 +37,13 @@
 			this.colInfo = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.imageList1 = new System.Windows.Forms.ImageList(this.components);
 			this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
-			this.label1 = new System.Windows.Forms.Label();
+			this.label1 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.btnClose = new System.Windows.Forms.Button();
 			this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
-			this.label2 = new System.Windows.Forms.Label();
-			this.lblFirmware = new System.Windows.Forms.Label();
+			this.label2 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.lblFirmware = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.lvmiOptionsContextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
-			this.tsmiOptionsCopy = new System.Windows.Forms.ToolStripMenuItem();
+			this.tsmiOptionsCopy = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
 			this.tableLayoutPanel1.SuspendLayout();
 			this.flowLayoutPanel1.SuspendLayout();
@@ -123,11 +123,8 @@
 			// 
 			// label1
 			// 
-			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(3, 13);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(122, 13);
-			this.label1.TabIndex = 1;
 			this.label1.Text = "Options for this firmware:";
 			// 
 			// btnClose
@@ -157,20 +154,14 @@
 			// 
 			// label2
 			// 
-			this.label2.AutoSize = true;
 			this.label2.Location = new System.Drawing.Point(3, 0);
 			this.label2.Name = "label2";
-			this.label2.Size = new System.Drawing.Size(52, 13);
-			this.label2.TabIndex = 0;
 			this.label2.Text = "Firmware:";
 			// 
 			// lblFirmware
 			// 
-			this.lblFirmware.AutoSize = true;
 			this.lblFirmware.Location = new System.Drawing.Point(61, 0);
 			this.lblFirmware.Name = "lblFirmware";
-			this.lblFirmware.Size = new System.Drawing.Size(35, 13);
-			this.lblFirmware.TabIndex = 1;
 			this.lblFirmware.Text = "label3";
 			// 
 			// lvmiOptionsContextMenuStrip
@@ -182,8 +173,6 @@
 			// 
 			// tsmiOptionsCopy
 			// 
-			this.tsmiOptionsCopy.Name = "tsmiOptionsCopy";
-			this.tsmiOptionsCopy.Size = new System.Drawing.Size(99, 22);
 			this.tsmiOptionsCopy.Text = "&Copy";
 			this.tsmiOptionsCopy.Click += new System.EventHandler(this.TsmiOptionsCopy_Click);
 			// 
@@ -212,16 +201,16 @@
 
 		private System.Windows.Forms.ColumnHeader colHash;
 		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
-		private System.Windows.Forms.Label label1;
+		private BizHawk.WinForms.Controls.LocLabelEx label1;
 		private System.Windows.Forms.Button btnClose;
 		private System.Windows.Forms.ColumnHeader colStandardFilename;
 		private System.Windows.Forms.ColumnHeader colDescription;
 		public System.Windows.Forms.ListView lvOptions;
 		private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
-		private System.Windows.Forms.Label label2;
-		public System.Windows.Forms.Label lblFirmware;
+		private BizHawk.WinForms.Controls.LocLabelEx label2;
+		public BizHawk.WinForms.Controls.LocLabelEx lblFirmware;
 		private System.Windows.Forms.ContextMenuStrip lvmiOptionsContextMenuStrip;
-		private System.Windows.Forms.ToolStripMenuItem tsmiOptionsCopy;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx tsmiOptionsCopy;
 		private System.Windows.Forms.ColumnHeader colInfo;
 		private System.Windows.Forms.ImageList imageList1;
 		private System.Windows.Forms.ColumnHeader colSize;

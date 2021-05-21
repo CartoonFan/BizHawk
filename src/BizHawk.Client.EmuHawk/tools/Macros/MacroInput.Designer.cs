@@ -29,24 +29,22 @@
 		private void InitializeComponent()
 		{
 			this.MacroMenu = new System.Windows.Forms.MenuStrip();
-			this.FileSubMenu = new System.Windows.Forms.ToolStripMenuItem();
-			this.saveAsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.loadMacroToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.RecentToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-			this.sepToolStripMenuItem = new System.Windows.Forms.ToolStripSeparator();
-			this.ExitMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.FileSubMenu = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.saveAsToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.loadMacroToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.RecentToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.toolStripSeparator1 = new BizHawk.WinForms.Controls.ToolStripSeparatorEx();
 			this.NameTextbox = new System.Windows.Forms.TextBox();
 			this.ReplaceBox = new System.Windows.Forms.CheckBox();
-			this.label2 = new System.Windows.Forms.Label();
+			this.label2 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.PlaceNum = new System.Windows.Forms.NumericUpDown();
 			this.EndNum = new System.Windows.Forms.NumericUpDown();
 			this.PlaceZoneButton = new System.Windows.Forms.Button();
 			this.StartNum = new System.Windows.Forms.NumericUpDown();
 			this.SetZoneButton = new System.Windows.Forms.Button();
 			this.ZonesList = new System.Windows.Forms.ListBox();
-			this.label3 = new System.Windows.Forms.Label();
-			this.label1 = new System.Windows.Forms.Label();
+			this.label3 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label1 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.CurrentButton = new System.Windows.Forms.Button();
 			this.OverlayBox = new System.Windows.Forms.CheckBox();
 			this.MacroMenu.SuspendLayout();
@@ -70,24 +68,16 @@
 			this.FileSubMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.saveAsToolStripMenuItem,
             this.loadMacroToolStripMenuItem,
-            this.RecentToolStripMenuItem,
-            this.sepToolStripMenuItem,
-            this.ExitMenuItem});
-			this.FileSubMenu.Name = "FileSubMenu";
-			this.FileSubMenu.Size = new System.Drawing.Size(37, 20);
+            this.RecentToolStripMenuItem});
 			this.FileSubMenu.Text = "&File";
 			// 
 			// saveAsToolStripMenuItem
 			// 
-			this.saveAsToolStripMenuItem.Name = "saveAsToolStripMenuItem";
-			this.saveAsToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
 			this.saveAsToolStripMenuItem.Text = "Save Selected As...";
 			this.saveAsToolStripMenuItem.Click += new System.EventHandler(this.SaveAsToolStripMenuItem_Click);
 			// 
 			// loadMacroToolStripMenuItem
 			// 
-			this.loadMacroToolStripMenuItem.Name = "loadMacroToolStripMenuItem";
-			this.loadMacroToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
 			this.loadMacroToolStripMenuItem.Text = "Load Macro...";
 			this.loadMacroToolStripMenuItem.Click += new System.EventHandler(this.LoadMacroToolStripMenuItem_Click);
 			// 
@@ -95,28 +85,8 @@
 			// 
 			this.RecentToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripSeparator1});
-			this.RecentToolStripMenuItem.Name = "RecentToolStripMenuItem";
-			this.RecentToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
 			this.RecentToolStripMenuItem.Text = "Recent";
 			this.RecentToolStripMenuItem.DropDownOpened += new System.EventHandler(this.RecentToolStripMenuItem_DropDownOpened);
-			// 
-			// toolStripSeparator1
-			// 
-			this.toolStripSeparator1.Name = "toolStripSeparator1";
-			this.toolStripSeparator1.Size = new System.Drawing.Size(57, 6);
-			// 
-			// sepToolStripMenuItem
-			// 
-			this.sepToolStripMenuItem.Name = "sepToolStripMenuItem";
-			this.sepToolStripMenuItem.Size = new System.Drawing.Size(167, 6);
-			// 
-			// ExitMenuItem
-			// 
-			this.ExitMenuItem.Name = "ExitMenuItem";
-			this.ExitMenuItem.ShortcutKeyDisplayString = "Alt+F4";
-			this.ExitMenuItem.Size = new System.Drawing.Size(170, 22);
-			this.ExitMenuItem.Text = "E&xit";
-			this.ExitMenuItem.Click += new System.EventHandler(this.ExitMenuItem_Click);
 			// 
 			// NameTextbox
 			// 
@@ -144,11 +114,8 @@
 			// 
 			// label2
 			// 
-			this.label2.AutoSize = true;
 			this.label2.Location = new System.Drawing.Point(12, 24);
 			this.label2.Name = "label2";
-			this.label2.Size = new System.Drawing.Size(127, 13);
-			this.label2.TabIndex = 16;
 			this.label2.Text = "macro start      macro end";
 			// 
 			// PlaceNum
@@ -223,20 +190,14 @@
 			// label3
 			// 
 			this.label3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.label3.AutoSize = true;
 			this.label3.Location = new System.Drawing.Point(178, 184);
 			this.label3.Name = "label3";
-			this.label3.Size = new System.Drawing.Size(39, 13);
-			this.label3.TabIndex = 17;
 			this.label3.Text = "Frame:";
 			// 
 			// label1
 			// 
-			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(4, 184);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(71, 13);
-			this.label1.TabIndex = 22;
 			this.label1.Text = "Macro Name:";
 			// 
 			// CurrentButton
@@ -284,7 +245,6 @@
 			this.MainMenuStrip = this.MacroMenu;
 			this.Name = "MacroInputTool";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-			this.Text = "Macro Input";
 			this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MacroInputTool_FormClosing);
 			this.Load += new System.EventHandler(this.MacroInputTool_Load);
 			this.Resize += new System.EventHandler(this.MacroInputTool_Resize);
@@ -301,25 +261,23 @@
 		#endregion
 
 		private System.Windows.Forms.MenuStrip MacroMenu;
-		private System.Windows.Forms.ToolStripMenuItem FileSubMenu;
-		private System.Windows.Forms.ToolStripMenuItem ExitMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx FileSubMenu;
 		private System.Windows.Forms.TextBox NameTextbox;
 		private System.Windows.Forms.CheckBox ReplaceBox;
-		private System.Windows.Forms.Label label2;
+		private BizHawk.WinForms.Controls.LocLabelEx label2;
 		private System.Windows.Forms.NumericUpDown PlaceNum;
 		private System.Windows.Forms.NumericUpDown EndNum;
 		private System.Windows.Forms.Button PlaceZoneButton;
 		private System.Windows.Forms.NumericUpDown StartNum;
 		private System.Windows.Forms.Button SetZoneButton;
 		private System.Windows.Forms.ListBox ZonesList;
-		private System.Windows.Forms.Label label3;
-		private System.Windows.Forms.Label label1;
-		private System.Windows.Forms.ToolStripMenuItem saveAsToolStripMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem loadMacroToolStripMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem RecentToolStripMenuItem;
-		private System.Windows.Forms.ToolStripSeparator sepToolStripMenuItem;
+		private BizHawk.WinForms.Controls.LocLabelEx label3;
+		private BizHawk.WinForms.Controls.LocLabelEx label1;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx saveAsToolStripMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx loadMacroToolStripMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx RecentToolStripMenuItem;
 		private System.Windows.Forms.Button CurrentButton;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
+		private BizHawk.WinForms.Controls.ToolStripSeparatorEx toolStripSeparator1;
 		private System.Windows.Forms.CheckBox OverlayBox;
 
 	}

@@ -3,24 +3,30 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+
+using BizHawk.Client.Common;
 using BizHawk.Emulation.Cores.Nintendo.NES;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class NESSyncSettingsForm : Form
+	public partial class NESSyncSettingsForm : Form, IDialogParent
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly DataTableDictionaryBind<string, string> _dataTableDictionary;
 		private readonly NES.NESSyncSettings _syncSettings;
 
+		public IDialogController DialogController { get; }
+
 		public NESSyncSettingsForm(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			NES.NESSyncSettings syncSettings,
 			bool hasMapperProperties)
 		{
 			_mainForm = mainForm;
 			_syncSettings = syncSettings;
+			DialogController = mainForm.DialogController;
 			InitializeComponent();
+			HelpBtn.Image = Properties.Resources.Help;
 
 			if (hasMapperProperties)
 			{
@@ -36,7 +42,7 @@ namespace BizHawk.Client.EmuHawk
 				InfoLabel.Visible = true;
 			}
 
-			RegionComboBox.Items.AddRange(Enum.GetNames(typeof(NES.NESSyncSettings.Region)));
+			RegionComboBox.Items.AddRange(Enum.GetNames(typeof(NES.NESSyncSettings.Region)).Cast<object>().ToArray());
 			RegionComboBox.SelectedItem = Enum.GetName(typeof(NES.NESSyncSettings.Region), _syncSettings.RegionOverride);
 
 			if (_syncSettings.InitialWRamStatePattern != null && _syncSettings.InitialWRamStatePattern.Any())
@@ -92,12 +98,10 @@ namespace BizHawk.Client.EmuHawk
 
 		private void HelpBtn_Click(object sender, EventArgs e)
 		{
-			MessageBox.Show(
-				this,
+			this.ModalMessageBox(
 				"Board Properties are special per-mapper system settings.  They are only useful to advanced users creating Tool Assisted Superplays.  No support will be provided if you break something with them.",
 				"Help",
-				MessageBoxButtons.OK,
-				MessageBoxIcon.Information);
+				EMsgBoxIcon.Info);
 		}
 	}
 }

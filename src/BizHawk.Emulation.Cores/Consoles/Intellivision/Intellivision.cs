@@ -5,17 +5,13 @@ using BizHawk.Emulation.Cores.Components.CP1610;
 
 namespace BizHawk.Emulation.Cores.Intellivision
 {
-	[Core(
-		"IntelliHawk",
-		"BrandonE, Alyosha",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.IntelliHawk, "BrandonE, Alyosha")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight), typeof(IRegionable), typeof(ISaveRam) })]
 	public sealed partial class Intellivision : IEmulator, IInputPollable, IDisassemblable,
 		IBoardInfo, IDebuggable, ISettable<Intellivision.IntvSettings, Intellivision.IntvSyncSettings>
 	{
 		[CoreConstructor("INTV")]
-		public Intellivision(CoreComm comm, byte[] rom, object settings, object syncSettings)
+		public Intellivision(CoreComm comm, byte[] rom, Intellivision.IntvSettings settings, Intellivision.IntvSyncSettings syncSettings)
 		{
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;

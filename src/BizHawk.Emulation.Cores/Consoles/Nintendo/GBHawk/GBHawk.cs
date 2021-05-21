@@ -6,14 +6,20 @@ using BizHawk.Emulation.Cores.Components.LR35902;
 
 using BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
+
+// TODO: mode1_disableint_gbc.gbc behaves differently between GBC and GBA, why?
+// TODO: Window Position A6 behaves differently
+// TODO: Verify open bus behaviour for bad SRAM accesses for other MBCs
+// TODO: Apparently sprites at x=A7 do not stop the trigger for FF0F bit flip, but still do not dispatch interrupt or
+// mode 3 change, see 10spritesPrLine_10xposA7_m0irq_2_dmg08_cgb04c_out2.gbc
+// TODO: there is a tile glitch when setting LCDC.Bit(4) in GBC that is not implemented yet, the version of the glitch for reset is implemented though
+// TODO: In some GBC models, apparently unmapped memory after OAM contains 48 bytes that are fully read/write'able
+// this is not implemented and which models it effects is not clear, see oam_echo_ram_read.gbc and oam_echo_ram_read_2.gbc
 
 namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 {
-	[Core(
-		CoreNames.GbHawk,
-		"",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.GbHawk, "")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class GBHawk : IEmulator, ISaveRam, IDebuggable, IInputPollable, IRegionable, IGameboyCommon,
 	ISettable<GBHawk.GBSettings, GBHawk.GBSyncSettings>
@@ -27,8 +33,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		public byte REG_FFFF;
 		// The unused bits in this register (interrupt flags) are always set
 		public byte REG_FF0F = 0xE0;
-		// Updating reg FF0F seemsto be delayed by one cycle
-		// tests 
+		// Updating reg FF0F seems to be delayed by one cycle,needs more testing
 		public byte REG_FF0F_OLD = 0xE0;
 
 		// memory domains
@@ -54,12 +59,15 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		public byte[] OAM_vbls = new byte[0xA0];
 
 		public int RAM_Bank;
+		public int RAM_Bank_ret;
 		public byte VRAM_Bank;
 		internal bool is_GBC;
 		public bool GBC_compat; // compatibility mode for GB games played on GBC
 		public bool double_speed;
 		public bool speed_switch;
 		public bool HDMA_transfer; // stalls CPU when in progress
+		public byte bus_value; // we need the last value on the bus for proper emulation of blocked SRAM
+		public ulong bus_access_time; // also need to keep track of the time of the access since it doesn't last very long
 		public byte IR_reg, IR_mask, IR_signal, IR_receive, IR_self;
 		public int IR_write;
 
@@ -67,7 +75,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		public byte undoc_6C, undoc_72, undoc_73, undoc_74, undoc_75, undoc_76, undoc_77;
 
 		public byte[] _bios;
-		public readonly byte[] _rom;		
+		public readonly byte[] _rom;
 		public readonly byte[] header = new byte[0x50];
 
 		public byte[] cart_RAM;
@@ -81,6 +89,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 		public MapperBase mapper;
 
+		private readonly GBHawkDisassembler _disassembler = new();
+
 		private readonly ITraceable _tracer;
 
 		public LR35902 cpu;
@@ -89,10 +99,11 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		public Audio audio;
 		public SerialPort serialport;
 
-		private static byte[] GBA_override = { 0xFF, 0x00, 0xCD, 0x03, 0x35, 0xAA, 0x31, 0x90, 0x94, 0x00, 0x00, 0x00, 0x00 };
+		private static readonly byte[] GBA_override = { 0xFF, 0x00, 0xCD, 0x03, 0x35, 0xAA, 0x31, 0x90, 0x94, 0x00, 0x00, 0x00, 0x00 };
 
-		[CoreConstructor(new[] { "GB", "GBC" })]
-		public GBHawk(CoreComm comm, GameInfo game, byte[] rom, /*string gameDbFn,*/ object settings, object syncSettings)
+		[CoreConstructor("GB")]
+		[CoreConstructor("GBC")]
+		public GBHawk(CoreComm comm, GameInfo game, byte[] rom, /*string gameDbFn,*/ GBSettings settings, GBSyncSettings syncSettings)
 		{
 			var ser = new BasicServiceProvider(this);
 
@@ -104,6 +115,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 				DummyReadMemory = ReadMemory,
 				OnExecFetch = ExecFetch,
 				SpeedFunc = SpeedFunc,
+				GetButtons = GetButtons,
 				GetIntRegs = GetIntRegs,
 				SetIntRegs = SetIntRegs
 			};
@@ -112,9 +124,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			audio = new Audio();
 			serialport = new SerialPort();
 
-			_settings = (GBSettings)settings ?? new GBSettings();
+			_ = PutSettings(settings ?? new GBSettings());
 			_syncSettings = (GBSyncSettings)syncSettings ?? new GBSyncSettings();
-			_controllerDeck = new GBHawkControllerDeck(_syncSettings.Port1);
 
 			byte[] Bios = null;
 
@@ -131,8 +142,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					Bios = comm.CoreFileProvider.GetFirmware("GBC", "World", true, "BIOS Not Found, Cannot Load");
 					ppu = new GBC_PPU();
 					is_GBC = true;
-				}
-				
+				}			
 			}
 			else if (_syncSettings.ConsoleMode == GBSyncSettings.ConsoleModeType.GB)
 			{
@@ -179,9 +189,18 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			Console.WriteLine("MD5: " + rom.HashMD5(0, rom.Length));
 			Console.WriteLine("SHA1: " + rom.HashSHA1(0, rom.Length));
 			_rom = rom;
-			Setup_Mapper();
+			string mppr = Setup_Mapper();
 			if (cart_RAM != null) { cart_RAM_vbls = new byte[cart_RAM.Length]; }
 
+			if (mppr == "MBC7")
+			{
+				_controllerDeck = new GBHawkControllerDeck(_syncSettings.Port1);
+			}
+			else
+			{
+				_controllerDeck = new GBHawkControllerDeck(GBHawkControllerDeck.DefaultControllerName);
+			}
+			
 			timer.Core = this;
 			audio.Core = this;
 			ppu.Core = this;
@@ -191,74 +210,111 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			ser.Register<ISoundProvider>(audio);
 			ServiceProvider = ser;
 
-			_settings = (GBSettings)settings ?? new GBSettings();
+			_ = PutSettings(settings ?? new GBSettings());
 			_syncSettings = (GBSyncSettings)syncSettings ?? new GBSyncSettings();
 
 			_tracer = new TraceBuffer { Header = cpu.TraceHeader };
 			ser.Register<ITraceable>(_tracer);
-			ser.Register<IStatable>(new StateSerializer(SyncState, false));
+			ser.Register<IStatable>(new StateSerializer(SyncState));
+            ser.Register<IDisassemblable>(_disassembler);
 			SetupMemoryDomains();
 			cpu.SetCallbacks(ReadMemory, PeekMemory, PeekMemory, WriteMemory);
 			HardReset();
 
-			iptr0 = Marshal.AllocHGlobal(VRAM.Length + 1);
-			iptr1 = Marshal.AllocHGlobal(OAM.Length + 1);
-			iptr2 = Marshal.AllocHGlobal(ppu.color_palette.Length * 8 * 8 + 1);
-			iptr3 = Marshal.AllocHGlobal(ppu.color_palette.Length * 8 * 8 + 1);
-
 			_scanlineCallback = null;
+
+			DeterministicEmulation = true;
 		}
 
 		public bool IsCGBMode() => is_GBC;
 
-		public IntPtr iptr0 = IntPtr.Zero;
-		public IntPtr iptr1 = IntPtr.Zero;
-		public IntPtr iptr2 = IntPtr.Zero;
-		public IntPtr iptr3 = IntPtr.Zero;
-
-		private GPUMemoryAreas _gpuMemory
+		/// <summary>
+		/// Produces a palette in the form that certain frontend inspection tools.
+		/// May or may not return a reference to the core's own palette, so please don't mutate.
+		/// </summary>
+		private uint[] SynthesizeFrontendBGPal()
 		{
-			get
+			if (is_GBC)
 			{
-				Marshal.Copy(VRAM, 0, iptr0, VRAM.Length);
-				Marshal.Copy(OAM, 0, iptr1, OAM.Length);
-
-				if (is_GBC)
-				{
-					int[] cp2 = new int[32];
-					int[] cp = new int[32];
-					for (int i = 0; i < 32; i++)
-					{
-						cp2[i] = (int)ppu.OBJ_palette[i];
-						cp[i] = (int)ppu.BG_palette[i];
-					}
-
-					Marshal.Copy(cp2, 0, iptr2, ppu.OBJ_palette.Length);
-					Marshal.Copy(cp, 0, iptr3, ppu.BG_palette.Length);
-				}
-				else
-				{
-					int[] cp2 = new int[8];
-					for (int i = 0; i < 4; i++)
-					{
-						cp2[i] = (int)ppu.color_palette[(ppu.obj_pal_0 >> (i * 2)) & 3];
-						cp2[i + 4] = (int)ppu.color_palette[(ppu.obj_pal_1 >> (i * 2)) & 3];
-					}
-					Marshal.Copy(cp2, 0, iptr2, cp2.Length);
-
-					int[] cp = new int[4];
-					for (int i = 0; i < 4; i++)
-					{
-						cp[i] = (int)ppu.color_palette[(ppu.BGP >> (i * 2)) & 3];
-					}
-					Marshal.Copy(cp, 0, iptr3, cp.Length);
-				}
-
-				return new GPUMemoryAreas(iptr0, iptr1, iptr2, iptr3);
+				return ppu.BG_palette;
 			}
-		} 
+			else
+			{
+				var scratch = new uint[4];
+				for (int i = 0; i < 4; i++)
+				{
+					scratch[i] = ppu.color_palette[(ppu.BGP >> (i * 2)) & 3];
+				}
+				return scratch;
+			}
+		}
 
-		public GPUMemoryAreas GetGPU() => _gpuMemory;
+		/// <summary>
+		/// Produces a palette in the form that certain frontend inspection tools.
+		/// May or may not return a reference to the core's own palette, so please don't mutate.
+		/// </summary>
+		private uint[] SynthesizeFrontendSPPal()
+		{
+			if (is_GBC)
+			{
+				return ppu.OBJ_palette;
+			}
+			else
+			{
+				var scratch = new uint[8];
+				for (int i = 0; i < 4; i++)
+				{
+					scratch[i] = ppu.color_palette[(ppu.obj_pal_0 >> (i * 2)) & 3];
+					scratch[i + 4] = ppu.color_palette[(ppu.obj_pal_1 >> (i * 2)) & 3];
+				}
+				return scratch;
+			}
+		}
+
+		public IGPUMemoryAreas LockGPU()
+		{
+			return new GPUMemoryAreas(
+				VRAM,
+				OAM,
+				SynthesizeFrontendSPPal(),
+				SynthesizeFrontendBGPal()
+			);
+		}
+
+		private class GPUMemoryAreas : IGPUMemoryAreas
+		{
+			public IntPtr Vram { get; }
+
+			public IntPtr Oam { get; }
+
+			public IntPtr Sppal { get; }
+
+			public IntPtr Bgpal { get; }
+
+			private readonly List<GCHandle> _handles = new();
+
+			public GPUMemoryAreas(byte[] vram, byte[] oam, uint[] sppal, uint[] bgpal)
+			{
+				Vram = AddHandle(vram);
+				Oam = AddHandle(oam);
+				Sppal = AddHandle(sppal);
+				Bgpal = AddHandle(bgpal);
+			}
+
+			private IntPtr AddHandle(object target)
+			{
+				var handle = GCHandle.Alloc(target, GCHandleType.Pinned);
+				_handles.Add(handle);
+				return handle.AddrOfPinnedObject();
+			}
+
+			public void Dispose()
+			{
+				foreach (var h in _handles)
+					h.Free();
+				_handles.Clear();
+			}
+		}
 
 		public ScanlineCallback _scanlineCallback;
 		public int _scanlineCallbackLine = 0;
@@ -270,12 +326,13 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 			if (line == -2)
 			{
-				GetGPU();
 				_scanlineCallback(ppu.LCDC);
 			}
 		}
 
+#pragma warning disable CS0414
 		private PrinterCallback _printerCallback = null;
+#pragma warning restore CS0414
 
 		public void SetPrinterCallback(PrinterCallback callback)
 		{
@@ -295,8 +352,10 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			double_speed = false;
 			VRAM_Bank = 0;
 			RAM_Bank = 1; // RAM bank always starts as 1 (even writing zero still sets 1)
+			RAM_Bank_ret = 0; // return value can still be zero even though the bank itself cannot be
 			delays_to_process = false;
 			controller_delay_cd = 0;
+			clear_counter = 0;
 
 			Register_Reset();
 			timer.Reset();
@@ -308,6 +367,132 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			
 			vid_buffer = new uint[VirtualWidth * VirtualHeight];
 			frame_buffer = new int[VirtualWidth * VirtualHeight];
+
+			uint startup_color = (!is_GBC && (_settings.Palette == GBSettings.PaletteType.Gr)) ? 0xFFA4C505 : 0xFFFFFFFF;
+			for (int i = 0; i < vid_buffer.Length; i++)
+			{
+				vid_buffer[i] = startup_color;
+				frame_buffer[i] = (int)vid_buffer[i];
+			}
+
+			for (int i = 0; i < ZP_RAM.Length; i++)
+			{
+				ZP_RAM[i] = 0;
+			}
+
+			if (is_GBC)
+			{
+				if (_syncSettings.GBACGB)
+				{
+					// on GBA, initial RAM is mostly random, choosing 0 allows for stable clear and hotswap for games that encounter
+					// uninitialized RAM
+					for (int i = 0; i < RAM.Length; i++)
+					{
+						RAM[i] = 0;
+					}
+				}
+				else
+				{
+					for (int i = 0; i < 0x800; i++)
+					{
+						if ((i & 0xF) < 8)
+						{
+							RAM[i] = 0xFF;
+							RAM[i + 0x1000] = 0xFF;
+							RAM[i + 0x2000] = 0xFF;
+							RAM[i + 0x3000] = 0xFF;
+							RAM[i + 0x4000] = 0xFF;
+							RAM[i + 0x5000] = 0xFF;
+							RAM[i + 0x6000] = 0xFF;
+							RAM[i + 0x7000] = 0xFF;
+
+							RAM[i + 0x800] = 0;
+							RAM[i + 0x1800] = 0;
+							RAM[i + 0x2800] = 0;
+							RAM[i + 0x3800] = 0;
+							RAM[i + 0x4800] = 0;
+							RAM[i + 0x5800] = 0;
+							RAM[i + 0x6800] = 0;
+							RAM[i + 0x7800] = 0;
+						}
+						else
+						{
+							RAM[i] = 0;
+							RAM[i + 0x1000] = 0;
+							RAM[i + 0x2000] = 0;
+							RAM[i + 0x3000] = 0;
+							RAM[i + 0x4000] = 0;
+							RAM[i + 0x5000] = 0;
+							RAM[i + 0x6000] = 0;
+							RAM[i + 0x7000] = 0;
+
+							RAM[i + 0x800] = 0xFF;
+							RAM[i + 0x1800] = 0xFF;
+							RAM[i + 0x2800] = 0xFF;
+							RAM[i + 0x3800] = 0xFF;
+							RAM[i + 0x4800] = 0xFF;
+							RAM[i + 0x5800] = 0xFF;
+							RAM[i + 0x6800] = 0xFF;
+							RAM[i + 0x7800] = 0xFF;
+						}
+					}
+
+					// some bytes are like this is Gambatte, hardware anomoly? Is it consistent across versions?
+					/*
+					for (int i = 0; i < 16; i++)
+					{
+						RAM[0xE02 + (16 * i)] = 0;
+						RAM[0xE0A + (16 * i)] = 0xFF;
+
+						RAM[0x1E02 + (16 * i)] = 0;
+						RAM[0x1E0A + (16 * i)] = 0xFF;
+
+						RAM[0x2E02 + (16 * i)] = 0;
+						RAM[0x2E0A + (16 * i)] = 0xFF;
+
+						RAM[0x3E02 + (16 * i)] = 0;
+						RAM[0x3E0A + (16 * i)] = 0xFF;
+
+						RAM[0x4E02 + (16 * i)] = 0;
+						RAM[0x4E0A + (16 * i)] = 0xFF;
+
+						RAM[0x5E02 + (16 * i)] = 0;
+						RAM[0x5E0A + (16 * i)] = 0xFF;
+
+						RAM[0x6E02 + (16 * i)] = 0;
+						RAM[0x6E0A + (16 * i)] = 0xFF;
+
+						RAM[0x7E02 + (16 * i)] = 0;
+						RAM[0x7E0A + (16 * i)] = 0xFF;
+					}
+					*/
+				}
+			}
+			else
+			{
+				for (int j = 0; j < 2; j++)
+				{
+					for (int i = 0; i < 0x100; i++)
+					{
+						RAM[j * 0x1000 + i] = 0;
+						RAM[j * 0x1000 + i + 0x100] = 0xFF;
+						RAM[j * 0x1000 + i + 0x200] = 0;
+						RAM[j * 0x1000 + i + 0x300] = 0xFF;
+						RAM[j * 0x1000 + i + 0x400] = 0;
+						RAM[j * 0x1000 + i + 0x500] = 0xFF;
+						RAM[j * 0x1000 + i + 0x600] = 0;
+						RAM[j * 0x1000 + i + 0x700] = 0xFF;
+						RAM[j * 0x1000 + i + 0x800] = 0;
+						RAM[j * 0x1000 + i + 0x900] = 0xFF;
+						RAM[j * 0x1000 + i + 0xA00] = 0;
+						RAM[j * 0x1000 + i + 0xB00] = 0xFF;
+						RAM[j * 0x1000 + i + 0xC00] = 0;
+						RAM[j * 0x1000 + i + 0xD00] = 0xFF;
+						RAM[j * 0x1000 + i + 0xE00] = 0;
+						RAM[j * 0x1000 + i + 0xF00] = 0xFF;
+					}
+				}
+			}
 		}
 
 		// TODO: move callbacks to cpu to avoid having to make a non-inlinable 
@@ -320,7 +505,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			}
 		}
 
-		private void Setup_Mapper()
+		public string Setup_Mapper()
 		{
 			// setup up mapper based on header entry
 			string mppr;
@@ -381,7 +566,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			// special case for multi cart mappers
 			if ((_rom.HashMD5(0, _rom.Length) == "97122B9B183AAB4079C8D36A4CE6E9C1") ||
 				(_rom.HashMD5(0, _rom.Length) == "9FB9C42CF52DCFDCFBAD5E61AE1B5777") ||
-				(_rom.HashMD5(0, _rom.Length) == "CF1F58AB72112716D3C615A553B2F481")				
+				(_rom.HashMD5(0, _rom.Length) == "CF1F58AB72112716D3C615A553B2F481") ||
+				(_rom.HashMD5(0, _rom.Length) == "D0C6FFC3602D91C0B2B1B0461553DE33")	// Bomberman Selection
 				)
 			{
 				Console.WriteLine("Using Multi-Cart Mapper");
@@ -544,6 +730,24 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 				// currently no date / time input for TAMA5
 
+			}
+
+			return mppr;
+		}
+
+		public class GBHawkDisassembler : VerifiedDisassembler
+		{
+			public bool UseRGBDSSyntax;
+
+			public override IEnumerable<string> AvailableCpus { get; } = new[] { "LR35902" };
+
+			public override string PCRegisterName => "PC";
+
+			public override string Disassemble(MemoryDomain m, uint addr, out int length)
+			{
+				var ret = LR35902.Disassemble((ushort) addr, a => m.PeekByte(a), UseRGBDSSyntax, out var tmp);
+				length = tmp;
+				return ret;
 			}
 		}
 	}

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores
@@ -13,53 +14,76 @@ namespace BizHawk.Emulation.Cores
 	{
 		private readonly Dictionary<string, List<Core>> _systems = new Dictionary<string, List<Core>>();
 
+		/// <summary>keys are system IDs; values are core/ctor info for all that system's cores</summary>
+		public IReadOnlyDictionary<string, List<Core>> AllCores => _systems;
+
+		public readonly IReadOnlyCollection<Core> SystemsFlat;
+
 		public class Core
 		{
-			// expected names and types of the parameters
-			private static readonly Dictionary<string, Type> ParamTypes = new Dictionary<string, Type>();
+			private class RomGameFake : IRomAsset
+			{
+				public byte[] RomData { get; set; }
+				public byte[] FileData { get; set; }
+				public string Extension { get; set; }
+				public GameInfo Game { get; set; }
+			}
 
 			// map parameter names to locations in the constructor
 			private readonly Dictionary<string, int> _paramMap = new Dictionary<string, int>();
+			// If true, this is a new style constructor that takes a CoreLoadParameters object
+			private readonly bool _useCoreLoadParameters;
 
-			static Core()
+			public Core(Type type, CoreConstructorAttribute consAttr, CoreAttribute coreAttr, ConstructorInfo ctor)
 			{
-				var pp = typeof(Core).GetMethod("Create")?.GetParameters();
-				if (pp != null)
-				{
-					foreach (var p in pp)
-					{
-						ParamTypes.Add(p.Name.ToLowerInvariant(), p.ParameterType);
-					}
-				}
-			}
-
-			public Core(string name, Type type, ConstructorInfo ctor)
-			{
-				Name = name;
+				Name = coreAttr.CoreName;
 				Type = type;
 				CTor = ctor;
+				Priority = consAttr.Priority;
+				CoreAttr = coreAttr;
 
 				var pp = CTor.GetParameters();
+				if (pp.Length == 1
+					&& pp[0].ParameterType.IsGenericType
+					&& pp[0].ParameterType.GetGenericTypeDefinition() == typeof(CoreLoadParameters<,>)
+				)
+				{
+					_useCoreLoadParameters = true;
+					SettingsType = pp[0].ParameterType.GetGenericArguments()[0];
+					SyncSettingsType = pp[0].ParameterType.GetGenericArguments()[1];
+					return;
+				}
 				for (int i = 0; i < pp.Length ; i++)
 				{
 					var p = pp[i];
 					string pName = p.Name.ToLowerInvariant();
-					if (!ParamTypes.TryGetValue(pName, out _))
+					if (pName == "settings")
 					{
-						throw new InvalidOperationException($"Unexpected parameter name {p.Name} in constructor for {Type}");
+						if (p.ParameterType == typeof(object))
+							throw new InvalidOperationException($"Setting and SyncSetting constructor parameters for {type} must be annotated with the actual type");
+						SettingsType = p.ParameterType;
 					}
-					
-					// disabling the type check here doesn't really hurt anything, because the Invoke call will still catch any forbidden casts
-					// it does allow us to write "MySettingsType settings" instead of "object settings"
-					// if (expectedType != p.ParameterType)
-					//	throw new InvalidOperationException($"Unexpected type mismatch in parameter {p.Name} in constructor for {Type}");
+					else if (pName == "syncsettings")
+					{
+						if (p.ParameterType == typeof(object))
+							throw new InvalidOperationException($"Setting and SyncSetting constructor parameters for {type} must be annotated with the actual type");
+						SyncSettingsType = p.ParameterType;
+					}
 					_paramMap.Add(pName, i);
 				}
 			}
 
+			/// <summary>
+			/// (hopefully) a CoreNames value
+			/// </summary>
+			/// <value></value>
 			public string Name { get; }
 			public Type Type { get; }
 			public ConstructorInfo CTor { get; }
+			public CorePriority Priority { get; }
+			public CoreAttribute CoreAttr { get; }
+			public Type SettingsType { get; } = typeof(object);
+			public Type SyncSettingsType { get; } = typeof(object);
 
 			private void Bp(object[] parameters, string name, object value)
 			{
@@ -69,92 +93,86 @@ namespace BizHawk.Emulation.Cores
 				}
 			}
 
-			/// <summary>
-			/// Instantiate an emulator core
-			/// </summary>
-			public IEmulator Create
-			(
-				CoreComm comm,
-				GameInfo game,
-				byte[] rom,
-				byte[] file,
-				bool deterministic,
-				object settings,
-				object syncSettings,
-				string extension
-			)
+			private IEmulator CreateUsingCoreLoadParameters(ICoreInventoryParameters cip)
 			{
+				var paramType = typeof(CoreLoadParameters<,>).MakeGenericType(SettingsType, SyncSettingsType);
+				// TODO: clean this up
+				dynamic param = Activator.CreateInstance(paramType);
+				param.Comm = cip.Comm;
+				param.Game = cip.Game;
+				param.Settings = (dynamic)cip.FetchSettings(Type, SettingsType);
+				param.SyncSettings = (dynamic)cip.FetchSyncSettings(Type, SyncSettingsType);
+				param.Roms = cip.Roms;
+				param.Discs = cip.Discs;
+				param.DeterministicEmulationRequested = cip.DeterministicEmulationRequested;
+				return (IEmulator)CTor.Invoke(new object[] { param });				
+			}
+
+			private IEmulator CreateUsingLegacyConstructorParameters(ICoreInventoryParameters cip)
+			{
+				// cores using the old constructor parameters can only take a single rom, so assume that here
 				object[] o = new object[_paramMap.Count];
-				Bp(o, "comm", comm);
-				Bp(o, "game", game);
-				Bp(o, "rom", rom);
-				Bp(o, "file", file);
-				Bp(o, "deterministic", deterministic);
-				Bp(o, "settings", settings);
-				Bp(o, "syncsettings", syncSettings);
-				Bp(o, "extension", extension);
+				Bp(o, "comm", cip.Comm);
+				Bp(o, "game", cip.Game);
+				Bp(o, "rom", cip.Roms[0].RomData);
+				Bp(o, "file", cip.Roms[0].FileData);
+				Bp(o, "deterministic", cip.DeterministicEmulationRequested);
+				Bp(o, "settings", cip.FetchSettings(Type, SettingsType));
+				Bp(o, "syncsettings", cip.FetchSyncSettings(Type, SyncSettingsType));
+				Bp(o, "extension", cip.Roms[0].Extension);
 
 				return (IEmulator)CTor.Invoke(o);
 			}
-		}
 
-		private void ProcessConstructor(Type type, string system, CoreAttribute coreAttr, ConstructorInfo cons)
-		{
-			Core core = new Core(coreAttr.CoreName, type, cons);
-			if (!_systems.TryGetValue(system, out var ss))
+			/// <summary>
+			/// Instantiate an emulator core
+			/// </summary>
+			public IEmulator Create(ICoreInventoryParameters cip)
 			{
-				ss = new List<Core>();
-				_systems.Add(system, ss);
-			}
-
-			ss.Add(core);
-		}
-
-		/// <summary>
-		/// find a core matching a particular game.system
-		/// </summary>
-		public Core this[string system]
-		{
-			get
-			{
-				List<Core> ss = _systems[system];
-				if (ss.Count != 1)
+				try
 				{
-					throw new InvalidOperationException("Ambiguous core selection!");
+					return _useCoreLoadParameters
+						? CreateUsingCoreLoadParameters(cip)
+						: CreateUsingLegacyConstructorParameters(cip);
 				}
-
-				return ss[0];
+				catch (TargetInvocationException e)
+				{
+					// When an exception occurs inside ConstructorInfo.Invoke,
+					// we always want to expose the exception the core actually threw,
+					// and not the implementation detail that reflected construction was used.
+					ExceptionDispatchInfo.Capture(e.InnerException).Throw();
+					throw; // Needed only for flow analysis -- CSC doesn't know that ExceptionDispatchInfo.Throw() never returns
+				}
 			}
 		}
 
-		/// <summary>
-		/// find a core matching a particular game.system with a particular CoreAttributes.Name
-		/// </summary>
-		public Core this[string system, string core]
+		public IEnumerable<Core> GetCores(string system)
 		{
-			get
-			{
-				List<Core> ss = _systems[system];
-				foreach (Core c in ss)
-				{
-					if (c.Name == core)
-					{
-						return c;
-					}
-				}
-
-				throw new InvalidOperationException("No such core!");
-			}
+			_systems.TryGetValue(system, out var cores);
+			return cores ?? Enumerable.Empty<Core>();
 		}
 
 		/// <summary>
 		/// create a core inventory, collecting all IEmulators from some assemblies
 		/// </summary>
-		public CoreInventory(IEnumerable<Assembly> assys)
+		public CoreInventory(IEnumerable<IEnumerable<Type>> assys)
 		{
+			var systemsFlat = new Dictionary<Type, Core>();
+			void ProcessConstructor(Type type, CoreConstructorAttribute consAttr, CoreAttribute coreAttr, ConstructorInfo cons)
+			{
+				var core = new Core(type, consAttr, coreAttr, cons);
+				if (!_systems.TryGetValue(consAttr.System, out var ss))
+				{
+					ss = new List<Core>();
+					_systems.Add(consAttr.System, ss);
+				}
+
+				ss.Add(core);
+				systemsFlat[type] = core;
+			}
 			foreach (var assy in assys)
 			{
-				foreach (var typ in assy.GetTypes())
+				foreach (var typ in assy)
 				{
 					if (!typ.IsAbstract && typ.GetInterfaces().Contains(typeof(IEmulator)))
 					{
@@ -165,35 +183,72 @@ namespace BizHawk.Emulation.Cores
 							.Where(c => c.GetCustomAttributes(typeof(CoreConstructorAttribute), false).Length > 0);
 						foreach(var con in cons)
 						{
-							foreach (string system in ((CoreConstructorAttribute)con.GetCustomAttributes(typeof(CoreConstructorAttribute), false)[0]).Systems)
+							foreach (var consAttr in con.GetCustomAttributes(typeof(CoreConstructorAttribute), false).Cast<CoreConstructorAttribute>())
 							{
-								ProcessConstructor(typ, system, (CoreAttribute)coreAttr[0], con);
+								ProcessConstructor(typ, consAttr, (CoreAttribute)coreAttr[0], con);
 							}
 						}
 					}
 				}
 			}
+			SystemsFlat = systemsFlat.Values;
 		}
 
-		public static readonly CoreInventory Instance = new CoreInventory(new[] { typeof(CoreInventory).Assembly });
+		public static readonly CoreInventory Instance = new CoreInventory(new[] { Emulation.Cores.ReflectionCache.Types });
 	}
 
-	[AttributeUsage(AttributeTargets.Constructor)]
+	public enum CorePriority
+	{
+		/// <summary>
+		/// The gamedb has requested this core for this game
+		/// </summary>
+		GameDbPreference = -300,
+		/// <summary>
+		/// The user has indicated in preferences that this is their favorite core
+		/// </summary>
+		UserPreference = -200,
+		
+		/// <summary>
+		/// A very good core that should be preferred over normal cores.  Don't use this?
+		/// </summary>
+		High = -100,
+
+		/// <summary>
+		/// Most cores should use this
+		/// </summary>
+		Normal = 0,
+		/// <summary>
+		/// Experimental, special use, or garbage core
+		/// </summary>
+		Low = 100,
+		/// <summary>
+		/// TODO:  Do we need this?  Does it need a better name?
+		/// </summary>
+		SuperLow = 200,
+	}
+
+	[AttributeUsage(AttributeTargets.Constructor, AllowMultiple = true)]
 	public sealed class CoreConstructorAttribute : Attribute
 	{
-		private readonly List<string> _systems = new List<string>();
-
-		/// <remarks>TODO neither array nor <see cref="IEnumerable{T}"/> is the correct collection to be using here, try <see cref="IReadOnlyList{T}"/>/<see cref="IReadOnlyCollection{T}"/> instead</remarks>
-		public CoreConstructorAttribute(string[] systems)
-		{
-			_systems.AddRange(systems);
-		}
-
+		public string System { get; }
 		public CoreConstructorAttribute(string system)
 		{
-			_systems.Add(system);
+			System = system;
 		}
+		public CorePriority Priority { get; set; }
+	}
 
-		public IEnumerable<string> Systems => _systems;
+	/// <summary>
+	/// What CoreInventory needs to synthesize CoreLoadParameters for a core
+	/// </summary>
+	public interface ICoreInventoryParameters
+	{
+		CoreComm Comm { get; }
+		GameInfo Game { get; }
+		List<IRomAsset> Roms { get; }
+		List<IDiscAsset> Discs { get; }
+		bool DeterministicEmulationRequested { get; }
+		object FetchSettings(Type emulatorType, Type settingsType);
+		object FetchSyncSettings(Type emulatorType, Type syncSettingsType);
 	}
 }

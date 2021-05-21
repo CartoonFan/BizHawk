@@ -27,28 +27,23 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 		 */
 
 		// config
-		int prg_bank_mask_8k;
-		int chr_bank_mask_1k;
-		bool enablemirror;
+		private int prg_bank_mask_8k;
+		private int chr_bank_mask_1k;
+		private bool enablemirror;
 
 		// state
-		int[] prg = new int[4];
-		int[] chr = new int[8];
-		bool wramenable;
+		private int[] prg = new int[4];
+		private int[] chr = new int[8];
+		private bool wramenable;
 
 		public override bool Configure(EDetectionOrigin origin)
 		{
 			switch (Cart.BoardType)
 			{
 				case "NAMCOT-175":
-					//wagyan land 2
-					//splatter house
 					SetMirrorType(Cart.PadH, Cart.PadV);
 					break;
 				case "NAMCOT-340":
-					//family circuit '91
-					//dream master
-					//famista '92
 					enablemirror = true;
 					break;
 				case "MAPPER210":
@@ -101,7 +96,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			}
 		}
 
-		void SyncMirror(byte value)
+		private void SyncMirror(byte value)
 		{
 			if (enablemirror)
 			{
@@ -109,8 +104,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 				{
 					case 0x00: SetMirrorType(EMirrorType.OneScreenA); break;
 					case 0x40: SetMirrorType(EMirrorType.Vertical); break;
-					case 0x80: SetMirrorType(EMirrorType.Horizontal); break;
-					case 0xc0: SetMirrorType(EMirrorType.OneScreenB); break;
+					case 0x80: SetMirrorType(EMirrorType.OneScreenB); break;
+					case 0xc0: SetMirrorType(EMirrorType.Horizontal); break;
 				}
 			}
 		}

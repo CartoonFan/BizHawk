@@ -9,12 +9,13 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 		public byte serial_control;
 		public byte serial_data;
-		public bool can_pulse;
 		public int serial_clock;
 		public int serial_bits;
 		public int clk_rate;
 		public byte going_out;
 		public byte coming_in;
+		public bool can_pulse;
+		public bool IRQ_block;
 
 		public byte ReadReg(int addr)
 		{
@@ -40,20 +41,24 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 				case 0xFF02:
 					if ((value & 0x1) == 1)
 					{
+						
 						serial_bits = 8;
 
 						if (((value & 2) > 0) && Core.GBC_compat)
 						{
 							clk_rate = 16;
-							serial_clock = (16 - (int)(Core.cpu.TotalExecutedCycles % 8)) + 1;
+							serial_clock = 16 - (int)(Core.timer.divider_reg % 8) - 1;
+							
+							// if the clock rate is changing and it's on a GBA/C, the parity of (cpu.totalexecutedcycles & 512) effects the first bit
+							// Not sure exactly how yet
 						}
 						else
 						{
 							clk_rate = 512;
-							serial_clock = 512 - (int)(Core.cpu.TotalExecutedCycles % 256) + 1;
+							serial_clock = 512 - (int)(Core.timer.divider_reg % 256) - 1;
 
 							// there seems to be some clock inverting happening on some transfers
-							// not sure of the exact nature of it, here is one methor that gives correct result on one test rom but not others
+							// not sure of the exact nature of it, here is one method that gives correct result on one test rom but not others
 							/*
 							if (Core._syncSettings.GBACGB && Core.is_GBC)
 							{
@@ -71,7 +76,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 						serial_bits = 8;
 						clk_rate = -1;
 						serial_clock = clk_rate;
-						can_pulse = false;
+						can_pulse = false;					
 					}
 
 					if (Core.GBC_compat)
@@ -90,6 +95,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 		public void serial_transfer_tick()
 		{
+			IRQ_block = false;
+
 			if (serial_clock > 0) 
 			{ 
 				serial_clock--;
@@ -108,6 +115,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 							if (Core.REG_FFFF.Bit(3)) { Core.cpu.FlagI = true; }
 							Core.REG_FF0F |= 0x08;
+							//Console.WriteLine("SIRQ " + Core.cpu.TotalExecutedCycles);
+							IRQ_block = true;
 						}
 						else
 						{
@@ -129,6 +138,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			going_out = 0;
 			coming_in = 1;		
 			can_pulse = false;
+			IRQ_block = false;
 		}
 
 		public void SyncState(Serializer ser)
@@ -141,6 +151,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			ser.Sync(nameof(going_out), ref going_out);
 			ser.Sync(nameof(coming_in), ref coming_in);
 			ser.Sync(nameof(can_pulse), ref can_pulse);
+			ser.Sync(nameof(IRQ_block), ref IRQ_block);
 		}
 	}
 }

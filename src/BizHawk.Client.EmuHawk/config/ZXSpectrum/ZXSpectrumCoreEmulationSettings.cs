@@ -6,16 +6,17 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class ZxSpectrumCoreEmulationSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly ZXSpectrum.ZXSpectrumSyncSettings _syncSettings;
 
 		public ZxSpectrumCoreEmulationSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			ZXSpectrum.ZXSpectrumSyncSettings syncSettings)
 		{
 			_mainForm = mainForm;
 			_syncSettings = syncSettings;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void IntvControllerSettings_Load(object sender, EventArgs e)
@@ -61,15 +62,9 @@ namespace BizHawk.Client.EmuHawk
 				_syncSettings.AutoLoadTape = autoLoadcheckBox1.Checked;
 
 				_mainForm.PutCoreSyncSettings(_syncSettings);
-
-				DialogResult = DialogResult.OK;
-				Close();
 			}
-			else
-			{
-				DialogResult = DialogResult.OK;
-				Close();
-			}
+			DialogResult = DialogResult.OK;
+			Close();
 		}
 
 		private void CancelBtn_Click(object sender, EventArgs e)

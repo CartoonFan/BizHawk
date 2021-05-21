@@ -50,7 +50,7 @@ namespace BizHawk.Client.EmuHawk
 		
 		private void Disassemble()
 		{
-			int lineCount = DisassemblerView.RowCount + 2;
+			int lineCount = DisassemblerView.RowCount * 6 + 2;
 
 			_disassemblyLines.Clear();
 			uint a = _currentDisassemblerAddress;
@@ -140,43 +140,17 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-
-		private bool _blockScroll;
+//		private bool _blockScroll;
 		private void DisassemblerView_Scroll(object sender, EventArgs e)
 		{
-			// This is really really gross, but it works
-			if (_blockScroll)
-			{
-				return;
-			}
+//			if (_blockScroll) { return; }
 
-			if (sender is ScrollBar scrollBar)
-			{
-				if (scrollBar.Value > 0)
-				{
-					SmallIncrement();
-
-					_blockScroll = true;
-					scrollBar.Value = 14;
-					_blockScroll = false;
-				}
-				else
-				{
-					SmallDecrement();
-
-					if (_currentDisassemblerAddress != 0)
-					{
-						_blockScroll = true;
-						scrollBar.Value = 14;
-						_blockScroll = false;
-					}
-				}
-			}
+			// is this still needed?
 		}
 
 		private void SetDisassemblerItemCount()
 		{
-			DisassemblerView.RowCount = DisassemblerView.VisibleRows + 2;
+			DisassemblerView.RowCount = DisassemblerView.VisibleRows * 6 + 2;
 		}
 
 		private void DisassemblerView_SizeChanged(object sender, EventArgs e)
@@ -204,16 +178,28 @@ namespace BizHawk.Client.EmuHawk
 
 		private void DisassemblerView_KeyDown(object sender, KeyEventArgs e)
 		{
-			if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.C) // Ctrl + C
+			if (e.IsCtrl(Keys.C))
 			{
 				CopySelectedDisassembler();
 			}
-			else if (!e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.PageDown)
+			else if (e.IsPressed(Keys.OemCloseBrackets))
 			{
 				SmallIncrement();
 			}
-			else if (!e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.PageUp)
+			else if (e.IsPressed(Keys.OemOpenBrackets))
 			{
+				SmallDecrement();
+			}
+			else if (e.IsShift(Keys.OemCloseBrackets))
+			{
+				SmallIncrement();
+				SmallIncrement();
+				SmallIncrement();
+			}
+			else if (e.IsShift(Keys.OemOpenBrackets))
+			{
+				SmallDecrement();
+				SmallDecrement();
 				SmallDecrement();
 			}
 		}
@@ -233,7 +219,7 @@ namespace BizHawk.Client.EmuHawk
 					}
 
 					blob.Append(_disassemblyLines[index].Address.ToHexString(_pcRegisterSize))
-						.Append(" ")
+						.Append(' ')
 						.Append(_disassemblyLines[index].Mnemonic);
 				}
 
@@ -241,12 +227,9 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void OnPauseChanged(object sender, MainForm.PauseChangedEventArgs e)
+		private void OnPauseChanged(bool isPaused)
 		{
-			if (e.Paused)
-			{
-				FullUpdate();
-			}
+			if (isPaused) FullUpdate();
 		}
 
 		private void DisassemblerContextMenu_Opening(object sender, EventArgs e)

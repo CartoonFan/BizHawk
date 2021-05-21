@@ -12,7 +12,7 @@ namespace BizHawk.Emulation.Common
 		/// <summary>
 		/// Gets the service provider.
 		/// This is the intended mechanism to get services from a core
-		/// Retrieves an IEmulatorService from the core, 
+		/// Retrieves an IEmulatorService from the core,
 		/// if the core does not have the type specified, it will return null
 		/// </summary>
 		IEmulatorServiceProvider ServiceProvider { get; }
@@ -27,7 +27,7 @@ namespace BizHawk.Emulation.Common
 		/// <summary>
 		/// Runs the emulator core for 1 frame
 		/// note that (some?) cores expect you to call SoundProvider.GetSamples() after each FrameAdvance()
-		/// please do this, even when <seealso cref="renderSound"/> = false
+		/// please do this, even when <paramref name="renderSound"/> = false
 		/// <param name="controller">The <seealso cref="IController"/> instance that the core will use for input.
 		/// The <seealso cref="IController"/> provided by the client must provide the buttons specified by the core through the <seealso cref="ControllerDefinition"/> property
 		/// </param>
@@ -38,6 +38,7 @@ namespace BizHawk.Emulation.Common
 
 		/// <summary>
 		/// Gets the current frame count
+		/// Frame must be incremented after emulation in the core
 		/// </summary>
 		int Frame { get; }
 

@@ -23,6 +23,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		public PutSettingsDirtyBits PutSettings(GBSettings o)
 		{
 			_settings = o;
+			_disassembler.UseRGBDSSyntax = _settings.UseRGBDSSyntax;
 			return PutSettingsDirtyBits.None;
 		}
 
@@ -44,6 +45,12 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 				Gr
 			}
 
+			public enum Cycle_Return
+			{
+				CPU,
+				GBI
+			}
+
 			[DisplayName("Color Mode")]
 			[Description("Pick Between Green scale and Grey scale colors")]
 			[DefaultValue(PaletteType.BW)]
@@ -53,6 +60,16 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			[Description("When true, memory domains are only updated on VBlank. More consistent for LUA. NOTE: Does not work for system bus, does not apply to writes.")]
 			[DefaultValue(false)]
 			public bool VBL_sync { get; set; }
+
+			[DisplayName("TotalExecutedCycles Return Value")]
+			[Description("CPU returns the actual CPU cycles executed, GBI returns the values needed for console verification")]
+			[DefaultValue(Cycle_Return.CPU)]
+			public Cycle_Return cycle_return_setting { get; set; }
+
+			[DisplayName("Use RGBDS syntax")]
+			[Description("When true, rgbds' syntax is used for disassembly.")]
+			[DefaultValue(true)]
+			public bool UseRGBDSSyntax { get; set; }
 
 			public GBSettings Clone()
 			{
@@ -72,23 +89,21 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 			public enum ControllerType
 			{
-				Default,
 				Tilt
 			}
 
 			[JsonIgnore]
 			private ControllerType _GBController;
 
-			[DisplayName("Controller")]
-			[Description("Select Controller Type")]
-			[DefaultValue(ControllerType.Default)]
+			[DisplayName("Tilt Controls")]
+			[Description("Choose Tilt Control mode, when Applicable (MBC7 games)")]
+			[DefaultValue(ControllerType.Tilt)]
 			public ControllerType GBController
 			{
 				get => _GBController;
 				set
 				{
-					if (value == ControllerType.Default) { Port1 = GBHawkControllerDeck.DefaultControllerName; }
-					else { Port1 = "Gameboy Controller + Tilt"; }
+					if (value == ControllerType.Tilt) { Port1 = "Gameboy Controller + Tilt"; }
 
 					_GBController = value;
 				}
@@ -130,7 +145,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			}
 
 			[DisplayName("Use Existing SaveRAM")]
-			[Description("When true, existing SaveRAM will be loaded at boot up")]
+			[Description("(Intended for development, for regular use leave as true.) When true, existing SaveRAM will be loaded at boot up.")]
 			[DefaultValue(true)]
 			public bool Use_SRAM { get; set; }
 

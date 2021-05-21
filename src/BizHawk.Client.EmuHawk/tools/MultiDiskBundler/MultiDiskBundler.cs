@@ -22,14 +22,17 @@ namespace BizHawk.Client.EmuHawk
 		[RequiredService]
 		public IEmulator Emulator { get; set; }
 
+		protected override string WindowTitleStatic => "Multi-disk Bundler";
+
 		public MultiDiskBundler()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.DualIcon;
 		}
 
 		private void MultiGameCreator_Load(object sender, EventArgs e) => Restart();
 
-		public void Restart()
+		public override void Restart()
 		{
 			FileSelectorPanel.Controls.Clear();
 			AddButton_Click(null, null);
@@ -57,7 +60,7 @@ namespace BizHawk.Client.EmuHawk
 				}
 				else if (Emulator is SMS sms && sms.IsGameGear)
 				{
-					SystemDropDown.SelectedItem = "Game Gear";
+					SystemDropDown.SelectedItem = "GGL";
 				}
 
 				FileSelectors.First().Path = MainForm.CurrentlyOpenRom;
@@ -71,28 +74,45 @@ namespace BizHawk.Client.EmuHawk
 			Close();
 		}
 
+		private bool DoSave(out FileInfo fileInfo)
+		{
+			fileInfo = null;
+
+			if (!Recalculate())
+				return false;
+
+			fileInfo = new FileInfo(NameBox.Text);
+			if (fileInfo.Exists)
+			{
+				var result = this.ModalMessageBox2("File already exists, overwrite?", "File exists", EMsgBoxIcon.Warning, useOKCancel: true);
+				if (!result)
+				{
+					return false;
+				}
+			}
+
+			File.WriteAllText(fileInfo.FullName, _currentXml.ToString());
+			return true;
+		}
+
+		private void SaveButton_Click(object sender, EventArgs e)
+		{
+			FileInfo dummy;
+			DoSave(out dummy);
+		}
+
 		private void SaveRunButton_Click(object sender, EventArgs e)
 		{
-			if (Recalculate())
-			{
-				var fileInfo = new FileInfo(NameBox.Text);
-				if (fileInfo.Exists)
-				{
-					var result = MessageBox.Show(this, "File already exists, overwrite?", "File exists", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
-					if (result != DialogResult.OK)
-					{
-						return;
-					}
-				}
+			FileInfo fileInfo;
 
-				File.WriteAllText(fileInfo.FullName, _currentXml.ToString());
+			if (!DoSave(out fileInfo))
+				return;
 
-				DialogResult = DialogResult.OK;
-				Close();
+			DialogResult = DialogResult.OK;
+			Close();
 
-				var lra = new MainForm.LoadRomArgs { OpenAdvanced = new OpenAdvanced_OpenRom { Path = fileInfo.FullName } };
-				MainForm.LoadRom(fileInfo.FullName, lra);
-			}
+			var lra = new LoadRomArgs { OpenAdvanced = new OpenAdvanced_OpenRom { Path = fileInfo.FullName } };
+			MainForm.LoadRom(fileInfo.FullName, lra);
 		}
 
 		private void AddButton_Click(object sender, EventArgs e)
@@ -107,7 +127,7 @@ namespace BizHawk.Client.EmuHawk
 				Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
 			};
 
-			var mdf = new MultiDiskFileSelector(this)
+			var mdf = new MultiDiskFileSelector(MainForm, Config.PathEntries, () => MainForm.CurrentlyOpenRom)
 			{
 				Location = UIHelper.Scale(new Point(7, 12)),
 				Width = groupBox.ClientSize.Width - UIHelper.ScaleX(13),
@@ -126,7 +146,7 @@ namespace BizHawk.Client.EmuHawk
 			//ToDo:
 			//Make this better?
 			//We need to have i at 1 and not zero because Controls Count doesn't start at zero (sort of)
-			Int32 i = 1;
+			var i = 1;
 			//For Each Control box we have, loop
 			foreach (Control ctrl in FileSelectorPanel.Controls)
 			{
@@ -138,6 +158,8 @@ namespace BizHawk.Client.EmuHawk
 				//One to our looper
 				i++;
 			}
+
+			Recalculate();
 		}
 
 		private void FileSelector_NameChanged(object sender, EventArgs e)
@@ -156,53 +178,60 @@ namespace BizHawk.Client.EmuHawk
 			{
 				var names = FileSelectors.Select(f => f.Path).ToList();
 
-				var name = NameBox.Text;
-
-				if (string.IsNullOrWhiteSpace(name))
+				if (names.Count != 0)
 				{
-					throw new Exception("Xml Filename can not be blank");
+					var name = NameBox.Text;
+
+					if (string.IsNullOrWhiteSpace(name))
+					{
+						throw new Exception("Xml Filename can not be blank");
+					}
+
+					if (names.Any(string.IsNullOrWhiteSpace))
+					{
+						throw new Exception("Rom Names can not be blank");
+					}
+
+					var system = SystemDropDown.SelectedItem?.ToString();
+
+					if (string.IsNullOrWhiteSpace(system))
+					{
+						throw new Exception("System Id can not be blank");
+					}
+
+					var basePath = Path.GetDirectoryName(name.Split('|').First());
+
+					if (string.IsNullOrEmpty(basePath))
+					{
+						var fileInfo = new FileInfo(name);
+						basePath = Path.GetDirectoryName(fileInfo.FullName);
+					}
+
+					_currentXml = new XElement("BizHawk-XMLGame",
+						new XAttribute("System", system),
+						new XAttribute("Name", Path.GetFileNameWithoutExtension(name)),
+						new XElement("LoadAssets",
+							names.Select(n => new XElement(
+								"Asset",
+								new XAttribute("FileName", PathExtensions.GetRelativePath(basePath, n))
+							))
+						)
+					);
+
+					SaveRunButton.Enabled = true;
+					SaveButton.Enabled = true;
+					return true;
 				}
-
-				if (names.Any(string.IsNullOrWhiteSpace))
-				{
-					throw new Exception("Rom Names can not be blank");
-				}
-
-				var system = SystemDropDown.SelectedItem?.ToString();
-
-				if (string.IsNullOrWhiteSpace(system))
-				{
-					throw new Exception("System Id can not be blank");
-				}
-
-				var basePath = Path.GetDirectoryName(name.Split('|').First());
-
-				if (string.IsNullOrEmpty(basePath))
-				{
-					var fileInfo = new FileInfo(name);
-					basePath = Path.GetDirectoryName(fileInfo.FullName);
-				}
-
-				_currentXml = new XElement("BizHawk-XMLGame",
-					new XAttribute("System", system),
-					new XAttribute("Name", Path.GetFileNameWithoutExtension(name)),
-					new XElement("LoadAssets",
-						names.Select(n => new XElement(
-							"Asset",
-							new XAttribute("FileName", GetRelativePath(basePath, n))
-						))
-					) 
-				);
-
-				SaveRunButton.Enabled = true;
-				return true;
 			}
 			catch (Exception)
 			{
-				_currentXml = null;
-				SaveRunButton.Enabled = false;
-				return false;
+				//swallow exceptions, since this is just validation logic
 			}
+
+			_currentXml = null;
+			SaveRunButton.Enabled = false;
+			SaveButton.Enabled = false;
+			return false;
 		}
 
 		private void NameBox_TextChanged(object sender, EventArgs e)
@@ -233,41 +262,10 @@ namespace BizHawk.Client.EmuHawk
 				Filter = new FilesystemFilterSet(new FilesystemFilter("XML Files", new[] { "xml" })).ToString()
 			};
 
-			var result = sfd.ShowHawkDialog();
-			if (result != DialogResult.Cancel)
+			if (this.ShowDialogWithTempMute(sfd) != DialogResult.Cancel)
 			{
 				NameBox.Text = sfd.FileName;
 			}
-		}
-
-		/// <exception cref="ArgumentException">running on Windows host, and unmanaged call failed</exception>
-		/// <exception cref="FileNotFoundException">running on Windows host, and either path is not a regular file or directory</exception>
-		/// <remarks>Algorithm for Windows taken from https://stackoverflow.com/a/485516/7467292</remarks>
-		public static string GetRelativePath(string fromPath, string toPath)
-		{
-			if (OSTailoredCode.IsUnixHost) return fromPath.MakeRelativeTo(toPath);
-
-			//TODO merge this with the Windows implementation in PathExtensions.MakeRelativeTo
-			static FileAttributes GetPathAttribute(string path1)
-			{
-				var di = new DirectoryInfo(path1.Split('|').First());
-				if (di.Exists)
-				{
-					return FileAttributes.Directory;
-				}
-
-				var fi = new FileInfo(path1.Split('|').First());
-				if (fi.Exists)
-				{
-					return FileAttributes.Normal;
-				}
-
-				throw new FileNotFoundException();
-			}
-			var path = new StringBuilder(260 /* = MAX_PATH */);
-			return Win32Imports.PathRelativePathTo(path, fromPath, GetPathAttribute(fromPath), toPath, GetPathAttribute(toPath))
-				? path.ToString()
-				: throw new ArgumentException("Paths must have a common prefix");
 		}
 
 		private void SystemDropDown_SelectedIndexChanged(object sender, EventArgs e)
@@ -294,5 +292,6 @@ namespace BizHawk.Client.EmuHawk
 			AddButton_Click(null, null);
 			AddButton_Click(null, null);
 		}
+
 	}
 }

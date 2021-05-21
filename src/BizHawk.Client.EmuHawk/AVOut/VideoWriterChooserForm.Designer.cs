@@ -34,19 +34,20 @@
 			this.buttonOK = new System.Windows.Forms.Button();
 			this.buttonCancel = new System.Windows.Forms.Button();
 			this.tableLayoutPanel4 = new System.Windows.Forms.TableLayoutPanel();
-			this.labelDescription = new System.Windows.Forms.Label();
-			this.labelDescriptionBody = new System.Windows.Forms.Label();
-			this.label3 = new System.Windows.Forms.Label();
-			this.label4 = new System.Windows.Forms.Label();
+			this.labelDescription = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.labelDescriptionBody = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label3 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label4 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.buttonAuto = new System.Windows.Forms.Button();
 			this.panelSizeSelect = new System.Windows.Forms.Panel();
-			this.checkBoxPad = new System.Windows.Forms.CheckBox();
-			this.checkBoxASync = new System.Windows.Forms.CheckBox();
-			this.lblSize = new System.Windows.Forms.Label();
+			this.lblSize = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.numericTextBoxW = new BizHawk.Client.EmuHawk.NumericTextBox();
 			this.numericTextBoxH = new BizHawk.Client.EmuHawk.NumericTextBox();
+			this.checkBoxPad = new System.Windows.Forms.CheckBox();
+			this.checkBoxASync = new System.Windows.Forms.CheckBox();
 			this.panel1 = new System.Windows.Forms.Panel();
-			this.lblResolutionWarning = new System.Windows.Forms.Label();
+			this.lblResolutionWarning = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.toolTip1 = new System.Windows.Forms.ToolTip();
 			this.tableLayoutPanel4.SuspendLayout();
 			this.panelSizeSelect.SuspendLayout();
 			this.panel1.SuspendLayout();
@@ -116,13 +117,10 @@
 			// 
 			// labelDescription
 			// 
-			this.labelDescription.AutoSize = true;
 			this.labelDescription.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.labelDescription.Location = new System.Drawing.Point(5, 2);
 			this.labelDescription.Name = "labelDescription";
 			this.labelDescription.Padding = new System.Windows.Forms.Padding(0, 3, 0, 3);
-			this.labelDescription.Size = new System.Drawing.Size(319, 19);
-			this.labelDescription.TabIndex = 3;
 			this.labelDescription.Text = "Description:";
 			// 
 			// labelDescriptionBody
@@ -131,26 +129,18 @@
 			this.labelDescriptionBody.Location = new System.Drawing.Point(5, 23);
 			this.labelDescriptionBody.Name = "labelDescriptionBody";
 			this.labelDescriptionBody.Padding = new System.Windows.Forms.Padding(0, 3, 0, 3);
-			this.labelDescriptionBody.Size = new System.Drawing.Size(319, 183);
-			this.labelDescriptionBody.TabIndex = 6;
 			this.labelDescriptionBody.Text = resources.GetString("labelDescriptionBody.Text");
 			// 
 			// label3
 			// 
-			this.label3.AutoSize = true;
 			this.label3.Location = new System.Drawing.Point(74, 23);
 			this.label3.Name = "label3";
-			this.label3.Size = new System.Drawing.Size(14, 13);
-			this.label3.TabIndex = 12;
 			this.label3.Text = "X";
 			// 
 			// label4
 			// 
-			this.label4.AutoSize = true;
 			this.label4.Location = new System.Drawing.Point(3, 0);
 			this.label4.Name = "label4";
-			this.label4.Size = new System.Drawing.Size(42, 13);
-			this.label4.TabIndex = 13;
 			this.label4.Text = "Resize:";
 			// 
 			// buttonAuto
@@ -177,33 +167,11 @@
 			this.panelSizeSelect.Size = new System.Drawing.Size(162, 84);
 			this.panelSizeSelect.TabIndex = 15;
 			// 
-			// checkBoxPad
-			// 
-			this.checkBoxPad.AutoSize = true;
-			this.checkBoxPad.Location = new System.Drawing.Point(444, 35);
-			this.checkBoxPad.Name = "checkBoxPad";
-			this.checkBoxPad.Size = new System.Drawing.Size(45, 17);
-			this.checkBoxPad.TabIndex = 15;
-			this.checkBoxPad.Text = "Pad";
-			this.checkBoxPad.UseVisualStyleBackColor = true;
-			// 
-			// checkBoxASync
-			// 
-			this.checkBoxASync.AutoSize = true;
-			this.checkBoxASync.Location = new System.Drawing.Point(347, 12);
-			this.checkBoxASync.Name = "checkBoxASync";
-			this.checkBoxASync.Size = new System.Drawing.Size(95, 17);
-			this.checkBoxASync.TabIndex = 16;
-			this.checkBoxASync.Text = "Alternate Sync";
-			this.checkBoxASync.UseVisualStyleBackColor = true;
-			// 
 			// lblSize
 			// 
 			this.lblSize.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
 			this.lblSize.Location = new System.Drawing.Point(3, 42);
 			this.lblSize.Name = "lblSize";
-			this.lblSize.Size = new System.Drawing.Size(80, 34);
-			this.lblSize.TabIndex = 16;
 			this.lblSize.Text = "Size:\r\nTestxTest";
 			// 
 			// numericTextBoxW
@@ -226,6 +194,27 @@
 			this.numericTextBoxH.Size = new System.Drawing.Size(70, 20);
 			this.numericTextBoxH.TabIndex = 11;
 			// 
+			// checkBoxPad
+			// 
+			this.checkBoxPad.AutoSize = true;
+			this.checkBoxPad.Location = new System.Drawing.Point(444, 35);
+			this.checkBoxPad.Name = "checkBoxPad";
+			this.checkBoxPad.Size = new System.Drawing.Size(45, 17);
+			this.checkBoxPad.TabIndex = 15;
+			this.checkBoxPad.Text = "Pad";
+			this.checkBoxPad.UseVisualStyleBackColor = true;
+			// 
+			// checkBoxASync
+			// 
+			this.checkBoxASync.AutoSize = true;
+			this.checkBoxASync.Location = new System.Drawing.Point(347, 12);
+			this.checkBoxASync.Name = "checkBoxASync";
+			this.checkBoxASync.Size = new System.Drawing.Size(95, 17);
+			this.checkBoxASync.TabIndex = 16;
+			this.checkBoxASync.Text = "Sync to Audio";
+			this.checkBoxASync.UseVisualStyleBackColor = true;
+			toolTip1.SetToolTip(checkBoxASync, "Configures A/V Sync strategy for Variable Frame Rate movies. If checked, drops or repeats frames to match audio sync. If unchecked, stretches audio to match video sync, resulting in pitch issues");
+			// 
 			// panel1
 			// 
 			this.panel1.Controls.Add(this.lblResolutionWarning);
@@ -239,8 +228,6 @@
 			this.lblResolutionWarning.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.lblResolutionWarning.Location = new System.Drawing.Point(4, 4);
 			this.lblResolutionWarning.Name = "lblResolutionWarning";
-			this.lblResolutionWarning.Size = new System.Drawing.Size(155, 98);
-			this.lblResolutionWarning.TabIndex = 0;
 			this.lblResolutionWarning.Text = "Resolution is not a multiple of 4! Odd or non-x4 resolutions breaks many codecs. " +
     "Check your output carefully and adjust the window size or codec settings if need" +
     "ed.";
@@ -261,10 +248,13 @@
 			this.Controls.Add(this.buttonOK);
 			this.Controls.Add(this.buttonCancel);
 			this.Controls.Add(this.checkBoxResize);
+			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+			this.MaximizeBox = false;
+			this.MinimizeBox = false;
 			this.Name = "VideoWriterChooserForm";
 			this.ShowIcon = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-			this.Text = "Choose A\\V Writer";
+			this.Text = "Choose A/V Writer";
 			this.tableLayoutPanel4.ResumeLayout(false);
 			this.tableLayoutPanel4.PerformLayout();
 			this.panelSizeSelect.ResumeLayout(false);
@@ -282,18 +272,19 @@
 		private System.Windows.Forms.Button buttonOK;
 		private System.Windows.Forms.Button buttonCancel;
 		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel4;
-		private System.Windows.Forms.Label labelDescription;
-		private System.Windows.Forms.Label labelDescriptionBody;
+		private BizHawk.WinForms.Controls.LocLabelEx labelDescription;
+		private BizHawk.WinForms.Controls.LocLabelEx labelDescriptionBody;
 		private NumericTextBox numericTextBoxW;
 		private NumericTextBox numericTextBoxH;
-		private System.Windows.Forms.Label label3;
-		private System.Windows.Forms.Label label4;
+		private BizHawk.WinForms.Controls.LocLabelEx label3;
+		private BizHawk.WinForms.Controls.LocLabelEx label4;
 		private System.Windows.Forms.Button buttonAuto;
 		private System.Windows.Forms.Panel panelSizeSelect;
 		private System.Windows.Forms.CheckBox checkBoxPad;
 		private System.Windows.Forms.CheckBox checkBoxASync;
-		private System.Windows.Forms.Label lblSize;
+		private System.Windows.Forms.ToolTip toolTip1;
+		private BizHawk.WinForms.Controls.LocLabelEx lblSize;
 		private System.Windows.Forms.Panel panel1;
-		private System.Windows.Forms.Label lblResolutionWarning;
+		private BizHawk.WinForms.Controls.LocLabelEx lblResolutionWarning;
 	}
 }

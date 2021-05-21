@@ -4,14 +4,14 @@ using BizHawk.Emulation.Cores.Nintendo.N64.NativeApi;
 
 namespace BizHawk.Emulation.Cores.Nintendo.N64
 {
-	class N64Audio : IDisposable
+	internal class N64Audio : IDisposable
 	{
 		/// <summary>
 		/// mupen64 DLL Api
 		/// </summary>
 		private mupen64plusAudioApi api;
 
-		private mupen64plusApi coreAPI;
+		private readonly mupen64plusApi coreAPI;
 
 		/// <summary>
 		/// Buffer for audio data
@@ -39,7 +39,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.N64
 		/// <summary>
 		/// Creates a N64 Audio subsystem
 		/// </summary>
-		/// <param name="api">Mupen64 api which is used for fetching sound</param>
 		public N64Audio(mupen64plusApi core)
 		{
 			this.api = new mupen64plusAudioApi(core);

@@ -14,17 +14,15 @@ using BizHawk.Emulation.Cores.Components.Z80A;
 
 namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 {
-	[Core(
-		"SMSHawk",
-		"Vecna",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.SMSHawk, "Vecna")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class SMS : IEmulator, ISoundProvider, ISaveRam, IInputPollable, IRegionable,
 		IDebuggable, ISettable<SMS.SmsSettings, SMS.SmsSyncSettings>, ICodeDataLogger
 	{
-		[CoreConstructor(new[] { "SMS", "SG", "GG" })]
-		public SMS(CoreComm comm, GameInfo game, byte[] rom, object settings, object syncSettings)
+		[CoreConstructor("SMS")]
+		[CoreConstructor("SG")]
+		[CoreConstructor("GG")]
+		public SMS(CoreComm comm, GameInfo game, byte[] rom, SmsSettings settings, SmsSyncSettings syncSettings)
 		{
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;
@@ -98,6 +96,8 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 				game.System = "GG";
 				Console.WriteLine("Using SMS Compatibility mode for Game Gear System");
 			}
+
+			SystemId = game.System;
 
 			Vdp = new VDP(this, Cpu, IsGameGear ? VdpMode.GameGear : VdpMode.SMS, Region);
 			ser.Register<IVideoProvider>(Vdp);
@@ -208,6 +208,11 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 			// stops a few SMS and GG games from crashing
 			Cpu.Regs[Cpu.SPl] = 0xF0;
 			Cpu.Regs[Cpu.SPh] = 0xDF;
+
+			if (!IsSG1000)
+			{
+				ser.Register<ISmsGpuView>(new SmsGpuView(Vdp));
+			}
 		}
 
 		public void HardReset()
@@ -221,8 +226,8 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 		public byte[] RomData;
 		private byte RomBank0, RomBank1, RomBank2, RomBank3;
 		private byte Bios_bank;
-		private byte RomBanks;
-		private byte[] BiosRom;
+		private readonly byte RomBanks;
+		private readonly byte[] BiosRom;
 
 		// Machine resources
 		public Z80A Cpu;
@@ -234,7 +239,7 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 		public bool IsGameGear_C { get; set; }
 		public bool IsSG1000 { get; set; }
 
-		private bool HasYM2413 = false;
+		private readonly bool HasYM2413 = false;
 		private bool disablePSG = false;
 		private bool PortDEEnabled = false;
 		private IController _controller = NullController.Instance;
@@ -250,8 +255,8 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 		private byte Port3F = 0xFF;
 		private byte PortDE = 0x00;
 
-		private byte ForceStereoByte = 0xAD;
-		private bool IsGame3D = false;
+		private readonly byte ForceStereoByte = 0xAD;
+		private readonly bool IsGame3D = false;
 
 		// Linked Play Only
 		public bool start_pressed;
@@ -266,7 +271,7 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 
 		private readonly ITraceable Tracer;
 
-		SmsSyncSettings.Regions DetermineRegion(string gameRegion)
+		private SmsSyncSettings.Regions DetermineRegion(string gameRegion)
 		{
 			if (gameRegion == null)
 				return SmsSyncSettings.Regions.Export;
@@ -417,5 +422,21 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 		}
 
 		private readonly SmsSyncSettings.Regions _region;
+
+		public class SmsGpuView : ISmsGpuView
+		{
+			private readonly VDP _vdp;
+
+			public SmsGpuView(VDP vdp)
+			{
+				_vdp = vdp;
+			}
+
+			public byte[] PatternBuffer => _vdp.PatternBuffer;
+			public int FrameHeight => _vdp.FrameHeight;
+			public byte[] VRAM => _vdp.VRAM;
+			public int[] Palette => _vdp.Palette;
+			public int CalcNameTableBase() => _vdp.CalcNameTableBase();
+		}
 	}
 }

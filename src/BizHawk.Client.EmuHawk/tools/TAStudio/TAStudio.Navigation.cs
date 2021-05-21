@@ -14,7 +14,7 @@ namespace BizHawk.Client.EmuHawk
 				if (frame <= Emulator.Frame)
 				{
 					if ((MainForm.EmulatorPaused || !MainForm.IsSeeking)
-						&& !CurrentTasMovie.LastPositionStable)
+						&& !CurrentTasMovie.LastPositionStable && !_playbackInterrupted)
 					{
 						LastPositionFrame = Emulator.Frame;
 						CurrentTasMovie.LastPositionStable = true; // until new frame is emulated
@@ -52,9 +52,7 @@ namespace BizHawk.Client.EmuHawk
 				{
 					TastudioPlayMode();
 
-					// Simply getting the last state doesn't work if that state is the frame.
-					// display isn't saved in the state, need to emulate to frame
-					var lastState = CurrentTasMovie.TasStateManager.GetStateClosestToFrame(frame);
+					var lastState = GetPriorStateForFramebuffer(frame);
 					if (lastState.Key > Emulator.Frame)
 					{
 						LoadState(lastState);

@@ -1,22 +1,23 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
 
 using BizHawk.Emulation.Common;
-using BizHawk.Client.Common.InputAdapterExtensions;
 
 namespace BizHawk.Client.Common
 {
 	
 	// don't take my word for it, but here is a guide...
 	// user -> Input -> ActiveController -> UDLR -> StickyXORPlayerInputAdapter -> TurboAdapter(TBD) -> Lua(?TBD?) -> ..
-	// .. -> MultitrackRewiringControllerAdapter -> MovieInputSourceAdapter -> (MovieSession) -> MovieOutputAdapter -> ControllerOutput(1) -> Game
+	// .. -> MovieInputSourceAdapter -> (MovieSession) -> MovieOutputAdapter -> ControllerOutput(1) -> Game
 	// (1)->Input Display
 	public class InputManager
 	{
 		// the original source controller, bound to the user, sort of the "input" port for the chain, i think
-		public Controller ActiveController { get; set; } // TODO: private setter, add a method that takes both controllers in 
+		public Controller ActiveController { get; set; } // TODO: private setter, add a method that takes both controllers in
 
 		// rapid fire version on the user controller, has its own key bindings and is OR'ed against ActiveController
-		public AutofireController AutoFireController { get; set; } // TODO: private setter, add a method that takes both controllers in 
+		public AutofireController AutoFireController { get; set; } // TODO: private setter, add a method that takes both controllers in
 
 		// the "output" port for the controller chain.
 		public CopyControllerAdapter ControllerOutput { get; } = new CopyControllerAdapter();
@@ -31,7 +32,7 @@ namespace BizHawk.Client.Common
 		public StickyXorAdapter StickyXorAdapter { get; } = new StickyXorAdapter();
 
 		/// <summary>
-		/// Used to AND to another controller, used for <see cref="JoypadApi.Set(Dictionary{string, bool}, int?)">JoypadApi.Set</see>
+		/// Used to AND to another controller, used for <see cref="IJoypadApi.Set(IDictionary{string, bool}, int?)">JoypadApi.Set</see>
 		/// </summary>
 		public OverrideAdapter ButtonOverrideAdapter { get; } = new OverrideAdapter();
 
@@ -46,11 +47,13 @@ namespace BizHawk.Client.Common
 
 		public Controller ClientControls { get; set; }
 
+		public Func<(Point Pos, long Scroll, bool LMB, bool MMB, bool RMB, bool X1MB, bool X2MB)> GetMainFormMouseInfo { get; set; }
+
 		public void SyncControls(IEmulator emulator, IMovieSession session, Config config)
 		{
 			var def = emulator.ControllerDefinition;
 
-			ActiveController = BindToDefinition(def, config.AllTrollers, config.AllTrollersAnalog);
+			ActiveController = BindToDefinition(def, config.AllTrollers, config.AllTrollersAnalog, config.AllTrollersFeedbacks);
 			AutoFireController = BindToDefinitionAF(emulator, config.AllTrollersAutoFire, config.AutofireOn, config.AutofireOff);
 
 			// allow propagating controls that are in the current controller definition but not in the prebaked one
@@ -59,7 +62,6 @@ namespace BizHawk.Client.Common
 			ClickyVirtualPadController.Definition = new ControllerDefinition(def);
 
 			// Wire up input chain
-			ControllerInputCoalescer.Clear();
 			ControllerInputCoalescer.Definition = ActiveController.Definition;
 
 			UdLRControllerAdapter.Source = ActiveController.Or(AutoFireController);
@@ -68,12 +70,27 @@ namespace BizHawk.Client.Common
 			StickyXorAdapter.Source = UdLRControllerAdapter;
 			AutofireStickyXorAdapter.Source = StickyXorAdapter;
 
-			session.MovieIn.Source = AutofireStickyXorAdapter;
+			session.MovieIn = AutofireStickyXorAdapter;
 			session.StickySource = AutofireStickyXorAdapter;
 			ControllerOutput.Source = session.MovieOut;
 		}
 
-		private static Controller BindToDefinition(ControllerDefinition def, IDictionary<string, Dictionary<string, string>> allBinds, IDictionary<string, Dictionary<string, AnalogBind>> analogBinds)
+		public void ToggleStickies()
+		{
+			StickyXorAdapter.MassToggleStickyState(ActiveController.PressedButtons);
+			AutofireStickyXorAdapter.MassToggleStickyState(AutoFireController.PressedButtons);
+		}
+
+		public void ToggleAutoStickies()
+		{
+			AutofireStickyXorAdapter.MassToggleStickyState(ActiveController.PressedButtons);
+		}
+
+		private static Controller BindToDefinition(
+			ControllerDefinition def,
+			IDictionary<string, Dictionary<string, string>> allBinds,
+			IDictionary<string, Dictionary<string, AnalogBind>> analogBinds,
+			IDictionary<string, Dictionary<string, FeedbackBind>> feedbackBinds)
 		{
 			var ret = new Controller(def);
 			if (allBinds.TryGetValue(def.Name, out var binds))
@@ -89,12 +106,20 @@ namespace BizHawk.Client.Common
 
 			if (analogBinds.TryGetValue(def.Name, out var aBinds))
 			{
-				foreach (var btn in def.AxisControls)
+				foreach (var btn in def.Axes.Keys)
 				{
 					if (aBinds.TryGetValue(btn, out var bind))
 					{
 						ret.BindAxis(btn, bind);
 					}
+				}
+			}
+
+			if (feedbackBinds.TryGetValue(def.Name, out var fBinds))
+			{
+				foreach (var channel in def.HapticsChannels)
+				{
+					if (fBinds.TryGetValue(channel, out var bind)) ret.BindFeedbackChannel(channel, bind);
 				}
 			}
 

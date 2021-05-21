@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Diagnostics;
-using System.Windows.Forms;
+
+using BizHawk.Client.Common;
 using BizHawk.Common;
 using BizHawk.Common.PathExtensions;
 using BizHawk.Emulation.Common;
@@ -16,6 +17,8 @@ namespace BizHawk.Client.EmuHawk
 	[VideoWriter("ffmpeg", "FFmpeg writer", "Uses an external FFMPEG process to encode video and audio.  Various formats supported.  Splits on resolution change.")]
 	public class FFmpegWriter : IVideoWriter
 	{
+		private readonly IDialogParent _dialogParent;
+
 		/// <summary>
 		/// handle to external ffmpeg process
 		/// </summary>
@@ -60,6 +63,8 @@ namespace BizHawk.Client.EmuHawk
 		/// file extension actually used
 		/// </summary>
 		private string _ext;
+
+		public FFmpegWriter(IDialogParent dialogParent) => _dialogParent = dialogParent;
 
 		public void SetFrame(int frame)
 		{
@@ -108,7 +113,7 @@ namespace BizHawk.Client.EmuHawk
 
 			_ffmpeg.BeginErrorReadLine();
 
-			_muxer = new NutMuxer(width, height, fpsnum, fpsden, sampleRate, channels, _ffmpeg.StandardInput.BaseStream);
+			_muxer = new NutMuxer(_width, _height, _fpsnum, _fpsden, _sampleRate, _channels, _ffmpeg.StandardInput.BaseStream);
 		}
 
 		/// <summary>
@@ -159,7 +164,7 @@ namespace BizHawk.Client.EmuHawk
 		/// <summary>
 		/// returns a string containing the commandline sent to ffmpeg and recent console (stderr) output
 		/// </summary>
-		private string ffmpeg_geterror()
+		private string FfmpegGetError()
 		{
 			if (_ffmpeg.StartInfo.RedirectStandardError)
 			{
@@ -181,14 +186,14 @@ namespace BizHawk.Client.EmuHawk
 		/// <exception cref="Exception">FFmpeg call failed</exception>
 		public void AddFrame(IVideoProvider source)
 		{
-			if (source.BufferWidth != width || source.BufferHeight != height)
+			if (source.BufferWidth != _width || source.BufferHeight != _height)
 			{
 				SetVideoParameters(source.BufferWidth, source.BufferHeight);
 			}
 
 			if (_ffmpeg.HasExited)
 			{
-				throw new Exception($"unexpected ffmpeg death:\n{ffmpeg_geterror()}");
+				throw new Exception($"unexpected ffmpeg death:\n{FfmpegGetError()}");
 			}
 
 			var video = source.GetVideoBuffer();
@@ -198,7 +203,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			catch
 			{
-				MessageBox.Show($"Exception! ffmpeg history:\n{ffmpeg_geterror()}");
+				_dialogParent.DialogController.ShowMessageBox($"Exception! ffmpeg history:\n{FfmpegGetError()}");
 				throw;
 			}
 
@@ -206,17 +211,23 @@ namespace BizHawk.Client.EmuHawk
 			//ffmpeg.StandardInput.BaseStream.Write(b, 0, b.Length);
 		}
 
-		public IDisposable AcquireVideoCodecToken(IWin32Window hwnd)
+		public IDisposable AcquireVideoCodecToken(Config config)
 		{
-			return FFmpegWriterForm.DoFFmpegWriterDlg(hwnd);
+			if (!FFmpegService.QueryServiceAvailable())
+			{
+				using var form = new FFmpegDownloaderForm();
+				_dialogParent.ShowDialogWithTempMute(form);
+				if (!FFmpegService.QueryServiceAvailable()) return null;
+			}
+			return FFmpegWriterForm.DoFFmpegWriterDlg(_dialogParent.AsWinFormsHandle(), config);
 		}
 
 		/// <exception cref="ArgumentException"><paramref name="token"/> does not inherit <see cref="FFmpegWriterForm.FormatPreset"/></exception>
 		public void SetVideoCodecToken(IDisposable token)
 		{
-			if (token is FFmpegWriterForm.FormatPreset)
+			if (token is FFmpegWriterForm.FormatPreset preset)
 			{
-				_token = (FFmpegWriterForm.FormatPreset)token;
+				_token = preset;
 			}
 			else
 			{
@@ -227,18 +238,18 @@ namespace BizHawk.Client.EmuHawk
 		/// <summary>
 		/// video params
 		/// </summary>
-		private int fpsnum, fpsden, width, height, sampleRate, channels;
+		private int _fpsnum, _fpsden, _width, _height, _sampleRate, _channels;
 
 		public void SetMovieParameters(int fpsNum, int fpsDen)
 		{
-			this.fpsnum = fpsNum;
-			this.fpsden = fpsDen;
+			_fpsnum = fpsNum;
+			_fpsden = fpsDen;
 		}
 
 		public void SetVideoParameters(int width, int height)
 		{
-			this.width = width;
-			this.height = height;
+			_width = width;
+			_height = height;
 
 			/* ffmpeg theoretically supports variable resolution videos, but in practice that's not handled very well.
 			 * so we start a new segment.
@@ -271,7 +282,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (_ffmpeg.HasExited)
 			{
-				throw new Exception($"unexpected ffmpeg death:\n{ffmpeg_geterror()}");
+				throw new Exception($"unexpected ffmpeg death:\n{FfmpegGetError()}");
 			}
 
 			if (samples.Length == 0)
@@ -286,7 +297,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			catch
 			{
-				MessageBox.Show($"Exception! ffmpeg history:\n{ffmpeg_geterror()}");
+				_dialogParent.DialogController.ShowMessageBox($"Exception! ffmpeg history:\n{FfmpegGetError()}");
 				throw;
 			}
 		}
@@ -299,8 +310,8 @@ namespace BizHawk.Client.EmuHawk
 				throw new ArgumentOutOfRangeException(nameof(bits), "Sampling depth must be 16 bits!");
 			}
 
-			this.sampleRate = sampleRate;
-			this.channels = channels;
+			this._sampleRate = sampleRate;
+			this._channels = channels;
 		}
 
 		public string DesiredExtension()
@@ -309,9 +320,9 @@ namespace BizHawk.Client.EmuHawk
 			return _token.Extension;
 		}
 
-		public void SetDefaultVideoCodecToken()
+		public void SetDefaultVideoCodecToken(Config config)
 		{
-			_token = FFmpegWriterForm.FormatPreset.GetDefaultPreset();
+			_token = FFmpegWriterForm.FormatPreset.GetDefaultPreset(config);
 		}
 
 		public bool UsesAudio => true;

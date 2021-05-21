@@ -11,8 +11,11 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class PathConfig : Form
 	{
-		private readonly Config _config;
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
+
+		private readonly PathEntryCollection _pathEntries;
+
+		private readonly string _sysID;
 
 		// All path text boxes should do some kind of error checking
 		// Config path under base, config will default to %exe%
@@ -37,66 +40,27 @@ namespace BizHawk.Client.EmuHawk
 			"%recent%",
 			"%exe%",
 			"%rom%",
-			".\\",
-			"..\\"
 		};
 
-		public PathConfig(MainForm mainForm, Config config)
+		public PathConfig(IMainFormForConfig mainForm, PathEntryCollection pathEntries, string sysID)
 		{
 			_mainForm = mainForm;
-			_config = config;
+			_pathEntries = pathEntries;
+			_sysID = sysID;
 			InitializeComponent();
+			SpecialCommandsBtn.Image = Properties.Resources.Help;
 		}
 
 		private void LoadSettings()
 		{
-			RecentForROMs.Checked = _config.PathEntries.UseRecentForRoms;
+			RecentForROMs.Checked = _pathEntries.UseRecentForRoms;
 
-			DoTabs(_config.PathEntries.ToList());
-			SetDefaultFocusedTab();
+			DoTabs(_pathEntries.ToList(), _sysID);
 			DoRomToggle();
 		}
 
-		private void SetDefaultFocusedTab()
+		private void DoTabs(IList<PathEntry> pathCollection, string focusTabOfSystem)
 		{
-			var tab = FindTabByName(GlobalWin.Game.System);
-			if (tab != null)
-			{
-				PathTabControl.SelectTab(tab);
-			}
-		}
-
-		private TabPage FindTabByName(string name)
-		{
-			var global = PathTabControl.TabPages
-				.OfType<TabPage>()
-				.First(tp => tp.Name.ToUpper().Contains("GLOBAL"));
-
-			return PathTabControl.TabPages
-				.OfType<TabPage>()
-				.FirstOrDefault(tp => tp.Name.ToUpper().StartsWith(name.ToUpper()))
-				?? global;
-		}
-
-		private void DoTabs(List<PathEntry> pathCollection)
-		{
-			PathTabControl.Visible = false;
-			PathTabControl.TabPages.Clear();
-
-			// Separate by system
-			var systems = _config.PathEntries
-				.Select(s => s.SystemDisplayName)
-				.Distinct()
-				.ToList();
-			systems.Sort();
-
-			// Hacky way to put global first
-			var global = systems.FirstOrDefault(s => s == "Global");
-			systems.Remove(global);
-			systems.Insert(0, global);
-
-			var tabPages = new List<TabPage>(systems.Count);
-
 			int x = UIHelper.ScaleX(6);
 			int textBoxWidth = UIHelper.ScaleX(70);
 			int padding = UIHelper.ScaleX(5);
@@ -106,18 +70,17 @@ namespace BizHawk.Client.EmuHawk
 			int widgetOffset = UIHelper.ScaleX(85);
 			int rowHeight = UIHelper.ScaleY(30);
 
-			foreach (var systemDisplayName in systems)
+			void AddTabPageForSystem(string system, string systemDisplayName)
 			{
-				var systemId = _config.PathEntries.First(p => p.SystemDisplayName == systemDisplayName).System;
 				var t = new TabPage
 				{
+					Name = system,
 					Text = systemDisplayName,
-					Name = systemId,
 					Width = UIHelper.ScaleX(200), // Initial Left/Width of child controls are based on this size.
 					AutoScroll = true
 				};
 				var paths = pathCollection
-					.Where(p => p.System == systemId)
+					.Where(p => p.System == system)
 					.OrderBy(p => p.Ordinal)
 					.ThenBy(p => p.Type);
 
@@ -150,45 +113,12 @@ namespace BizHawk.Client.EmuHawk
 					var tempBox = box;
 					var tempPath = path.Type;
 					var tempSystem = path.System;
-					btn.Click += delegate
-					{
-						BrowseFolder(tempBox, tempPath, tempSystem);
-					};
-
-					int infoPadding = UIHelper.ScaleX(0);
-					if (t.Name.Contains("Global") && path.Type == "Firmware")
-					{
-						infoPadding = UIHelper.ScaleX(26);
-
-						var firmwareButton = new Button
-						{
-							Name = "Global",
-							Text = "",
-							Image = Properties.Resources.Help,
-							Location = new Point(UIHelper.ScaleX(115), y + buttonOffsetY),
-							Size = new Size(buttonWidth, buttonHeight),
-							Anchor = AnchorStyles.Top | AnchorStyles.Right
-						};
-
-						firmwareButton.Click += delegate
-						{
-							if (Owner is FirmwaresConfig)
-							{
-								MessageBox.Show("C-C-C-Combo Breaker!", "Nice try, but");
-								return;
-							}
-
-							using var f = new FirmwaresConfig(_mainForm, _config) { TargetSystem = "Global" };
-							f.ShowDialog(this);
-						};
-
-						t.Controls.Add(firmwareButton);
-					}
+					btn.Click += (sender, args) => BrowseFolder(tempBox, tempPath, tempSystem);
 
 					var label = new Label
 					{
 						Text = path.Type,
-						Location = new Point(widgetOffset + buttonWidth + padding + infoPadding, y + UIHelper.ScaleY(4)),
+						Location = new Point(widgetOffset + buttonWidth + padding, y + UIHelper.ScaleY(4)),
 						Size = new Size(UIHelper.ScaleX(100), UIHelper.ScaleY(15)),
 						Name = path.Type,
 						Anchor = AnchorStyles.Top | AnchorStyles.Right
@@ -201,10 +131,27 @@ namespace BizHawk.Client.EmuHawk
 					y += rowHeight;
 				}
 
-				tabPages.Add(t);
+				PathTabControl.TabPages.Add(t);
+				if (system == focusTabOfSystem || system.Split('_').Contains(focusTabOfSystem))
+				{
+					PathTabControl.SelectTab(PathTabControl.TabPages.Count - 1);
+				}
 			}
 
-			PathTabControl.TabPages.AddRange(tabPages.ToArray());
+			PathTabControl.Visible = false;
+
+			PathTabControl.TabPages.Clear();
+			var systems = _pathEntries.Select(e => e.System).Distinct() // group entries by "system" (intentionally using instance field here, not parameter)
+				.Select(sys => (SysGroup: sys, DisplayName: PathEntryCollection.GetDisplayNameFor(sys)))
+				.OrderBy(tuple => tuple.DisplayName)
+				.ToList();
+			// add the Global tab first...
+			const string idGlobal = "Global_NULL";
+			systems.RemoveAll(tuple => tuple.SysGroup == idGlobal);
+			AddTabPageForSystem(idGlobal, PathEntryCollection.GetDisplayNameFor(idGlobal));
+			// ...then continue with the others
+			foreach (var (sys, dispName) in systems) AddTabPageForSystem(sys, dispName);
+
 			PathTabControl.Visible = true;
 		}
 
@@ -213,7 +160,8 @@ namespace BizHawk.Client.EmuHawk
 			// Ugly hack, we don't want to pass in the system in for system base and global paths
 			if (name == "Base" || system == "Global" || system == "Global_NULL")
 			{
-				system = null;
+				BrowseFolder(box, name, system: null);
+				return;
 			}
 
 			DialogResult result;
@@ -224,7 +172,7 @@ namespace BizHawk.Client.EmuHawk
 				using var f = new FolderBrowserDialog
 				{
 					Description = $"Set the directory for {name}",
-					SelectedPath = _config.PathEntries.AbsolutePathFor(box.Text, system)
+					SelectedPath = _pathEntries.AbsolutePathFor(box.Text, system)
 				};
 				result = f.ShowDialog();
 				selectedPath = f.SelectedPath;
@@ -234,28 +182,28 @@ namespace BizHawk.Client.EmuHawk
 				using var f = new FolderBrowserEx
 				{
 					Description = $"Set the directory for {name}",
-					SelectedPath = _config.PathEntries.AbsolutePathFor(box.Text, system)
+					SelectedPath = _pathEntries.AbsolutePathFor(box.Text, system)
 				};
 				result = f.ShowDialog();
 				selectedPath = f.SelectedPath;
 			}
 			if (result.IsOk())
 			{
-				box.Text = _config.PathEntries.TryMakeRelative(selectedPath, system);
+				box.Text = _pathEntries.TryMakeRelative(selectedPath, system);
 			}
 		}
 
 		private void SaveSettings()
 		{
-			_config.PathEntries.UseRecentForRoms = RecentForROMs.Checked;
+			_pathEntries.UseRecentForRoms = RecentForROMs.Checked;
 
 			foreach (var t in AllPathBoxes)
 			{
-				var pathEntry = _config.PathEntries.First(p => p.System == t.Parent.Name && p.Type == t.Name);
+				var pathEntry = _pathEntries.First(p => p.System == t.Parent.Name && p.Type == t.Name);
 				pathEntry.Path = t.Text;
 			}
 
-			_mainForm.MovieSession.BackupDirectory = _config.PathEntries.MovieBackupsAbsolutePath();
+			_mainForm.MovieSession.BackupDirectory = _pathEntries.MovieBackupsAbsolutePath();
 		}
 
 		private void DoRomToggle()
@@ -316,16 +264,13 @@ namespace BizHawk.Client.EmuHawk
 		}
 
 		private void DefaultsBtn_Click(object sender, EventArgs e)
-		{
-			DoTabs(PathEntryCollection.DefaultValues);
-			SetDefaultFocusedTab();
-		}
+			=> DoTabs(PathEntryCollection.DefaultValues, "Global_NULL");
 
 		private void Ok_Click(object sender, EventArgs e)
 		{
 			SaveSettings();
 
-			_config.PathEntries.RefreshTempPath();
+			_pathEntries.RefreshTempPath();
 			_mainForm.AddOnScreenMessage("Path settings saved");
 			Close();
 		}

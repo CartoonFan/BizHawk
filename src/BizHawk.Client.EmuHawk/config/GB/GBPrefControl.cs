@@ -4,11 +4,16 @@ using System.Windows.Forms;
 
 using BizHawk.Emulation.Cores.Nintendo.Gameboy;
 using BizHawk.Client.Common;
+using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
 	public partial class GBPrefControl : UserControl
 	{
+		private Config _config;
+		private IGameInfo _game;
+		private IMovieSession _movieSession;
+
 		public GBPrefControl()
 		{
 			InitializeComponent();
@@ -17,22 +22,27 @@ namespace BizHawk.Client.EmuHawk
 		[Browsable(false)]
 		public bool ColorGameBoy { get; set; }
 
+		/// <remarks>TODO <see cref="UserControl">UserControls</see> can be <see cref="IDialogParent">IDialogParents</see> too, the modal should still be tied to the parent <see cref="Form"/> if used that way</remarks>
+		[Browsable(false)]
+		public IDialogParent DialogParent { private get; set; }
+
 		[Browsable(false)]
 		public bool SyncSettingsChanged { get; private set; }
 
 		private Gameboy.GambatteSettings _s;
 		private Gameboy.GambatteSyncSettings _ss;
 
-		public void PutSettings(Gameboy.GambatteSettings s, Gameboy.GambatteSyncSettings ss)
+		public void PutSettings(Config config, IGameInfo game, IMovieSession movieSession, Gameboy.GambatteSettings s, Gameboy.GambatteSyncSettings ss)
 		{
+			_game = game;
+			_config = config;
+			_movieSession = movieSession;
 			_s = s ?? new Gameboy.GambatteSettings();
 			_ss = ss ?? new Gameboy.GambatteSyncSettings();
 			propertyGrid1.SelectedObject = _ss;
-			propertyGrid1.Enabled = GlobalWin.MovieSession.Movie.NotActive();
+			propertyGrid1.Enabled = movieSession.Movie.NotActive();
 			checkBoxMuted.Checked = _s.Muted;
-			cbDisplayBG.Checked = _s.DisplayBG;
-			cbDisplayOBJ.Checked = _s.DisplayOBJ;
-			cbDisplayWIN.Checked = _s.DisplayWindow;
+			cbRgbdsSyntax.Checked = _s.RgbdsSyntax;
 		}
 
 		public void GetSettings(out Gameboy.GambatteSettings s, out Gameboy.GambatteSyncSettings ss)
@@ -43,8 +53,8 @@ namespace BizHawk.Client.EmuHawk
 
 		private void ButtonDefaults_Click(object sender, EventArgs e)
 		{
-			PutSettings(null, GlobalWin.MovieSession.Movie.IsActive() ? _ss : null);
-			if (GlobalWin.MovieSession.Movie.NotActive())
+			PutSettings(_config, _game, _movieSession, null, _movieSession.Movie.IsActive() ? _ss : null);
+			if (_movieSession.Movie.NotActive())
 			{
 				SyncSettingsChanged = true;
 			}
@@ -54,11 +64,11 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (ColorGameBoy)
 			{
-				CGBColorChooserForm.DoCGBColorChooserFormDialog(ParentForm, _s);
+				CGBColorChooserForm.DoCGBColorChooserFormDialog(DialogParent, _s);
 			}
 			else
 			{
-				ColorChooserForm.DoColorChooserFormDialog(ParentForm, _s);
+				ColorChooserForm.DoColorChooserFormDialog(DialogParent, _config, _game, _s);
 			}
 		}
 
@@ -71,20 +81,10 @@ namespace BizHawk.Client.EmuHawk
 		{
 			_s.Muted = ((CheckBox)sender).Checked;
 		}
-
-		private void CbDisplayBG_CheckedChanged(object sender, EventArgs e)
+		
+		private void CbRgbdsSyntax_CheckedChanged(object sender, EventArgs e)
 		{
-			_s.DisplayBG = ((CheckBox)sender).Checked;
-		}
-
-		private void CbDisplayOBJ_CheckedChanged(object sender, EventArgs e)
-		{
-			_s.DisplayOBJ = ((CheckBox)sender).Checked;
-		}
-
-		private void CbDisplayWin_CheckedChanged(object sender, EventArgs e)
-		{
-			_s.DisplayWindow = ((CheckBox)sender).Checked;
+			_s.RgbdsSyntax = ((CheckBox)sender).Checked;
 		}
 	}
 }

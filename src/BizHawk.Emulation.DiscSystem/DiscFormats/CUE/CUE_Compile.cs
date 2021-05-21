@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
+
+using BizHawk.Common;
 
 //this would be a good place for structural validation
 //after this step, we won't want to have to do stuff like that (it will gunk up already sticky code)
@@ -15,19 +18,20 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 		public string ISRC;
 	}
 
-	internal class CompiledCueIndex
+	internal readonly struct CompiledCueIndex
 	{
-		public int Number;
+		/// <remarks>this is annoying, it should just be an integer</remarks>
+		public readonly Timestamp FileMSF;
 
-		/// <summary>
-		/// this is annoying, it should just be an integer
-		/// </summary>
-		public Timestamp FileMSF;
+		public readonly int Number;
 
-		public override string ToString()
+		public CompiledCueIndex(int number, Timestamp fileMSF)
 		{
-			return $"I#{Number:D2} {FileMSF}";
+			Number = number;
+			FileMSF = fileMSF;
 		}
+
+		public override readonly string ToString() => $"I#{Number:D2} {FileMSF}";
 	}
 
 	/// <summary>
@@ -101,33 +105,30 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 		public CueTrackFlags Flags = CueTrackFlags.None;
 		public CueTrackType TrackType = CueTrackType.Unknown;
 
-		public List<CompiledCueIndex> Indexes = new List<CompiledCueIndex>();
+		public readonly IList<CompiledCueIndex> Indexes = new List<CompiledCueIndex>();
 
 		public override string ToString()
 		{
-			var idx = Indexes.Find((i) => i.Number == 1);
-			if (idx == null)
-				return $"T#{Number:D2} NO INDEX 1";
-			else
-			{
-				var indexlist = string.Join("|", Indexes);
-				return $"T#{Number:D2} {BlobIndex}:{idx.FileMSF} ({indexlist})";
-			}
+			var idx = Indexes.FirstOrDefault(cci => cci.Number == 1);
+			if (idx.Number != 1) return $"T#{Number:D2} NO INDEX 1";
+			var indexlist = string.Join("|", Indexes);
+			return $"T#{Number:D2} {BlobIndex}:{idx.FileMSF} ({indexlist})";
 		}
 	}
 
 	internal class CompileCueJob : DiscJob
 	{
-		/// <summary>
-		/// input: the CueFile to analyze
-		/// </summary>
-		public CUE_File IN_CueFile { private get; set; }
+		private readonly CUE_File IN_CueFile;
 
-		/// <summary>
-		/// The context used for this compiling job
-		/// TODO - rename something like context
-		/// </summary>
-		public CUE_Context IN_CueContext { internal get; set; }
+		internal readonly CUE_Context IN_CueContext;
+
+		/// <param name="cueFile">the CueFile to analyze</param>
+		/// <param name="cueContext">The context used for this compiling job</param>
+		public CompileCueJob(CUE_File cueFile, CUE_Context cueContext)
+		{
+			IN_CueFile = cueFile;
+			IN_CueContext = cueContext;
+		}
 
 		/// <summary>
 		/// output: high level disc info
@@ -251,7 +252,7 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 				//TODO - fix exception-throwing inside
 				//TODO - verify stream-disposing semantics
 				var fs = File.OpenRead(choice);
-				using var blob = new Disc.Blob_WaveFile();
+				using var blob = new Blob_WaveFile();
 				try
 				{
 					blob.Load(fs);
@@ -269,7 +270,7 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 			else if (blobPathExt == ".ECM")
 			{
 				cfi.Type = CompiledCueFileType.ECM;
-				if (!Disc.Blob_ECM.IsECM(choice))
+				if (!Blob_ECM.IsECM(choice))
 				{
 					Error($"an ECM file was specified or detected, but it isn't a valid ECM file: {Path.GetFileName(choice)}");
 					cfi.Type = CompiledCueFileType.Unknown;
@@ -327,9 +328,7 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 			//check whether processing was available
 			if (needsCodec)
 			{
-				FFMpeg ffmpeg = new FFMpeg();
-				if (!ffmpeg.QueryServiceAvailable())
-					Warn("Decoding service will be required for further processing, but is not available");
+				if (!FFmpegService.QueryServiceAvailable()) Warn("Decoding service will be required for further processing, but is not available");
 			}
 		}
 
@@ -342,18 +341,14 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 			//normalize: if an index 0 is missing, add it here
 			if (curr_track.Indexes[0].Number != 0)
 			{
-				var index0 = new CompiledCueIndex();
-				var index1 = curr_track.Indexes[0];
-				index0.Number = 0;
-				index0.FileMSF = index1.FileMSF; //same MSF as index 1 will make it effectively nonexistent
-
 				//well now, if it's the first in the file, an implicit index will take its value from 00:00:00 in the file
 				//this is the kind of thing I sought to solve originally by 'interpreting' the file, but it seems easy enough to handle this way
 				//my carlin.cue tests this but test cases shouldn't be hard to find
-				if (curr_track.IsFirstInFile)
-					index0.FileMSF = new Timestamp(0);
+				var fileMSF = curr_track.IsFirstInFile
+					? new Timestamp(0)
+					: curr_track.Indexes[0].FileMSF; // else, same MSF as index 1 will make it effectively nonexistent
 
-				curr_track.Indexes.Insert(0, index0);
+				curr_track.Indexes.Insert(0, new CompiledCueIndex(0, fileMSF));
 			}
 
 			OUT_CompiledCueTracks.Add(curr_track);
@@ -392,11 +387,7 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 
 		private void AddIndex(CUE_File.Command.INDEX indexCommand)
 		{
-			curr_track.Indexes.Add(new CompiledCueIndex
-			{
-				FileMSF = indexCommand.Timestamp,
-				Number = indexCommand.Number
-			});
+			curr_track.Indexes.Add(new CompiledCueIndex(indexCommand.Number, indexCommand.Timestamp));
 		}
 
 		public override void Run()
@@ -410,74 +401,64 @@ namespace BizHawk.Emulation.DiscSystem.CUE
 			OUT_CompiledCueFiles = new List<CompiledCueFile>();
 			OUT_CompiledCueTracks = new List<CompiledCueTrack>();
 
-			//add a track 0, for addressing convenience. 
+			//add a track 0, for addressing convenience.
 			//note: for future work, track 0 may need emulation (accessible by very negative LBA--the TOC is stored there)
 			var track0 = new CompiledCueTrack() {
 				Number = 0,
 			};
-			OUT_CompiledCueTracks.Add(track0); 
+			OUT_CompiledCueTracks.Add(track0);
 
 			//global cd text will acquire the cdtext commands set before track commands
 			curr_cdtext  = OUT_GlobalCDText;
 
-			for (int i = 0; i < cue.Commands.Count; i++)
+			foreach (var cmd in cue.Commands) switch (cmd)
 			{
-				var cmd = cue.Commands[i];
-
-				//these commands get dealt with globally. nothing to be done here
-				//(but in the future we need to accumulate them into the compile pass output)
-				if (cmd is CUE_File.Command.CATALOG || cmd is CUE_File.Command.CDTEXTFILE) continue;
-
-				//nothing to be done for comments
-				if (cmd is CUE_File.Command.REM) continue;
-				if (cmd is CUE_File.Command.COMMENT) continue;
-
-				//CD-text and related
-				if (cmd is CUE_File.Command.PERFORMER performerCmd) curr_cdtext.Performer = performerCmd.Value;
-				if (cmd is CUE_File.Command.SONGWRITER songwriterCmd) curr_cdtext.Songwriter = songwriterCmd.Value;
-				if (cmd is CUE_File.Command.TITLE titleCmd) curr_cdtext.Title = titleCmd.Value;
-				if (cmd is CUE_File.Command.ISRC isrcCmd) curr_cdtext.ISRC = isrcCmd.Value;
-
-				//flags can only be set when a track command is running
-				if (cmd is CUE_File.Command.FLAGS flagsCmd)
-				{
-					if (curr_track == null)
-						Warn("Ignoring invalid flag commands outside of a track command");
-					else
-						//take care to |= it here, so the data flag doesn't get cleared
-						curr_track.Flags |= flagsCmd.Flags;
-				}
-
-				if (cmd is CUE_File.Command.TRACK trackCmd)
-				{
+				case CUE_File.Command.CATALOG:
+				case CUE_File.Command.CDTEXTFILE:
+					// these commands get dealt with globally. nothing to be done here
+					// (but in the future we need to accumulate them into the compile pass output)
+					continue;
+				case CUE_File.Command.REM:
+				case CUE_File.Command.COMMENT:
+					// nothing to be done for comments
+					continue;
+				case CUE_File.Command.PERFORMER performerCmd:
+					curr_cdtext.Performer = performerCmd.Value;
+					break;
+				case CUE_File.Command.SONGWRITER songwriterCmd:
+					curr_cdtext.Songwriter = songwriterCmd.Value;
+					break;
+				case CUE_File.Command.TITLE titleCmd:
+					curr_cdtext.Title = titleCmd.Value;
+					break;
+				case CUE_File.Command.ISRC isrcCmd:
+					curr_cdtext.ISRC = isrcCmd.Value;
+					break;
+				case CUE_File.Command.FLAGS flagsCmd:
+					// flags can only be set when a track command is running
+					if (curr_track == null) Warn("Ignoring invalid flag commands outside of a track command");
+					else curr_track.Flags |= flagsCmd.Flags; // take care to |= it here, so the data flag doesn't get cleared
+					break;
+				case CUE_File.Command.TRACK trackCmd:
 					CloseTrack();
 					OpenTrack(trackCmd);
-				}
-
-				if (cmd is CUE_File.Command.FILE fileCmd)
-				{
+					break;
+				case CUE_File.Command.FILE fileCmd:
 					CloseFile();
 					OpenFile(fileCmd);
-				}
-
-				if (cmd is CUE_File.Command.INDEX indexCmd)
-				{
-					//todo - validate no postgap specified
+					break;
+				case CUE_File.Command.INDEX indexCmd:
+					//TODO validate no postgap specified
 					AddIndex(indexCmd);
-				}
-
-				if (cmd is CUE_File.Command.PREGAP pregapCmd)
-				{
-					//validate track open
-					//validate no indexes
+					break;
+				case CUE_File.Command.PREGAP pregapCmd:
+					//TODO validate track open
+					//TODO validate no indexes
 					curr_track.PregapLength = pregapCmd.Length;
-				}
-
-				if (cmd is CUE_File.Command.POSTGAP postgapCmd)
-				{
+					break;
+				case CUE_File.Command.POSTGAP postgapCmd:
 					curr_track.PostgapLength = postgapCmd.Length;
-				}
-
+					break;
 			}
 
 			//it's a bit odd to close the file before closing the track, but...

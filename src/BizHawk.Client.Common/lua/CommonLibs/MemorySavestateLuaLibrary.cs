@@ -1,17 +1,13 @@
 ﻿using System;
-using NLua;
 
 // ReSharper disable UnusedMember.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Local
 namespace BizHawk.Client.Common
 {
-	public sealed class MemorySavestateLuaLibrary : DelegatingLuaLibrary
+	public sealed class MemorySavestateLuaLibrary : LuaLibraryBase
 	{
-		public MemorySavestateLuaLibrary(Lua lua)
-			: base(lua) { }
-
-		public MemorySavestateLuaLibrary(Lua lua, Action<string> logOutputCallback)
-			: base(lua, logOutputCallback) { }
+		public MemorySavestateLuaLibrary(IPlatformLuaLibEnv luaLibsImpl, ApiContainer apiContainer, Action<string> logOutputCallback)
+			: base(luaLibsImpl, apiContainer, logOutputCallback) {}
 
 		public override string Name => "memorysavestate";
 

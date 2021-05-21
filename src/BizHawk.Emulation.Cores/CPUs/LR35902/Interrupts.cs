@@ -6,24 +6,24 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 		{
 			cur_instr = new ushort[]
 						{IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
 						DEC16, SPl, SPh,
 						IDLE,
 						WR, SPl, SPh, PCh,
-						INT_GET, 4, W,
-						DEC16, SPl, SPh,
-						INT_GET, 3, W,
-						WR, SPl, SPh, PCl,
-						INT_GET, 2, W,
-						IDLE,
-						INT_GET, 1, W,
-						IDLE,
-						INT_GET, 0, W,
 						ASGN, PCh, 0,
+						DEC16, SPl, SPh,
+						INT_GET, 1, W,
+						WR, SPl, SPh, PCl,
 						IDLE,
-						IDLE,
-						TR, PCl, W,
 						IRQ_CLEAR,
-						IDLE,
+						TR, PCl, W,
 						OP };
 		}
 
@@ -31,32 +31,32 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 		{
 			cur_instr = new ushort[]
 						{IDLE,
+						IDLE,
+						IDLE,
+						HDMA_UPD,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
+						IDLE,
 						DEC16, SPl, SPh,
 						IDLE,
 						WR, SPl, SPh, PCh,
-						IDLE,
+						ASGN, PCh, 0,
 						DEC16, SPl, SPh,
-						IDLE,
+						INT_GET, 1, W,
 						WR, SPl, SPh, PCl,
 						IDLE,
-						IDLE,
-						IDLE,
-						IDLE,						
-						IDLE,
-						INT_GET, 4, W,
-						INT_GET, 3, W,
-						INT_GET, 2, W,
-						INT_GET, 1, W,
-						INT_GET, 0, W,
-						TR, PCl, W,
-						IDLE,
-						ASGN, PCh, 0,
 						IRQ_CLEAR,
-						IDLE,				
+						TR, PCl, W,
 						OP };
 		}
 
-		private static ushort[] INT_vectors = new ushort[] {0x40, 0x48, 0x50, 0x58, 0x60, 0x00};
+		private static readonly ushort[] INT_vectors = { 0x40, 0x48, 0x50, 0x58, 0x60, 0x00 };
 
 		public ushort int_src;
 		public byte int_clear;
@@ -67,6 +67,8 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 		public bool skip_once;
 		public bool Halt_bug_2;
 		public bool Halt_bug_3;
+		public bool Halt_bug_4;
+		public bool Halt_bug_5;
 
 		private void ResetInterrupts()
 		{
@@ -74,6 +76,8 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 			skip_once = false;
 			Halt_bug_2 = false;
 			Halt_bug_3 = false;
+			Halt_bug_4 = false;
+			Halt_bug_5 = false;
 			interrupts_enabled = false;
 
 			int_src = 5;

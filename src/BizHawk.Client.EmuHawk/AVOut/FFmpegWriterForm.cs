@@ -1,6 +1,6 @@
 ﻿using System;
+using System.Linq;
 using System.Windows.Forms;
-
 using BizHawk.Client.Common;
 
 namespace BizHawk.Client.EmuHawk
@@ -43,14 +43,16 @@ namespace BizHawk.Client.EmuHawk
 			/// <summary>
 			/// get a list of canned presets
 			/// </summary>
-			public static FormatPreset[] GetPresets()
+			public static FormatPreset[] GetPresets(string customCommand)
 			{
 				return new[]
 				{
-					new FormatPreset("AVI Lossless AVC", "Lossless AVC video and uncompressed audio in an AVI container. High speed and compression, compatible with AVISource().",
-						"-c:a pcm_s16le -c:v libx264rgb -qp 0 -preset ultrafast -g 10 -pix_fmt rgb24 -f avi", false, "avi"),
-					new FormatPreset("AVI Lossless FFV1", "Lossless FFV1 video and uncompressed audio in an AVI container. Compatible with AVISource(), if ffmpeg based decoder is installed.",
+					new FormatPreset("AVI Lossless UT Video", "Lossless UT video and uncompressed audio in an AVI container. Compatible with AVISource(), if UT Video decoder is installed. Fast, but low compression.",
+						"-c:a pcm_s16le -c:v utvideo -pred median -pix_fmt gbrp -f avi", false, "avi"),
+					new FormatPreset("AVI Lossless FFV1", "Lossless FFV1 video and uncompressed audio in an AVI container. Compatible with AVISource(), if ffmpeg based decoder is installed. Slow, but high compression.",
 						"-c:a pcm_s16le -c:v ffv1 -pix_fmt bgr0 -level 1 -g 1 -coder 1 -context 1 -f avi", false, "avi"),
+					new FormatPreset("AVI Lossless AVC", "Lossless AVC video and uncompressed audio in an AVI container. High speed and compression, compatible with AVISource(). Seeking may be unstable.",
+						"-c:a pcm_s16le -c:v libx264rgb -qp 0 -preset ultrafast -g 10 -pix_fmt rgb24 -f avi", false, "avi"),
 					new FormatPreset("AVI Uncompressed", "Uncompressed video and audio in an AVI container. Very large, don't use!",
 						"-c:a pcm_s16le -c:v rawvideo -f avi", false, "avi"),
 					new FormatPreset("Matroska Lossless", "Lossless AVC video and uncompressed audio in a Matroska container.",
@@ -70,20 +72,20 @@ namespace BizHawk.Client.EmuHawk
 					new FormatPreset("FLV", "AVC video and AAC audio in a Flash Video container.",
 						"-c:a aac -c:v libx264 -f flv", false, "flv"),
 					new FormatPreset("[Custom]", "Write your own ffmpeg command. For advanced users only.",
-						"-c:a foo -c:v bar -f baz", true, "foobar")
+						customCommand, true, "foobar")
 				};
 			}
 
 			/// <summary>
 			/// get the default format preset (from config files)
 			/// </summary>
-			public static FormatPreset GetDefaultPreset()
+			public static FormatPreset GetDefaultPreset(Config config)
 			{
-				FormatPreset[] fps = GetPresets();
+				FormatPreset[] fps = GetPresets(config.FFmpegCustomCommand);
 
 				foreach (var fp in fps)
 				{
-					if (fp.ToString() == GlobalWin.Config.FFmpegFormat)
+					if (fp.ToString() == config.FFmpegFormat)
 					{
 						if (fp.Custom)
 						{
@@ -107,8 +109,8 @@ namespace BizHawk.Client.EmuHawk
 
 			public void DeduceFormat(string commandline)
 			{
-				string formatkey = "-f ";
-				Extension = commandline.Substring(commandline.IndexOf(formatkey) + formatkey.Length);
+				string formatKey = "-f ";
+				Extension = commandline.Substring(commandline.IndexOf(formatKey) + formatKey.Length);
 
 				// are there other formats that don't match their file extensions?
 				if (Extension == "matroska")
@@ -121,11 +123,8 @@ namespace BizHawk.Client.EmuHawk
 			{
 				Name = name;
 				Desc = desc;
+				Commandline = commandline;
 				Custom = custom;
-
-				Commandline = Custom
-					? GlobalWin.Config.FFmpegCustomCommand
-					: commandline;
 
 				DeduceFormat(Commandline);
 			}
@@ -150,12 +149,12 @@ namespace BizHawk.Client.EmuHawk
 		/// <summary>
 		/// return a FormatPreset corresponding to the user's choice
 		/// </summary>
-		public static FormatPreset DoFFmpegWriterDlg(IWin32Window owner)
+		public static FormatPreset DoFFmpegWriterDlg(IWin32Window owner, Config config)
 		{
 			FFmpegWriterForm dlg = new FFmpegWriterForm();
-			dlg.listBox1.Items.AddRange(FormatPreset.GetPresets());
+			dlg.listBox1.Items.AddRange(FormatPreset.GetPresets(config.FFmpegCustomCommand).Cast<object>().ToArray());
 
-			int i = dlg.listBox1.FindStringExact(GlobalWin.Config.FFmpegFormat);
+			int i = dlg.listBox1.FindStringExact(config.FFmpegFormat);
 			if (i != ListBox.NoMatches)
 			{
 				dlg.listBox1.SelectedIndex = i;
@@ -171,11 +170,11 @@ namespace BizHawk.Client.EmuHawk
 			else
 			{
 				ret = (FormatPreset)dlg.listBox1.SelectedItem;
-				GlobalWin.Config.FFmpegFormat = ret.ToString();
+				config.FFmpegFormat = ret.ToString();
 				if (ret.Custom)
 				{
-					ret.Commandline = 
-						GlobalWin.Config.FFmpegCustomCommand =
+					ret.Commandline =
+						config.FFmpegCustomCommand =
 						dlg.textBox1.Text;
 
 					ret.DeduceFormat(ret.Commandline);

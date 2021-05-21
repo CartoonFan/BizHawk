@@ -9,7 +9,7 @@ namespace BizHawk.Emulation.Cores.Consoles.ChannelF
 	{
 		/// <summary>
 		/// 128x64 pixels - 8192x2bits (2 KB)
-		/// For the purposes of this core we will use 8192 bytes and just & 0x03
+		/// For the purposes of this core we will use 8192 bytes and just &amp; 0x03
 		/// </summary>
 		public byte[] VRAM = new byte[(128 * 64)];
 
@@ -43,7 +43,7 @@ namespace BizHawk.Emulation.Cores.Consoles.ChannelF
 		private int _y;
 		private int _arm;
 
-		private int[] frameBuffer = new int[128 * 64];
+		private readonly int[] frameBuffer = new int[128 * 64];
 
 		private void BuildFrame()
 		{

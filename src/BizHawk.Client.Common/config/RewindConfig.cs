@@ -1,39 +1,45 @@
-﻿using System;
-
-namespace BizHawk.Client.Common
+﻿namespace BizHawk.Client.Common
 {
 	public interface IRewindSettings
 	{
-		public bool UseDelta { get; }
-		public bool EnabledSmall { get; }
-		public bool EnabledMedium { get; }
-		public bool EnabledLarge { get; }
-		public int FrequencySmall { get; }
-		public int FrequencyMedium { get; }
-		public int FrequencyLarge { get; }
-		public int MediumStateSize { get; }
-		public int LargeStateSize { get; }
-		public int BufferSize { get; }
-		public bool OnDisk { get; }
-		public bool IsThreaded { get; }
+		/// <summary>
+		/// Gets a value indicating whether or not to compress savestates before storing them
+		/// </summary>
+		bool UseCompression { get; }
+
+		/// <summary>
+		/// Gets a value indicating whether or not to delta compress savestates before storing them
+		/// </summary>
+		/// <value></value>
+		// TODO: This is in here for frontend reasons, but the buffer itself doesn't interact with this.
+		bool UseDelta { get; }
+
+		/// <summary>
+		/// Buffer space to use in MB
+		/// </summary>
+		long BufferSize { get; }
+
+		/// <summary>
+		/// Desired frame length (number of emulated frames you can go back before running out of buffer)
+		/// </summary>
+		int TargetFrameLength { get; }
+
+		public enum BackingStoreType
+		{
+			Memory,
+			TempFile,
+		}
+
+		public BackingStoreType BackingStore { get; }
 	}
 
 	public class RewindConfig : IRewindSettings
 	{
-		public bool UseDelta { get; set; } = true;
-		public bool EnabledSmall { get; set; } = true;
-		public bool EnabledMedium { get; set; }
-		public bool EnabledLarge { get; set; }
-		public int FrequencySmall { get; set; } = 1;
-		public int FrequencyMedium { get; set; } = 4;
-		public int FrequencyLarge { get; set; } = 60;
-
-		public int MediumStateSize { get; set; } = 262144; // 256kb
-		public int LargeStateSize { get; set; } = 1048576; // 1mb
-		public int BufferSize { get; set; } = 128; // in mb
-		public bool OnDisk { get; set; }
-
-		public bool IsThreaded { get; set; } = Environment.ProcessorCount > 1;
-		public int SpeedMultiplier { get; set; } = 1;
+		public bool UseCompression { get; set; }
+		public bool UseDelta { get; set; }
+		public bool Enabled { get; set; } = true;
+		public long BufferSize { get; set; } = 512; // in mb
+		public int TargetFrameLength { get; set; } = 600;
+		public IRewindSettings.BackingStoreType BackingStore { get; set; } = IRewindSettings.BackingStoreType.Memory;
 	}
 }

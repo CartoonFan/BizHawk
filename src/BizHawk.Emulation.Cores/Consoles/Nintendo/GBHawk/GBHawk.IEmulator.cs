@@ -19,7 +19,11 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 		public bool vblank_rise;
 		public bool controller_was_checked;
 		public bool delays_to_process;
+		public bool DIV_falling_edge, DIV_edge_old;
 		public int controller_delay_cd;
+		public int cpu_state_hold;
+		public int clear_counter;
+		public long CycleCount;
 
 		public bool FrameAdvance(IController controller, bool render, bool rendersound)
 		{
@@ -50,8 +54,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 				cpu.TraceCallback = null;
 			}
 
-			_frame++;
-
 			if (controller.IsPressed("P1 Power"))
 			{
 				HardReset();
@@ -77,7 +79,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			{
 				if (_scanlineCallbackLine == -1)
 				{
-					GetGPU();
 					_scanlineCallback(ppu.LCDC);
 				}
 			}
@@ -86,6 +87,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			{
 				_lagcount++;
 			}
+
+			_frame++;
 
 			return true;
 		}
@@ -99,39 +102,43 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 				ppu.tick();
 				if (Use_MT) { mapper.Mapper_Tick(); }
 
-				if (!HDMA_transfer)
-				{
-					// These things all tick twice as fast in GBC double speed mode
-					// Note that DMA is halted when the CPU is halted
+				// These things all tick twice as fast in GBC double speed mode
+				// Note that DMA is halted when the CPU is halted
 
-					if (double_speed)
-					{
-						if (ppu.DMA_start && !cpu.halted && !cpu.stopped) { ppu.DMA_tick(); }
-						serialport.serial_transfer_tick();
-						cpu.ExecuteOne();
-						timer.tick();
-						if (delays_to_process) { process_delays(); }
-					}
-				
+				if (double_speed)
+				{
 					if (ppu.DMA_start && !cpu.halted && !cpu.stopped) { ppu.DMA_tick(); }
 					serialport.serial_transfer_tick();
-					cpu.ExecuteOne();
-					timer.tick();
-					if (delays_to_process) { process_delays(); }
-				}
-				else
-				{
-					if (double_speed)
-					{
-						cpu.TotalExecutedCycles++;
-						timer.tick();
-						if (delays_to_process) { process_delays(); }
-					}
 
-					cpu.TotalExecutedCycles++;
+					// check state before changes from cpu writes
+					DIV_edge_old = (timer.divider_reg & 0x2000) == 0x2000;
+
 					timer.tick();
+					cpu.ExecuteOne(_settings.UseRGBDSSyntax);
+					timer.divider_reg++;
+
+					DIV_falling_edge |= DIV_edge_old & ((timer.divider_reg & 0x2000) == 0);
+
 					if (delays_to_process) { process_delays(); }
+
+					REG_FF0F_OLD = REG_FF0F;
 				}
+
+				if (ppu.DMA_start && !cpu.halted && !cpu.stopped) { ppu.DMA_tick(); }
+				serialport.serial_transfer_tick();
+
+				// check state before changes from cpu writes
+				DIV_edge_old = double_speed ? ((timer.divider_reg & 0x2000) == 0x2000) : ((timer.divider_reg & 0x1000) == 0x1000);
+
+				timer.tick();
+				cpu.ExecuteOne(_settings.UseRGBDSSyntax);
+				timer.divider_reg++;
+
+				DIV_falling_edge |= DIV_edge_old & (double_speed ? ((timer.divider_reg & 0x2000) == 0) : ((timer.divider_reg & 0x1000) == 0));
+
+				if (delays_to_process) { process_delays(); }
+
+				CycleCount++;
 
 				if (in_vblank && !in_vblank_old)
 				{
@@ -169,12 +176,10 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 			// turn off the screen so the image doesnt persist
 			// but don't turn off blank_frame yet, it still needs to be true until the next VBL
-			// this doesn't run for GBC, some games, ex MIB the series 2, rely on the screens persistence while off to make video look smooth.
-			// But some GB gams, ex Battletoads, turn off the screen for a long time from the middle of the frame, so need to be cleared.
+			// GBC games need to clear slow enough that games that turn the screen off briefly for cinematics still look smooth
 			if (ppu.clear_screen)
 			{
-				for (int j = 0; j < frame_buffer.Length; j++) { frame_buffer[j] = (int)ppu.color_palette[0]; }
-				ppu.clear_screen = false;
+				clear_screen_func();
 			}
 		}
 
@@ -185,37 +190,40 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			ppu.tick();
 			if (Use_MT) { mapper.Mapper_Tick(); }
 
-			if (!HDMA_transfer)
+			// These things all tick twice as fast in GBC double speed mode
+			// Note that DMA is halted when the CPU is halted
+			if (double_speed)
 			{
-				// These things all tick twice as fast in GBC double speed mode
 				if (ppu.DMA_start && !cpu.halted && !cpu.stopped) { ppu.DMA_tick(); }
 				serialport.serial_transfer_tick();
-				cpu.ExecuteOne();
+
+				// check state before changes from cpu writes
+				DIV_edge_old = (timer.divider_reg & 0x2000) == 0x2000;
+
 				timer.tick();
+				cpu.ExecuteOne(_settings.UseRGBDSSyntax);
+				timer.divider_reg++;
+
+				DIV_falling_edge |= DIV_edge_old & ((timer.divider_reg & 0x2000) == 0);
+
 				if (delays_to_process) { process_delays(); }
 
-				if (double_speed)
-				{
-					if (ppu.DMA_start && !cpu.halted && !cpu.stopped) { ppu.DMA_tick(); }
-					serialport.serial_transfer_tick();
-					cpu.ExecuteOne();
-					timer.tick();
-					if (delays_to_process) { process_delays(); }
-				}
+				REG_FF0F_OLD = REG_FF0F;
 			}
-			else
-			{
-				cpu.TotalExecutedCycles++;
-				timer.tick();
-				if (delays_to_process) { process_delays(); }
 
-				if (double_speed)
-				{
-					cpu.TotalExecutedCycles++;
-					timer.tick();
-					if (delays_to_process) { process_delays(); }
-				}
-			}
+			if (ppu.DMA_start && !cpu.halted && !cpu.stopped) { ppu.DMA_tick(); }
+			serialport.serial_transfer_tick();
+
+			// check state before changes from cpu writes
+			DIV_edge_old = double_speed ? ((timer.divider_reg & 0x2000) == 0x2000) : ((timer.divider_reg & 0x1000) == 0x1000);
+
+			timer.tick();
+			cpu.ExecuteOne(_settings.UseRGBDSSyntax);
+			timer.divider_reg++;
+
+			DIV_falling_edge |= DIV_edge_old & (double_speed ? ((timer.divider_reg & 0x2000) == 0) : ((timer.divider_reg & 0x1000) == 0));
+
+			if (delays_to_process) { process_delays(); }
 
 			if (in_vblank && !in_vblank_old)
 			{
@@ -261,7 +269,24 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 				REG_FF0F |= 0x10;
 			}
 		}
-		
+
+		public void HDMA_start_stop(bool hdma_start)
+		{
+			// put the cpu into a wait state when HDMA starts
+			// restore it when HDMA ends
+			HDMA_transfer = hdma_start;
+
+			if (hdma_start)
+			{
+				cpu_state_hold = cpu.instr_pntr;
+				cpu.instr_pntr = 256 * 60 * 2 + 60 * 8;
+			}
+			else
+			{
+				cpu.instr_pntr = cpu_state_hold;
+			}	
+		}
+
 		public void process_delays()
 		{
 			// triggering an interrupt with a write to the control register takes 4 cycles to trigger interrupt
@@ -285,7 +310,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					{
 						speed_switch = false;
 						Console.WriteLine("Speed Switch: " + cpu.TotalExecutedCycles);
-						int ret = double_speed ? 32768 - 20 : 32768 - 20; // actual time needs checking
+
+						int ret = double_speed ? 32770 : 32770; // actual time needs checking
 						return ret;
 					}
 
@@ -296,9 +322,34 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 				// if we are in GB mode, return 0, cannot switch speed
 				return 0;
 			}
+			else if (temp == 1)
+			{
+				// reset the divider (only way for speed_change_timing_fine.gbc and speed_change_cancel.gbc to both work)
+				// Console.WriteLine("at stop " + timer.divider_reg + " " + timer.timer_control);
+
+				// only if the timer mode is 1, an extra tick of the timer is counted before the reset
+				// this varies between console revisions
+				if ((timer.timer_control & 7) == 5)
+				{
+					if ((timer.divider_reg & 0x7) == 7)
+					{
+						timer.old_state = true;
+					}
+				}
+
+				timer.divider_reg = 0xFFFF;
+
+				double_speed = !double_speed;
+
+				ppu.LYC_offset = double_speed ? 1 : 2;
+
+				ppu.LY_153_change = double_speed ? 8 : 10;
+
+				return 0;
+			}
 			else
 			{
-				double_speed = !double_speed;
+
 				return 0;
 			}
 		}
@@ -310,6 +361,11 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 			Acc_X_state = _controllerDeck.ReadAccX1(controller);
 			Acc_Y_state = _controllerDeck.ReadAccY1(controller);
+		}
+
+		public byte GetButtons(ushort r)
+		{
+			return input_register;
 		}
 
 		public byte GetIntRegs(ushort r)
@@ -324,8 +380,32 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			}
 		}
 
+		public void clear_screen_func()
+		{
+			if (is_GBC)
+			{
+				for (int j = 0; j < frame_buffer.Length; j++) { frame_buffer[j] = (int)(frame_buffer[j] | (0x30303 << (clear_counter * 2))); }
+
+				clear_counter++;
+				if (clear_counter == 4)
+				{
+					ppu.clear_screen = false;
+				}
+			}
+			else
+			{
+				for (int j = 0; j < frame_buffer.Length; j++) { frame_buffer[j] = (int)ppu.color_palette[0]; }
+				ppu.clear_screen = false;
+			}
+		}
+
 		public void SetIntRegs(byte r)
 		{
+			// For timer interrupts or serial interrupts that occur on the same cycle as the IRQ clear
+			// the clear wins on GB and GBA (tested on GBP.) Assuming true for GBC E too.
+			// but only in single speed
+			if (((REG_FF0F & 4) == 4) && ((r & 4) == 0) && timer.IRQ_block && !double_speed) { r |= 4; }
+			if (((REG_FF0F & 8) == 8) && ((r & 8) == 0) && serialport.IRQ_block && !double_speed) { r |= 8; }
 			REG_FF0F = r;
 		}
 
@@ -344,11 +424,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 		public void Dispose()
 		{
-			Marshal.FreeHGlobal(iptr0);
-			Marshal.FreeHGlobal(iptr1);
-			Marshal.FreeHGlobal(iptr2);
-			Marshal.FreeHGlobal(iptr3);
-
 			audio.DisposeSound();
 		}
 

@@ -13,7 +13,7 @@ namespace BizHawk.Client.EmuHawk
 		private readonly string _lblPixelProText, _lblMednafenText, _lblTweakedMednafenText;
 		
 		private PSXOptions(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			Config config,
 			Octoshock.Settings settings,
 			Octoshock.SyncSettings syncSettings,
@@ -63,7 +63,7 @@ namespace BizHawk.Client.EmuHawk
 		}
 
 		private Size _previewVideoSize;
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly Config _config;
 		private readonly OctoshockDll.eVidStandard _previewVideoStandard;
 		private readonly Octoshock.Settings _settings;
@@ -73,18 +73,18 @@ namespace BizHawk.Client.EmuHawk
 		private void BtnNiceDisplayConfig_Click(object sender, EventArgs e)
 		{
 			_dispSettingsSet = true;
-			MessageBox.Show("Finetuned Display Options will take effect if you OK from PSX Options");
+			_mainForm.DialogController.ShowMessageBox("Finetuned Display Options will take effect if you OK from PSX Options");
 		}
 
-		public static DialogResult DoSettingsDialog(MainForm mainForm, Config config, Octoshock psx)
+		public static DialogResult DoSettingsDialog(IMainFormForConfig mainForm, Config config, Octoshock psx)
 		{
 			var s = psx.GetSettings();
 			var ss = psx.GetSyncSettings();
 			var vid = psx.SystemVidStandard;
-			var size = psx.CurrentVideoSize; 
+			var size = psx.CurrentVideoSize;
 			using var dlg = new PSXOptions(mainForm, config, s, ss, vid, size);
 
-			var result = dlg.ShowDialog(mainForm);
+			var result = mainForm.ShowDialogAsChild(dlg);
 			return result;
 		}
 
@@ -187,7 +187,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
 		{
-			MessageBox.Show($@"These options control BizHawk's Display Options to make it act quite a lot like Mednafen:
+			_mainForm.DialogController.ShowMessageBox($@"These options control BizHawk's Display Options to make it act quite a lot like Mednafen:
 
 {nameof(_config.DispManagerAR)} = System (Use emulator-recommended AR)
 {nameof(_config.DispFixAspectRatio)} = true (Maintain aspect ratio [letterbox main window as needed])

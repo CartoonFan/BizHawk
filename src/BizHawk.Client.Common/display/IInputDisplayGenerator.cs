@@ -37,14 +37,11 @@ namespace BizHawk.Client.Common
 				{
 					foreach (var button in group)
 					{
-						if (_source.Definition.AxisControls.Contains(button))
+						if (_source.Definition.Axes.TryGetValue(button, out var range))
 						{
-							int i = _source.Definition.AxisControls.IndexOf(button);
-							var mid = _source.Definition.AxisRanges[i].Mid;
+							var val = _source.AxisValue(button);
 
-							var val = (int)_source.AxisValue(button);
-
-							if (val == mid)
+							if (val == range.Neutral)
 							{
 								sb.Append("      ");
 							}

@@ -1,18 +1,23 @@
 ﻿using System;
 using System.Windows.Forms;
 using BizHawk.Client.Common;
+using BizHawk.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
 	public partial class EmuHawkOptions : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly Action _autoFlushSaveRamTimerBumpCallback;
+
 		private readonly Config _config;
 
-		public EmuHawkOptions(MainForm mainForm, Config config)
+		private readonly Action<string> _osdMessageCallback;
+
+		public EmuHawkOptions(Action autoFlushSaveRamTimerBumpCallback, Config config, Action<string> osdMessageCallback)
 		{
-			_mainForm = mainForm;
+			_autoFlushSaveRamTimerBumpCallback = autoFlushSaveRamTimerBumpCallback;
 			_config = config;
+			_osdMessageCallback = osdMessageCallback;
 			InitializeComponent();
 		}
 
@@ -67,6 +72,7 @@ namespace BizHawk.Client.EmuHawk
 			HandleAlternateKeyboardLayoutsCheckBox.Checked = _config.HandleAlternateKeyboardLayouts;
 			NeverAskSaveCheckbox.Checked = _config.SuppressAskSave;
 			SingleInstanceModeCheckbox.Checked = _config.SingleInstanceMode;
+			SingleInstanceModeCheckbox.Enabled = !OSTailoredCode.IsUnixHost;
 
 			BackupSRamCheckbox.Checked = _config.BackupSaveram;
 			AutosaveSRAMCheckbox.Checked = _config.AutosaveSaveRAM;
@@ -76,6 +82,7 @@ namespace BizHawk.Client.EmuHawk
 			LuaDuringTurboCheckbox.Checked = _config.RunLuaDuringTurbo;
 			cbMoviesOnDisk.Checked = _config.Movies.MoviesOnDisk;
 			cbSkipWaterboxIntegrityChecks.Checked = _config.SkipWaterboxIntegrityChecks;
+			NoMixedKeyPriorityCheckBox.Checked = _config.NoMixedInputHokeyOverride;
 
 			switch (_config.HostInputMethod)
 			{
@@ -121,15 +128,13 @@ namespace BizHawk.Client.EmuHawk
 			_config.BackupSaveram = BackupSRamCheckbox.Checked;
 			_config.AutosaveSaveRAM = AutosaveSRAMCheckbox.Checked;
 			_config.FlushSaveRamFrames = AutosaveSaveRAMSeconds * 60;
-			if (_mainForm.AutoFlushSaveRamIn > _config.FlushSaveRamFrames)
-			{
-				_mainForm.AutoFlushSaveRamIn = _config.FlushSaveRamFrames;
-			}
+			_autoFlushSaveRamTimerBumpCallback();
 
 			_config.SkipLagFrame = FrameAdvSkipLagCheckbox.Checked;
 			_config.RunLuaDuringTurbo = LuaDuringTurboCheckbox.Checked;
 			_config.Movies.MoviesOnDisk = cbMoviesOnDisk.Checked;
 			_config.SkipWaterboxIntegrityChecks = cbSkipWaterboxIntegrityChecks.Checked;
+			_config.NoMixedInputHokeyOverride = NoMixedKeyPriorityCheckBox.Checked;
 
 			var prevLuaEngine = _config.LuaEngine;
 			if (LuaInterfaceRadio.Checked)
@@ -141,10 +146,10 @@ namespace BizHawk.Client.EmuHawk
 				_config.LuaEngine = ELuaEngine.NLuaPlusKopiLua;
 			}
 
-			_mainForm.AddOnScreenMessage("Custom configurations saved.");
+			_osdMessageCallback("Custom configurations saved.");
 			if (prevLuaEngine != _config.LuaEngine)
 			{
-				_mainForm.AddOnScreenMessage("Restart emulator for Lua change to take effect");
+				_osdMessageCallback("Restart emulator for Lua change to take effect");
 			}
 
 			Close();
@@ -155,7 +160,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			Close();
 			DialogResult = DialogResult.Cancel;
-			_mainForm.AddOnScreenMessage("Customizing aborted.");
+			_osdMessageCallback("Customizing aborted.");
 		}
 
 		private void AcceptBackgroundInputCheckbox_CheckedChanged(object sender, EventArgs e)

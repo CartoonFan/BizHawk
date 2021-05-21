@@ -17,19 +17,20 @@ using BizHawk.Emulation.Cores.Components.W65816;
 // wrap dll code around some kind of library-accessing interface so that it doesn't malfunction if the dll is unavailable
 namespace BizHawk.Emulation.Cores.Nintendo.SNES
 {
-	[Core(
-		CoreNames.Bsnes,
-		"byuu",
-		isPorted: true,
-		isReleased: true,
-		portedVersion: "v87",
-		portedUrl: "http://byuu.org/",
-		singleInstance: false)]
+	[PortedCore(CoreNames.Bsnes, "byuu", "v87", "http://byuu.org/")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public unsafe partial class LibsnesCore : IEmulator, IVideoProvider, ISaveRam, IStatable, IInputPollable, IRegionable, ICodeDataLogger,
 		IDebuggable, ISettable<LibsnesCore.SnesSettings, LibsnesCore.SnesSyncSettings>
 	{
-		public LibsnesCore(GameInfo game, byte[] romData, byte[] xmlData, string baseRomPath, CoreComm comm, object settings, object syncSettings)
+		[CoreConstructor("SGB")]
+		[CoreConstructor("SNES")]
+		public LibsnesCore(GameInfo game, byte[] rom, CoreComm comm,
+			LibsnesCore.SnesSettings settings, LibsnesCore.SnesSyncSettings syncSettings)
+			:this(game, rom, null, null, comm, settings, syncSettings)
+		{}
+		
+		public LibsnesCore(GameInfo game, byte[] romData, byte[] xmlData, string baseRomPath, CoreComm comm,
+			LibsnesCore.SnesSettings settings, LibsnesCore.SnesSyncSettings syncSettings)
 		{
 			_baseRomPath = baseRomPath;
 			var ser = new BasicServiceProvider(this);
@@ -46,7 +47,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			CoreComm = comm;
 			byte[] sgbRomData = null;
 
-			if (game["SGB"])
+			if (game.System == "SGB")
 			{
 				if ((romData[0x143] & 0xc0) == 0xc0)
 				{
@@ -60,8 +61,27 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			_settings = (SnesSettings)settings ?? new SnesSettings();
 			_syncSettings = (SnesSyncSettings)syncSettings ?? new SnesSyncSettings();
 
+			_videocb = snes_video_refresh;
+			_inputpollcb = snes_input_poll;
+			_inputstatecb = snes_input_state;
+			_inputnotifycb = snes_input_notify;
+			_scanlineStartCb = snes_scanlineStart;
+			_tracecb = snes_trace;
+			_soundcb = snes_audio_sample;
+			_pathrequestcb = snes_path_request;
+
 			// TODO: pass profile here
-			Api = new LibsnesApi(CoreComm.CoreFileProvider.DllPath(), CoreComm)
+			Api = new LibsnesApi(CoreComm.CoreFileProvider.DllPath(), CoreComm, new Delegate[]
+			{
+				_videocb,
+				_inputpollcb,
+				_inputstatecb,
+				_inputnotifycb,
+				_scanlineStartCb,
+				_tracecb,
+				_soundcb,
+				_pathrequestcb
+			})
 			{
 				ReadHook = ReadHook,
 				ExecHook = ExecHook,
@@ -78,12 +98,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 
 			Api.CMD_init(_syncSettings.RandomizedInitialState);
 
-			Api.QUERY_set_path_request(snes_path_request);
-
-			_scanlineStartCb = snes_scanlineStart;
-			_tracecb = snes_trace;
-
-			_soundcb = snes_audio_sample;
+			Api.QUERY_set_path_request(_pathrequestcb);
 
 			// start up audio resampler
 			InitAudio();
@@ -97,7 +112,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 				romData = newData;
 			}
 
-			if (game["SGB"])
+			if (game.System == "SGB")
 			{
 				IsSGB = true;
 				SystemId = "SNES";
@@ -151,7 +166,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 				}
 			}
 
-			if (Api.Region == LibsnesApi.SNES_REGION.NTSC)
+			if (_region == LibsnesApi.SNES_REGION.NTSC)
 			{
 				// similar to what aviout reports from snes9x and seems logical from bsnes first principles. bsnes uses that numerator (ntsc master clockrate) for sure.
 				VsyncNumerator = 21477272;
@@ -174,14 +189,20 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			}
 
 			Api.QUERY_set_path_request(null);
-			Api.QUERY_set_video_refresh(snes_video_refresh);
-			Api.QUERY_set_input_poll(snes_input_poll);
-			Api.QUERY_set_input_state(snes_input_state);
-			Api.QUERY_set_input_notify(snes_input_notify);
+			Api.QUERY_set_video_refresh(_videocb);
+			Api.QUERY_set_input_poll(_inputpollcb);
+			Api.QUERY_set_input_state(_inputstatecb);
+			Api.QUERY_set_input_notify(_inputnotifycb);
 			Api.QUERY_set_audio_sample(_soundcb);
 			Api.Seal();
 			RefreshPalette();
 		}
+
+		private readonly LibsnesApi.snes_video_refresh_t _videocb;
+		private readonly LibsnesApi.snes_input_poll_t _inputpollcb;
+		private readonly LibsnesApi.snes_input_state_t _inputstatecb;
+		private readonly LibsnesApi.snes_input_notify_t _inputnotifycb;
+		private readonly LibsnesApi.snes_path_request_t _pathrequestcb;
 
 		internal CoreComm CoreComm { get; }
 
@@ -198,7 +219,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 		private readonly LibsnesApi.snes_audio_sample_t _soundcb;
 
 		private IController _controller;
-		private LoadParams _currLoadParams;
+		private readonly LoadParams _currLoadParams;
 		private SpeexResampler _resampler;
 		private int _timeFrameCounter;
 		private bool _disposed;
@@ -456,6 +477,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 				: Api.CMD_load_cartridge_super_game_boy(_currLoadParams.rom_xml, _currLoadParams.rom_data, _currLoadParams.rom_size, _currLoadParams.dmg_data);
 
 			_mapper = Api.Mapper;
+			_region = Api.Region;
 
 			return result;
 		}

@@ -1,30 +1,35 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
-using System.Collections.Generic;
+
+using BizHawk.Bizware.DirectX;
+using BizHawk.Bizware.OpenTK3;
+using BizHawk.Client.Common;
+using BizHawk.Client.EmuHawk.CustomControls;
+using BizHawk.Client.EmuHawk.ToolExtensions;
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
+using BizHawk.Emulation.Cores.Atari.A7800Hawk;
 using BizHawk.Emulation.Cores.Calculators;
 using BizHawk.Emulation.Cores.ColecoVision;
-using BizHawk.Emulation.Cores.Nintendo.NES;
-using BizHawk.Emulation.Cores.Nintendo.SubNESHawk;
-using BizHawk.Emulation.Cores.Nintendo.N64;
-using BizHawk.Emulation.Cores.Nintendo.SNES;
-using BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES;
-
-using BizHawk.Client.Common;
-
-using BizHawk.Client.EmuHawk.ToolExtensions;
-using BizHawk.Emulation.Cores.Computers.AppleII;
-using BizHawk.Common;
-using BizHawk.Emulation.Cores.Atari.A7800Hawk;
-using BizHawk.Emulation.Cores.Computers.Commodore64;
-using BizHawk.Emulation.Cores.Nintendo.Gameboy;
-using BizHawk.Emulation.Cores.Computers.SinclairSpectrum;
 using BizHawk.Emulation.Cores.Computers.AmstradCPC;
+using BizHawk.Emulation.Cores.Computers.AppleII;
+using BizHawk.Emulation.Cores.Computers.Commodore64;
+using BizHawk.Emulation.Cores.Computers.SinclairSpectrum;
 using BizHawk.Emulation.Cores.Consoles.Nintendo.NDS;
+using BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES;
 using BizHawk.Emulation.Cores.Intellivision;
+using BizHawk.Emulation.Cores.Nintendo.BSNES;
+using BizHawk.Emulation.Cores.Nintendo.Gameboy;
+using BizHawk.Emulation.Cores.Nintendo.N64;
+using BizHawk.Emulation.Cores.Nintendo.NES;
+using BizHawk.Emulation.Cores.Nintendo.SNES;
+using BizHawk.Emulation.Cores.Nintendo.SubNESHawk;
 using BizHawk.Emulation.Cores.Sony.PSX;
+using BizHawk.WinForms.Controls;
 
 namespace BizHawk.Client.EmuHawk
 {
@@ -48,11 +53,7 @@ namespace BizHawk.Client.EmuHawk
 			bool needBold = hasSaveRam && Emulator.AsSaveRam().SaveRamModified;
 
 			SaveRAMSubMenu.Enabled = hasSaveRam;
-			if (SaveRAMSubMenu.Font.Bold != needBold)
-			{
-				var font = new Font(SaveRAMSubMenu.Font, needBold ? FontStyle.Bold : FontStyle.Regular);
-				SaveRAMSubMenu.Font = font;
-			}
+			SaveRAMSubMenu.SetStyle(needBold ? FontStyle.Bold : FontStyle.Regular);
 
 			AVSubMenu.Enabled =
 			ScreenshotSubMenu.Enabled =
@@ -62,62 +63,26 @@ namespace BizHawk.Client.EmuHawk
 		private void RecentRomMenuItem_DropDownOpened(object sender, EventArgs e)
 		{
 			RecentRomSubMenu.DropDownItems.Clear();
-			RecentRomSubMenu.DropDownItems.AddRange(Config.RecentRoms.RecentMenu(LoadRomFromRecent, "ROM", romLoading: true));
+			RecentRomSubMenu.DropDownItems.AddRange(Config.RecentRoms.RecentMenu(this, LoadRomFromRecent, "ROM", romLoading: true));
 		}
 
 		private bool HasSlot(int slot) => _stateSlots.HasSlot(Emulator, MovieSession.Movie, slot, SaveStatePrefix());
 
 		private void SaveStateSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
-			SaveState0MenuItem.Font = new Font(
-				SaveState0MenuItem.Font.FontFamily,
-				SaveState0MenuItem.Font.Size,
-				 HasSlot(0) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
+			void SetSlotFont(ToolStripMenuItemEx menu, int slot) => menu.SetStyle(
+				HasSlot(slot) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
 
-			SaveState1MenuItem.Font = new Font(
-				SaveState1MenuItem.Font.FontFamily,
-				SaveState1MenuItem.Font.Size,
-				HasSlot(1) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
-
-			SaveState2MenuItem.Font = new Font(
-				SaveState2MenuItem.Font.FontFamily,
-				SaveState2MenuItem.Font.Size,
-				HasSlot(2) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
-
-			SaveState3MenuItem.Font = new Font(
-				SaveState3MenuItem.Font.FontFamily,
-				SaveState3MenuItem.Font.Size,
-				HasSlot(3) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
-
-			SaveState4MenuItem.Font = new Font(
-				SaveState4MenuItem.Font.FontFamily,
-				SaveState4MenuItem.Font.Size,
-				HasSlot(4) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
-
-			SaveState5MenuItem.Font = new Font(
-				SaveState5MenuItem.Font.FontFamily,
-				SaveState5MenuItem.Font.Size,
-				HasSlot(5) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
-
-			SaveState6MenuItem.Font = new Font(
-				SaveState6MenuItem.Font.FontFamily,
-				SaveState6MenuItem.Font.Size,
-				HasSlot(6) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
-
-			SaveState7MenuItem.Font = new Font(
-				SaveState7MenuItem.Font.FontFamily,
-				SaveState7MenuItem.Font.Size,
-				HasSlot(7) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
-
-			SaveState8MenuItem.Font = new Font(
-				SaveState8MenuItem.Font.FontFamily,
-				SaveState8MenuItem.Font.Size,
-				HasSlot(8) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
-
-			SaveState9MenuItem.Font = new Font(
-				SaveState9MenuItem.Font.FontFamily,
-				SaveState9MenuItem.Font.Size,
-				HasSlot(9) ? (FontStyle.Italic | FontStyle.Bold) : FontStyle.Regular);
+			SetSlotFont(SaveState0MenuItem, 0);
+			SetSlotFont(SaveState1MenuItem, 1);
+			SetSlotFont(SaveState2MenuItem, 2);
+			SetSlotFont(SaveState3MenuItem, 3);
+			SetSlotFont(SaveState4MenuItem, 4);
+			SetSlotFont(SaveState5MenuItem, 5);
+			SetSlotFont(SaveState6MenuItem, 6);
+			SetSlotFont(SaveState7MenuItem, 7);
+			SetSlotFont(SaveState8MenuItem, 8);
+			SetSlotFont(SaveState9MenuItem, 9);
 
 			SaveState1MenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Save State 1"].Bindings;
 			SaveState2MenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Save State 2"].Bindings;
@@ -177,51 +142,16 @@ namespace BizHawk.Client.EmuHawk
 			SaveToCurrentSlotMenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Quick Save"].Bindings;
 			LoadCurrentSlotMenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Quick Load"].Bindings;
 
-			SelectSlot0MenuItem.Checked = false;
-			SelectSlot1MenuItem.Checked = false;
-			SelectSlot2MenuItem.Checked = false;
-			SelectSlot3MenuItem.Checked = false;
-			SelectSlot4MenuItem.Checked = false;
-			SelectSlot5MenuItem.Checked = false;
-			SelectSlot6MenuItem.Checked = false;
-			SelectSlot7MenuItem.Checked = false;
-			SelectSlot8MenuItem.Checked = false;
-			SelectSlot9MenuItem.Checked = false;
-			SelectSlot1MenuItem.Checked = false;
-
-			switch (Config.SaveSlot)
-			{
-				case 0:
-					SelectSlot0MenuItem.Checked = true;
-					break;
-				case 1:
-					SelectSlot1MenuItem.Checked = true;
-					break;
-				case 2:
-					SelectSlot2MenuItem.Checked = true;
-					break;
-				case 3:
-					SelectSlot3MenuItem.Checked = true;
-					break;
-				case 4:
-					SelectSlot4MenuItem.Checked = true;
-					break;
-				case 5:
-					SelectSlot5MenuItem.Checked = true;
-					break;
-				case 6:
-					SelectSlot6MenuItem.Checked = true;
-					break;
-				case 7:
-					SelectSlot7MenuItem.Checked = true;
-					break;
-				case 8:
-					SelectSlot8MenuItem.Checked = true;
-					break;
-				case 9:
-					SelectSlot9MenuItem.Checked = true;
-					break;
-			}
+			SelectSlot0MenuItem.Checked = Config.SaveSlot == 0;
+			SelectSlot1MenuItem.Checked = Config.SaveSlot == 1;
+			SelectSlot2MenuItem.Checked = Config.SaveSlot == 2;
+			SelectSlot3MenuItem.Checked = Config.SaveSlot == 3;
+			SelectSlot4MenuItem.Checked = Config.SaveSlot == 4;
+			SelectSlot5MenuItem.Checked = Config.SaveSlot == 5;
+			SelectSlot6MenuItem.Checked = Config.SaveSlot == 6;
+			SelectSlot7MenuItem.Checked = Config.SaveSlot == 7;
+			SelectSlot8MenuItem.Checked = Config.SaveSlot == 8;
+			SelectSlot9MenuItem.Checked = Config.SaveSlot == 9;
 		}
 
 		private void SaveRamSubMenu_DropDownOpened(object sender, EventArgs e)
@@ -231,7 +161,6 @@ namespace BizHawk.Client.EmuHawk
 
 		private void MovieSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
-			FullMovieLoadstatesMenuItem.Enabled = !MovieSession.MultiTrack.IsActive;
 			StopMovieWithoutSavingMenuItem.Enabled = MovieSession.Movie.IsActive() && MovieSession.Movie.Changes;
 			StopMovieMenuItem.Enabled
 				= SaveMovieMenuItem.Enabled
@@ -250,7 +179,7 @@ namespace BizHawk.Client.EmuHawk
 			SaveMovieMenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Save Movie"].Bindings;
 
 			PlayMovieMenuItem.Enabled
-				= ImportMoviesMenuItem.Enabled 
+				= ImportMoviesMenuItem.Enabled
 				= RecentMovieSubMenu.Enabled
 					= !Tools.IsLoaded<TAStudio>();
 
@@ -265,7 +194,7 @@ namespace BizHawk.Client.EmuHawk
 		private void RecentMovieSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
 			RecentMovieSubMenu.DropDownItems.Clear();
-			RecentMovieSubMenu.DropDownItems.AddRange(Config.RecentMovies.RecentMenu(LoadMoviesFromRecent, "Movie"));
+			RecentMovieSubMenu.DropDownItems.AddRange(Config.RecentMovies.RecentMenu(this, LoadMoviesFromRecent, "Movie"));
 		}
 
 		private void MovieEndSubMenu_DropDownOpened(object sender, EventArgs e)
@@ -288,13 +217,13 @@ namespace BizHawk.Client.EmuHawk
 			ConfigAndRecordAVMenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Record A/V"].Bindings;
 			StopAVIMenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Stop A/V"].Bindings;
 			CaptureOSDMenuItem.Checked = Config.AviCaptureOsd;
+			CaptureLuaMenuItem.Checked = Config.AviCaptureLua || Config.AviCaptureOsd; // or with osd is for better compatibility with old config files
 
-			RecordAVMenuItem.Enabled = !OSTailoredCode.IsUnixHost && !string.IsNullOrEmpty(Config.VideoWriter) && _currAviWriter == null;
-			SynclessRecordingMenuItem.Enabled = !OSTailoredCode.IsUnixHost;
+			RecordAVMenuItem.Enabled = !string.IsNullOrEmpty(Config.VideoWriter) && _currAviWriter == null;
 
 			if (_currAviWriter == null)
 			{
-				ConfigAndRecordAVMenuItem.Enabled = !OSTailoredCode.IsUnixHost;
+				ConfigAndRecordAVMenuItem.Enabled = true;
 				StopAVIMenuItem.Enabled = false;
 			}
 			else
@@ -319,11 +248,8 @@ namespace BizHawk.Client.EmuHawk
 
 		private void OpenAdvancedMenuItem_Click(object sender, EventArgs e)
 		{
-			using var oac = new OpenAdvancedChooser(this, Config);
-			if (oac.ShowHawkDialog() == DialogResult.Cancel)
-			{
-				return;
-			}
+			using var oac = new OpenAdvancedChooser(this, Config, CreateCoreComm, Game, RunLibretroCoreChooser);
+			if (this.ShowDialogWithTempMute(oac) == DialogResult.Cancel) return;
 
 			if (oac.Result == AdvancedRomLoaderType.LibretroLaunchNoGame)
 			{
@@ -337,7 +263,7 @@ namespace BizHawk.Client.EmuHawk
 
 			var args = new LoadRomArgs();
 
-			var filter = RomFilter;
+			var filter = RomLoader.RomFilter;
 
 			if (oac.Result == AdvancedRomLoaderType.LibretroLaunchGame)
 			{
@@ -369,11 +295,7 @@ namespace BizHawk.Client.EmuHawk
 				Title = "Open Advanced"
 			};
 
-			var result = ofd.ShowHawkDialog();
-			if (!result.IsOk())
-			{
-				return;
-			}
+			if (!this.ShowDialogWithTempMute(ofd).IsOk()) return;
 
 			var file = new FileInfo(ofd.FileName);
 			Config.PathEntries.LastRomPath = file.DirectoryName;
@@ -390,37 +312,31 @@ namespace BizHawk.Client.EmuHawk
 			Console.WriteLine($"Closing rom clicked DONE Frame: {Emulator.Frame} Emulator: {Emulator.GetType().Name}");
 		}
 
-		private void Savestate1MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave1"); }
-		private void Savestate2MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave2"); }
-		private void Savestate3MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave3"); }
-		private void Savestate4MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave4"); }
-		private void Savestate5MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave5"); }
-		private void Savestate6MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave6"); }
-		private void Savestate7MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave7"); }
-		private void Savestate8MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave8"); }
-		private void Savestate9MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave9"); }
-		private void Savestate0MenuItem_Click(object sender, EventArgs e) { SaveQuickSave("QuickSave0"); }
+		private void Savestate1MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave1");
+		private void Savestate2MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave2");
+		private void Savestate3MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave3");
+		private void Savestate4MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave4");
+		private void Savestate5MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave5");
+		private void Savestate6MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave6");
+		private void Savestate7MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave7");
+		private void Savestate8MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave8");
+		private void Savestate9MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave9");
+		private void Savestate0MenuItem_Click(object sender, EventArgs e) => SaveQuickSave("QuickSave0");
 
-		private void SaveNamedStateMenuItem_Click(object sender, EventArgs e)
-		{
-			SaveStateAs();
-		}
+		private void SaveNamedStateMenuItem_Click(object sender, EventArgs e) => SaveStateAs();
 
-		private void Loadstate1MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave1"); }
-		private void Loadstate2MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave2"); }
-		private void Loadstate3MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave3"); }
-		private void Loadstate4MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave4"); }
-		private void Loadstate5MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave5"); }
-		private void Loadstate6MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave6"); }
-		private void Loadstate7MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave7"); }
-		private void Loadstate8MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave8"); }
-		private void Loadstate9MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave9"); }
-		private void Loadstate0MenuItem_Click(object sender, EventArgs e) { LoadQuickSave("QuickSave0"); }
+		private void Loadstate1MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave1");
+		private void Loadstate2MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave2");
+		private void Loadstate3MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave3");
+		private void Loadstate4MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave4");
+		private void Loadstate5MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave5");
+		private void Loadstate6MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave6");
+		private void Loadstate7MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave7");
+		private void Loadstate8MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave8");
+		private void Loadstate9MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave9");
+		private void Loadstate0MenuItem_Click(object sender, EventArgs e) => LoadQuickSave("QuickSave0");
 
-		private void LoadNamedStateMenuItem_Click(object sender, EventArgs e)
-		{
-			LoadStateAs();
-		}
+		private void LoadNamedStateMenuItem_Click(object sender, EventArgs e) => LoadStateAs();
 
 		private void AutoloadLastSlotMenuItem_Click(object sender, EventArgs e)
 		{
@@ -478,25 +394,23 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (!Emulator.Attributes().Released)
 			{
-				var result = MessageBox.Show(
-					this,
-					"Thanks for using BizHawk!  The emulation core you have selected " +
-					"is currently BETA-status.  We appreciate your help in testing BizHawk. " +
-					"You can record a movie on this core if you'd like to, but expect to " +
-					"encounter bugs and sync problems.  Continue?", "BizHawk", MessageBoxButtons.YesNo);
+				var result = this.ModalMessageBox2(
+					"Thanks for using BizHawk!  The emulation core you have selected "
+						+ "is currently BETA-status.  We appreciate your help in testing BizHawk. "
+						+ "You can record a movie on this core if you'd like to, but expect to "
+						+ "encounter bugs and sync problems.  Continue?",
+					"BizHawk");
 
-				if (result != DialogResult.Yes)
+				if (!result)
 				{
 					return;
 				}
 			}
 
-			if (!EmuHawkUtil.EnsureCoreIsAccurate(Emulator))
-			{
-				// Inaccurate core but allow the user to continue anyway
-			}
+			// Nag user to user a more accurate core, but let them continue anyway
+			EnsureCoreIsAccurate();
 
-			using var form = new RecordMovie(this, Config, Game, Emulator, MovieSession);
+			using var form = new RecordMovie(this, Config, Game, Emulator, MovieSession, FirmwareManager);
 			form.ShowDialog();
 		}
 
@@ -526,7 +440,7 @@ namespace BizHawk.Client.EmuHawk
 				RestoreDirectory = false
 			};
 
-			if (ofd.ShowHawkDialog().IsOk())
+			if (this.ShowDialogWithTempMute(ofd).IsOk())
 			{
 				foreach (var fn in ofd.FileNames)
 				{
@@ -552,7 +466,8 @@ namespace BizHawk.Client.EmuHawk
 				filename,
 				Config.PathEntries.MovieAbsolutePath(),
 				"Movie Files",
-				MovieSession.Movie.PreferredExtension);
+				MovieSession.Movie.PreferredExtension,
+				this);
 
 			if (file != null)
 			{
@@ -604,6 +519,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void ConfigAndRecordAVMenuItem_Click(object sender, EventArgs e)
 		{
+			if (OSTailoredCode.IsUnixHost) new MsgBox("Most of these options will cause crashes on Linux.", "A/V instability warning", MessageBoxIcon.Warning).ShowDialog();
 			RecordAv();
 		}
 
@@ -617,14 +533,20 @@ namespace BizHawk.Client.EmuHawk
 			StopAv();
 		}
 
-		private void SynclessRecordingMenuItem_Click(object sender, EventArgs e)
-		{
-			new SynclessRecordingTools(Game, Config.PathEntries.AvAbsolutePath()).Run();
-		}
-
 		private void CaptureOSDMenuItem_Click(object sender, EventArgs e)
 		{
-			Config.AviCaptureOsd ^= true;
+			bool c = ((ToolStripMenuItem)sender).Checked;
+			Config.AviCaptureOsd = c;
+			if (c) // Logic to capture OSD w/o Lua does not currently exist, so disallow that.
+				Config.AviCaptureLua = true;
+		}
+
+		private void CaptureLuaMenuItem_Click(object sender, EventArgs e)
+		{
+			bool c = ((ToolStripMenuItem)sender).Checked;
+			Config.AviCaptureLua = c;
+			if (!c) // Logic to capture OSD w/o Lua does not currently exist, so disallow that.
+				Config.AviCaptureOsd = false;
 		}
 
 		private void ScreenshotMenuItem_Click(object sender, EventArgs e)
@@ -643,7 +565,7 @@ namespace BizHawk.Client.EmuHawk
 				Filter = FilesystemFilter.PNGs.ToString()
 			};
 
-			if (sfd.ShowHawkDialog().IsOk())
+			if (this.ShowDialogWithTempMute(sfd).IsOk())
 			{
 				TakeScreenshot(sfd.FileName);
 			}
@@ -672,15 +594,10 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public void CloseEmulator()
+		public void CloseEmulator(int? exitCode = null)
 		{
 			_exitRequestPending = true;
-		}
-
-		public void CloseEmulator(int exitCode)
-		{
-			_exitRequestPending = true;
-			_exitCode = exitCode;
+			if (exitCode != null) _exitCode = exitCode.Value;
 		}
 
 		private void EmulationMenuItem_DropDownOpened(object sender, EventArgs e)
@@ -904,22 +821,20 @@ namespace BizHawk.Client.EmuHawk
 
 		private void KeyPriorityMenuItem_DropDownOpened(object sender, EventArgs e)
 		{
+			BothHkAndControllerMenuItem.Checked = false;
+			InputOverHkMenuItem.Checked = false;
+			HkOverInputMenuItem.Checked = false;
+
 			switch (Config.InputHotkeyOverrideOptions)
 			{
 				default:
 				case 0:
 					BothHkAndControllerMenuItem.Checked = true;
-					InputOverHkMenuItem.Checked = false;
-					HkOverInputMenuItem.Checked = false;
 					break;
 				case 1:
-					BothHkAndControllerMenuItem.Checked = false;
 					InputOverHkMenuItem.Checked = true;
-					HkOverInputMenuItem.Checked = false;
 					break;
 				case 2:
-					BothHkAndControllerMenuItem.Checked = false;
-					InputOverHkMenuItem.Checked = false;
 					HkOverInputMenuItem.Checked = true;
 					break;
 			}
@@ -927,7 +842,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void ControllersMenuItem_Click(object sender, EventArgs e)
 		{
-			using var controller = new ControllerConfig(Emulator, Config);
+			using var controller = new ControllerConfig(this, Emulator, Config);
 			if (controller.ShowDialog().IsOk())
 			{
 				AddOnScreenMessage("Controller settings saved");
@@ -959,13 +874,13 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (e is RomLoader.RomErrorArgs args)
 			{
-				using var configForm = new FirmwaresConfig(this, Config, true, args.RomPath);
+				using var configForm = new FirmwaresConfig(FirmwareManager, Config.FirmwareUserSpecifications, this, Config.PathEntries, retryLoadRom: true, reloadRomPath: args.RomPath);
 				var result = configForm.ShowDialog();
 				args.Retry = result == DialogResult.Retry;
 			}
 			else
 			{
-				using var configForm = new FirmwaresConfig(this, Config);
+				using var configForm = new FirmwaresConfig(FirmwareManager, Config.FirmwareUserSpecifications, this, Config.PathEntries);
 				configForm.ShowDialog();
 			}
 		}
@@ -981,23 +896,39 @@ namespace BizHawk.Client.EmuHawk
 
 		private void PathsMenuItem_Click(object sender, EventArgs e)
 		{
-			using var form = new PathConfig(this, Config);
+			using var form = new PathConfig(this, Config.PathEntries, Game.System);
 			form.ShowDialog();
 		}
 
 		private void SoundMenuItem_Click(object sender, EventArgs e)
 		{
-			using var form = new SoundConfig(Config) { Owner = this };
-			if (form.ShowDialog().IsOk())
+			static IEnumerable<string> GetDeviceNamesCallback(ESoundOutputMethod outputMethod) => outputMethod switch
 			{
+				ESoundOutputMethod.DirectSound => DirectSoundSoundOutput.GetDeviceNames(),
+				ESoundOutputMethod.XAudio2 => XAudio2SoundOutput.GetDeviceNames(),
+				ESoundOutputMethod.OpenAL => OpenALSoundOutput.GetDeviceNames(),
+				_ => Enumerable.Empty<string>()
+			};
+			using var form = new SoundConfig(this, Config, GetDeviceNamesCallback);
+			if (!form.ShowDialog().IsOk())
+			{
+				AddOnScreenMessage("Sound config aborted");
+				return;
+			}
+
+			AddOnScreenMessage("Sound settings saved");
+			if (form.ApplyNewSoundDevice)
+			{
+				Sound.Dispose();
+				Sound = new Sound(Handle, Config, () => Emulator.VsyncRate());
 				Sound.StartSound();
-				AddOnScreenMessage("Sound settings saved");
-				RewireSound();
 			}
 			else
 			{
-				AddOnScreenMessage("Sound config aborted");
+				Sound.StopSound();
+				Sound.StartSound();
 			}
+			RewireSound();
 		}
 
 		private void AutofireMenuItem_Click(object sender, EventArgs e)
@@ -1013,7 +944,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (Emulator.HasSavestates())
 			{
-				using var form = new RewindConfig(this, Config, Emulator.AsStatable());
+				using var form = new RewindConfig(Config, CreateRewinder, () => this.Rewinder, Emulator.AsStatable());
 				AddOnScreenMessage(form.ShowDialog().IsOk()
 					? "Rewind and State settings saved"
 					: "Rewind config aborted");
@@ -1022,16 +953,24 @@ namespace BizHawk.Client.EmuHawk
 
 		private void FileExtensionsMenuItem_Click(object sender, EventArgs e)
 		{
-			using var form = new FileExtensionPreferences(Config);
+			using var form = new FileExtensionPreferences(Config.PreferredPlatformsForExtensions);
 			var result = form.ShowDialog();
 			AddOnScreenMessage(result.IsOk()
 				? "Rom Extension Preferences changed"
 				: "Rom Extension Preferences cancelled");
 		}
 
+		private void BumpAutoFlushSaveRamTimer()
+		{
+			if (AutoFlushSaveRamIn > Config.FlushSaveRamFrames)
+			{
+				AutoFlushSaveRamIn = Config.FlushSaveRamFrames;
+			}
+		}
+
 		private void CustomizeMenuItem_Click(object sender, EventArgs e)
 		{
-			using var form = new EmuHawkOptions(this, Config);
+			using var form = new EmuHawkOptions(BumpAutoFlushSaveRamTimer, Config, this.AddOnScreenMessage);
 			form.ShowDialog();
 		}
 
@@ -1069,7 +1008,7 @@ namespace BizHawk.Client.EmuHawk
 				Config.VSyncThrottle = false;
 				if (old)
 				{
-					PresentationPanel.Resized = true;
+					_presentationPanel.Resized = true;
 				}
 			}
 
@@ -1087,7 +1026,7 @@ namespace BizHawk.Client.EmuHawk
 				Config.VSyncThrottle = false;
 				if (old)
 				{
-					PresentationPanel.Resized = true;
+					_presentationPanel.Resized = true;
 				}
 			}
 
@@ -1097,7 +1036,7 @@ namespace BizHawk.Client.EmuHawk
 		private void VsyncThrottleMenuItem_Click(object sender, EventArgs e)
 		{
 			Config.VSyncThrottle ^= true;
-			PresentationPanel.Resized = true;
+			_presentationPanel.Resized = true;
 			if (Config.VSyncThrottle)
 			{
 				Config.ClockThrottle = false;
@@ -1123,7 +1062,7 @@ namespace BizHawk.Client.EmuHawk
 			Config.VSync ^= true;
 			if (!Config.VSyncThrottle) // when vsync throttle is on, vsync is forced to on, so no change to make here
 			{
-				PresentationPanel.Resized = true;
+				_presentationPanel.Resized = true;
 			}
 
 			VsyncMessage();
@@ -1151,12 +1090,12 @@ namespace BizHawk.Client.EmuHawk
 		private void Frameskip8MenuItem_Click(object sender, EventArgs e) { Config.FrameSkip = 8; FrameSkipMessage(); }
 		private void Frameskip9MenuItem_Click(object sender, EventArgs e) { Config.FrameSkip = 9; FrameSkipMessage(); }
 
-		private void Speed50MenuItem_Click(object sender, EventArgs e) { ClickSpeedItem(50); }
-		private void Speed75MenuItem_Click(object sender, EventArgs e) { ClickSpeedItem(75); }
-		private void Speed100MenuItem_Click(object sender, EventArgs e) { ClickSpeedItem(100); }
-		private void Speed150MenuItem_Click(object sender, EventArgs e) { ClickSpeedItem(150); }
-		private void Speed200MenuItem_Click(object sender, EventArgs e) { ClickSpeedItem(200); }
-		private void Speed400MenuItem_Click(object sender, EventArgs e) { ClickSpeedItem(400); }
+		private void Speed50MenuItem_Click(object sender, EventArgs e) => ClickSpeedItem(50);
+		private void Speed75MenuItem_Click(object sender, EventArgs e) => ClickSpeedItem(75);
+		private void Speed100MenuItem_Click(object sender, EventArgs e) => ClickSpeedItem(100);
+		private void Speed150MenuItem_Click(object sender, EventArgs e) => ClickSpeedItem(150);
+		private void Speed200MenuItem_Click(object sender, EventArgs e) => ClickSpeedItem(200);
+		private void Speed400MenuItem_Click(object sender, EventArgs e) => ClickSpeedItem(400);
 
 		private void BothHkAndControllerMenuItem_Click(object sender, EventArgs e)
 		{
@@ -1192,7 +1131,7 @@ namespace BizHawk.Client.EmuHawk
 				Filter = ConfigFileFSFilterString
 			};
 
-			if (sfd.ShowHawkDialog().IsOk())
+			if (this.ShowDialogWithTempMute(sfd).IsOk())
 			{
 				SaveConfig(sfd.FileName);
 				AddOnScreenMessage("Copied settings");
@@ -1214,7 +1153,7 @@ namespace BizHawk.Client.EmuHawk
 				Filter = ConfigFileFSFilterString
 			};
 
-			if (ofd.ShowHawkDialog().IsOk())
+			if (this.ShowDialogWithTempMute(ofd).IsOk())
 			{
 				LoadConfigFile(ofd.FileName);
 			}
@@ -1256,7 +1195,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			ExternalToolMenuItem.DropDownItems.Clear();
 
-			foreach (var item in ExternalToolManager.ToolStripMenu)
+			foreach (var item in ExtToolManager.ToolStripMenu)
 			{
 				if (item.Tag is ValueTuple<string, string> tuple)
 				{
@@ -1289,17 +1228,7 @@ namespace BizHawk.Client.EmuHawk
 			Tools.LoadRamWatch(true);
 		}
 
-		private void RamSearchMenuItem_Click(object sender, EventArgs e)
-		{
-			var ramSearch = Tools.Load<RamSearch>();
-			if (OSTailoredCode.IsUnixHost)
-			{
-				// this is apparently needed for weird mono-forms-on-different-thread issues
-				// don't do .Show() within Load<T>() for RamSearch - instead put an instance of it here on MainForm, then show here
-				// the mono winforms implementation is.... weird and buggy
-				ramSearch.Show();
-			}
-		}
+		private void RamSearchMenuItem_Click(object sender, EventArgs e) => Tools.Load<RamSearch>();
 
 		private void LuaConsoleMenuItem_Click(object sender, EventArgs e)
 		{
@@ -1310,7 +1239,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (!Emulator.CanPollInput())
 			{
-				MessageBox.Show("Current core does not support input polling. TAStudio can't be used.");
+				ShowMessageBox(owner: null, "Current core does not support input polling. TAStudio can't be used.");
 				return;
 			}
 
@@ -1369,7 +1298,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void BatchRunnerMenuItem_Click(object sender, EventArgs e)
 		{
-			using var form = new BatchRun(this);
+			using var form = new BatchRun(this, Config, CreateCoreComm);
 			form.ShowDialog();
 		}
 
@@ -1405,13 +1334,11 @@ namespace BizHawk.Client.EmuHawk
 				FDSControlsMenuItem.DropDownItems.RemoveAt(1);
 			}
 
-			for (int i = 0; i < 16; i++)
+			string button;
+			for (int i = 0; Emulator.ControllerDefinition.BoolButtons.Contains(button = $"FDS Insert {i}"); i++)
 			{
-				var str = $"FDS Insert {i}";
-				if (Emulator.ControllerDefinition.BoolButtons.Contains(str))
-				{
-					FdsInsertDiskMenuAdd($"Insert Disk {i}", str, $"FDS Disk {i} inserted.");
-				}
+				var name = $"Disk {i / 2 + 1} Side {(char)(i % 2 + 'A')}";
+				FdsInsertDiskMenuAdd($"Insert {name}", button, $"FDS {name} inserted.");
 			}
 		}
 
@@ -1459,12 +1386,12 @@ namespace BizHawk.Client.EmuHawk
 			if (Emulator is NES nes && nes.IsVS)
 			{
 				using var form = new NesVsSettings(this, nes.GetSyncSettings().Clone());
-				form.ShowHawkDialog();
+				this.ShowDialogWithTempMute(form);
 			}
 			else if (Emulator is SubNESHawk sub && sub.IsVs)
 			{
 				using var form = new NesVsSettings(this, sub.GetSyncSettings().Clone());
-				form.ShowHawkDialog();
+				this.ShowDialogWithTempMute(form);
 			}
 		}
 
@@ -1546,47 +1473,12 @@ namespace BizHawk.Client.EmuHawk
 				using var dlg = new NESSyncSettingsForm(this, sub.GetSyncSettings().Clone(), sub.HasMapperProperties);
 				dlg.ShowDialog(this);
 			}
-			
+
 		}
 
 		private void BarcodeReaderMenuItem_Click(object sender, EventArgs e)
 		{
 			Tools.Load<BarcodeEntry>();
-		}
-
-		private void PceSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "PCE Settings");
-		}
-
-		private void PceBgViewerMenuItem_Click(object sender, EventArgs e)
-		{
-			Tools.Load<PceBgViewer>();
-		}
-
-		private void PceTileViewerMenuItem_Click(object sender, EventArgs e)
-		{
-			Tools.Load<PceTileViewer>();
-		}
-
-		private void PceSoundDebuggerMenuItem_Click(object sender, EventArgs e)
-		{
-			Tools.Load<PCESoundDebugger>();
-		}
-
-		private void SmsSubMenu_DropDownOpened(object sender, EventArgs e)
-		{
-			SmsVdpViewerMenuItem.Visible = Game.System != "SG";
-		}
-
-		private void SmsBiosMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "SMS Settings");
-		}
-
-		private void SmsVdpViewerMenuItem_Click(object sender, EventArgs e)
-		{
-			Tools.Load<SmsVdpViewer>();
 		}
 
 		private void Ti83SubMenu_DropDownOpened(object sender, EventArgs e)
@@ -1615,8 +1507,7 @@ namespace BizHawk.Client.EmuHawk
 					RestoreDirectory = true
 				};
 
-				if (ofd.ShowDialog()
-					.IsOk())
+				if (ofd.ShowDialog().IsOk())
 				{
 					try
 					{
@@ -1627,8 +1518,7 @@ namespace BizHawk.Client.EmuHawk
 						var message =
 							$"Invalid file format. Reason: {ex.Message} \nForce transfer? This may cause the calculator to crash.";
 
-						if (MessageBox.Show(message, "Upload Failed", MessageBoxButtons.YesNoCancel,
-							MessageBoxIcon.Question) == DialogResult.Yes)
+						if (this.ShowMessageBox3(owner: null, message, "Upload Failed", EMsgBoxIcon.Question) == true)
 						{
 							ti83.LinkPort.SendFileToCalc(File.OpenRead(ofd.FileName), false);
 						}
@@ -1646,11 +1536,6 @@ namespace BizHawk.Client.EmuHawk
 					? "Palette settings saved"
 					: "Palette config aborted");
 			}
-		}
-
-		private void AtariSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Atari 2600 Settings");
 		}
 
 		private void A7800SubMenu_DropDownOpened(object sender, EventArgs e)
@@ -1678,16 +1563,11 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void GbSubMenu_DropDownOpened(object sender, EventArgs e)
-		{
-			GBGPUViewerMenuItem.Enabled = !OSTailoredCode.IsUnixHost;
-		}
-
 		private void GbCoreSettingsMenuItem_Click(object sender, EventArgs e)
 		{
 			if (Emulator is Gameboy gb)
 			{
-				GBPrefs.DoGBPrefsDialog(this, gb);
+				GBPrefs.DoGBPrefsDialog(this, Config, Game, MovieSession, gb);
 			}
 			else // SameBoy
 			{
@@ -1705,21 +1585,6 @@ namespace BizHawk.Client.EmuHawk
 			Tools.Load<GBPrinterView>();
 		}
 
-		private void GbaCoreSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Gameboy Advance Settings");
-		}
-
-		private void GbaGpuViewerMenuItem_Click(object sender, EventArgs e)
-		{
-			Tools.Load<GbaGpuView>();
-		}
-
-		private void GBASubMenu_DropDownOpened(object sender, EventArgs e)
-		{
-			GbaGpuViewerMenuItem.Enabled = !OSTailoredCode.IsUnixHost;
-		}
-
 		private void NDSSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
 			NdsSyncSettingsMenuItem.Enabled = MovieSession.Movie.NotActive();
@@ -1735,7 +1600,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (Emulator is MelonDS ds)
 			{
-				using var form = new NdsSettings(this, ds.GetSyncSettings().Clone());
+				using var form = new NdsSyncSettings(this, ds.GetSyncSettings().Clone());
 				form.ShowDialog();
 			}
 		}
@@ -1782,7 +1647,7 @@ namespace BizHawk.Client.EmuHawk
 		private void SnesSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
 			SNESControllerConfigurationMenuItem.Enabled = MovieSession.Movie.NotActive();
-			SnesGfxDebuggerMenuItem.Enabled = !OSTailoredCode.IsUnixHost;
+			SnesGfxDebuggerMenuItem.Enabled = true;
 		}
 
 		private void SNESControllerConfigurationMenuItem_Click(object sender, EventArgs e)
@@ -1790,6 +1655,11 @@ namespace BizHawk.Client.EmuHawk
 			if (Emulator is LibsnesCore bsnes)
 			{
 				using var form = new SNESControllerSettings(this, bsnes.GetSyncSettings().Clone());
+				form.ShowDialog();
+			}
+			else if (Emulator is BsnesCore bsnesCore)
+			{
+				using var form = new BSNESControllerSettings(this, bsnesCore.GetSyncSettings().Clone());
 				form.ShowDialog();
 			}
 		}
@@ -1801,15 +1671,14 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SnesOptionsMenuItem_Click(object sender, EventArgs e)
 		{
-			if (Emulator is LibsnesCore bsnes)
+			if (Emulator is LibsnesCore libsnes)
 			{
-				SNESOptions.DoSettingsDialog(this, bsnes);
+				SNESOptions.DoSettingsDialog(this, libsnes);
 			}
-		}
-
-		private void Snes9xSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Snes9x Settings");
+			if (Emulator is BsnesCore bsnes)
+			{
+				BSNESOptions.DoSettingsDialog(this, bsnes);
+			}
 		}
 
 		private void ColecoSubMenu_DropDownOpened(object sender, EventArgs e)
@@ -1856,7 +1725,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			N64PluginSettingsMenuItem.Enabled =
 				N64ControllerSettingsMenuItem.Enabled =
-				N64ExpansionSlotMenuItem.Enabled = 
+				N64ExpansionSlotMenuItem.Enabled =
 				MovieSession.Movie.NotActive();
 
 			N64CircularAnalogRangeMenuItem.Checked = Config.N64UseCircularAnalogConstraint;
@@ -1870,7 +1739,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void N64PluginSettingsMenuItem_Click(object sender, EventArgs e)
 		{
-			using var form = new N64VideoPluginConfig(this, Config, Game, Emulator);
+			using var form = new N64VideoPluginConfig(this, Config, Emulator);
 			if (form.ShowDialog().IsOk())
 			{
 				if (Emulator.IsNull())
@@ -1921,67 +1790,18 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void SaturnPreferencesMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Saturn Settings");
-		}
-
 		private void DgbSettingsMenuItem_Click(object sender, EventArgs e)
 		{
 			if (Emulator is GambatteLink gambatte)
 			{
-				DGBPrefs.DoDGBPrefsDialog(this, gambatte);
+				DGBPrefs.DoDGBPrefsDialog(this, Config, Game, MovieSession, gambatte);
 			}
 		}
 
-		private void DgbHawkSettingsMenuItem_Click(object sender, EventArgs e)
+		private void GenericCoreSettingsMenuItem_Click(object sender, EventArgs e)
 		{
-			GenericCoreConfig.DoDialog(this, "Gameboy Settings");
-		}
-
-		private void GB3xSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Gameboy Settings");
-		}
-
-		private void GB4xSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Gameboy Settings");
-		}
-
-		private void GgSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Game Gear Settings");
-		}
-
-		private void VectrexSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Vectrex Settings", true, false);
-		}
-
-		private void MsxSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "MSX Settings");
-		}
-
-		private void O2HawkSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Odyssey Settings");
-		}
-
-		private void GenVdpViewerMenuItem_Click(object sender, EventArgs e)
-		{
-			Tools.Load<GenVdpViewer>();
-		}
-
-		private void GenesisSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Genesis Settings");
-		}
-
-		private void WonderSwanSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "WonderSwan Settings");
+			var coreName = ((CoreAttribute) Attribute.GetCustomAttribute(Emulator.GetType(), typeof(CoreAttribute))).CoreName;
+			GenericCoreConfig.DoDialog(this, $"{coreName} Settings");
 		}
 
 		private void AppleIISettingsMenuItem_Click(object sender, EventArgs e)
@@ -1991,9 +1811,9 @@ namespace BizHawk.Client.EmuHawk
 
 		private void AppleSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
-			if (Emulator is AppleII)
+			if (Emulator is AppleII a)
 			{
-				AppleDisksSubMenu.Enabled = ((AppleII)Emulator).DiskCount > 1;
+				AppleDisksSubMenu.Enabled = a.DiskCount > 1;
 			}
 		}
 
@@ -2076,21 +1896,6 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void VirtualBoySettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "VirtualBoy Settings");
-		}
-
-		private void NeoGeoSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "NeoPop Settings");
-		}
-
-		private void PCFXSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "PC-FX Settings");
-		}
-
 		private void ZXSpectrumControllerConfigurationMenuItem_Click(object sender, EventArgs e)
 		{
 			if (Emulator is ZXSpectrum zxs)
@@ -2149,7 +1954,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			ZXSpectrumTapesSubMenu.DropDownItems.Clear();
 
-			var items = new List<ToolStripMenuItem>();
+			List<ToolStripItem> items = new();
 
 			if (Emulator is ZXSpectrum speccy)
 			{
@@ -2183,7 +1988,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			ZXSpectrumDisksSubMenu.DropDownItems.Clear();
 
-			var items = new List<ToolStripMenuItem>();
+			List<ToolStripItem> items = new();
 
 			if (Emulator is ZXSpectrum speccy)
 			{
@@ -2233,9 +2038,8 @@ namespace BizHawk.Client.EmuHawk
 					File.WriteAllBytes(zxSnapExpDialog.FileName, snap);
 				}
 			}
-			catch (Exception ex)
+			catch (Exception)
 			{
-				var ee = ex;
 			}
 		}
 
@@ -2268,10 +2072,10 @@ namespace BizHawk.Client.EmuHawk
 
 		private void AmstradCpcMediaMenuItem_DropDownOpened(object sender, EventArgs e)
 		{
-			if (Emulator is AmstradCPC)
+			if (Emulator is AmstradCPC cpc)
 			{
-				AmstradCPCTapesSubMenu.Enabled = ((AmstradCPC)Emulator)._tapeInfo.Count > 0;
-				AmstradCPCDisksSubMenu.Enabled = ((AmstradCPC)Emulator)._diskInfo.Count > 0;
+				AmstradCPCTapesSubMenu.Enabled = cpc._tapeInfo.Count > 0;
+				AmstradCPCDisksSubMenu.Enabled = cpc._diskInfo.Count > 0;
 			}
 		}
 
@@ -2279,7 +2083,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			AmstradCPCTapesSubMenu.DropDownItems.Clear();
 
-			var items = new List<ToolStripMenuItem>();
+			List<ToolStripItem> items = new();
 
 			if (Emulator is AmstradCPC ams)
 			{
@@ -2313,7 +2117,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			AmstradCPCDisksSubMenu.DropDownItems.Clear();
 
-			var items = new List<ToolStripMenuItem>();
+			List<ToolStripItem> items = new();
 
 			if (Emulator is AmstradCPC ams)
 			{
@@ -2350,12 +2154,7 @@ namespace BizHawk.Client.EmuHawk
 				using var form = new AmstradCpcNonSyncSettings(this, cpc.GetSettings().Clone());
 				form.ShowDialog();
 			}
-			
-		}
 
-		private void ArcadeSettingsMenuItem_Click(object sender, EventArgs e)
-		{
-			GenericCoreConfig.DoDialog(this, "Arcade Settings");
 		}
 
 		private void HelpSubMenu_DropDownOpened(object sender, EventArgs e)
@@ -2466,19 +2265,19 @@ namespace BizHawk.Client.EmuHawk
 				if (_stateSlots.IsRedo(MovieSession.Movie, Config.SaveSlot))
 				{
 					UndoSavestateContextMenuItem.Text = $"Redo Save to slot {Config.SaveSlot}";
-					UndoSavestateContextMenuItem.Image = Properties.Resources.redo;
+					UndoSavestateContextMenuItem.Image = Properties.Resources.Redo;
 				}
 				else
 				{
 					UndoSavestateContextMenuItem.Text = $"Undo Save to slot {Config.SaveSlot}";
-					UndoSavestateContextMenuItem.Image = Properties.Resources.undo;
+					UndoSavestateContextMenuItem.Image = Properties.Resources.Undo;
 				}
 			}
 			else
 			{
 				UndoSavestateContextMenuItem.Enabled = false;
 				UndoSavestateContextMenuItem.Text = "Undo Savestate";
-				UndoSavestateContextMenuItem.Image = Properties.Resources.undo;
+				UndoSavestateContextMenuItem.Image = Properties.Resources.Undo;
 			}
 
 			ShowMenuContextMenuItem.Text = MainMenuStrip.Visible ? "Hide Menu" : "Show Menu";
@@ -2494,7 +2293,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void DisplayConfigMenuItem_Click(object sender, EventArgs e)
 		{
-			using var window = new DisplayConfig(Config);
+			using var window = new DisplayConfig(Config, GL);
 			if (window.ShowDialog().IsOk())
 			{
 				DisplayManager.RefreshUserShader();
@@ -2527,8 +2326,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (MovieSession.Movie.IsActive())
 			{
-				using var form = new EditSubtitlesForm { ReadOnly = MovieSession.ReadOnly };
-				form.GetMovie(MovieSession.Movie);
+				using var form = new EditSubtitlesForm(this, MovieSession.Movie, MovieSession.ReadOnly);
 				form.ShowDialog();
 			}
 		}
@@ -2573,8 +2371,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (MovieSession.Movie.IsActive())
 			{
-				using var form = new EditCommentsForm();
-				form.GetMovie(MovieSession.Movie);
+				using var form = new EditCommentsForm(MovieSession.Movie, MovieSession.ReadOnly);
 				form.ShowDialog();
 			}
 		}
@@ -2640,20 +2437,12 @@ namespace BizHawk.Client.EmuHawk
 
 		private void KeyPriorityStatusLabel_Click(object sender, EventArgs e)
 		{
-			switch (Config.InputHotkeyOverrideOptions)
+			Config.InputHotkeyOverrideOptions = Config.InputHotkeyOverrideOptions switch
 			{
-				default:
-				case 0:
-					Config.InputHotkeyOverrideOptions = 1;
-					break;
-				case 1:
-					Config.InputHotkeyOverrideOptions = 2;
-					break;
-				case 2:
-					Config.InputHotkeyOverrideOptions = 0;
-					break;
-			}
-
+				1 => 2,
+				2 => Config.NoMixedInputHokeyOverride ? 1 : 0,
+				_ => 1,
+			};
 			UpdateKeyPriorityIcon();
 		}
 
@@ -2688,12 +2477,13 @@ namespace BizHawk.Client.EmuHawk
 		private void UpdateNotification_Click(object sender, EventArgs e)
 		{
 			Sound.StopSound();
-			DialogResult result = MessageBox.Show(this,
+			var result = this.ModalMessageBox3(
 				$"Version {Config.UpdateLatestVersion} is now available. Would you like to open the BizHawk homepage?\r\n\r\nClick \"No\" to hide the update notification for this version.",
-				"New Version Available", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+				"New Version Available",
+				EMsgBoxIcon.Question);
 			Sound.StartSound();
 
-			if (result == DialogResult.Yes)
+			if (result == true)
 			{
 				System.Threading.ThreadPool.QueueUserWorkItem(s =>
 				{
@@ -2702,8 +2492,9 @@ namespace BizHawk.Client.EmuHawk
 					}
 				});
 			}
-			else if (result == DialogResult.No)
+			else if (result == false)
 			{
+				UpdateChecker.GlobalConfig = Config;
 				UpdateChecker.IgnoreNewVersion();
 				UpdateChecker.BeginCheck(skipCheck: true); // Trigger event to hide new version notification
 			}
@@ -2748,29 +2539,9 @@ namespace BizHawk.Client.EmuHawk
 			AutohideCursor(false);
 		}
 
-		public void MainForm_MouseWheel(object sender, MouseEventArgs e)
-		{
-			MouseWheelTracker += e.Delta;
-		}
-
-		public void MainForm_MouseMove(object sender, MouseEventArgs e)
-		{
-			AutohideCursor(false);
-		}
-
-		public void MainForm_MouseClick(object sender, MouseEventArgs e)
-		{
-			AutohideCursor(false);
-			if (Config.ShowContextMenu && e.Button == MouseButtons.Right)
-			{
-				MainFormContextMenu.Show(
-					PointToScreen(new Point(e.X, e.Y + MainformMenu.Height)));
-			}
-		}
-
 		private void MainForm_Resize(object sender, EventArgs e)
 		{
-			PresentationPanel.Resized = true;
+			_presentationPanel.Resized = true;
 		}
 
 		private void MainForm_Shown(object sender, EventArgs e)
@@ -2779,8 +2550,6 @@ namespace BizHawk.Client.EmuHawk
 			{
 				Tools.Load<TI83KeyPad>();
 			}
-
-			Tools.AutoLoad();
 
 			if (Config.RecentWatches.AutoLoad)
 			{
@@ -2792,6 +2561,7 @@ namespace BizHawk.Client.EmuHawk
 				Tools.Load<Cheats>();
 			}
 
+			Tools.AutoLoad();
 			HandlePlatformMenus();
 		}
 
@@ -2804,6 +2574,11 @@ namespace BizHawk.Client.EmuHawk
 		private void MainformMenu_MenuActivate(object sender, EventArgs e)
 		{
 			HandlePlatformMenus();
+			MaybePauseFromMenuOpened();
+		}
+
+		public void MaybePauseFromMenuOpened()
+		{
 			if (Config.PauseWhenMenuActivated)
 			{
 				_wasPaused = EmulatorPaused;
@@ -2812,7 +2587,9 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void MainformMenu_MenuDeactivate(object sender, EventArgs e)
+		private void MainformMenu_MenuDeactivate(object sender, EventArgs e) => MaybeUnpauseFromMenuClosed();
+
+		public void MaybeUnpauseFromMenuClosed()
 		{
 			if (!_wasPaused)
 			{
@@ -2834,7 +2611,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show($"Exception on drag and drop:\n{ex}");
+				ShowMessageBox(owner: null, $"Exception on drag and drop:\n{ex}");
 			}
 			finally
 			{

@@ -1,5 +1,4 @@
-﻿using System.IO;
-using BizHawk.Common;
+﻿using BizHawk.Common;
 
 namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 {
@@ -7,14 +6,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 	{
 		private void SyncState(Serializer ser)
 		{
-			byte[] core = null;
-			if (ser.IsWriter)
-			{
-				using var ms = new MemoryStream();
-				ms.Close();
-				core = ms.ToArray();
-			}
-
 			ser.BeginSection("Gameboy");
 			cpu.SyncState(ser);
 			mapper.SyncState(ser);
@@ -23,7 +14,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			serialport.SyncState(ser);
 			audio.SyncState(ser);
 
-			ser.Sync(nameof(core), ref core, false);
 			ser.Sync("Lag", ref _lagcount);
 			ser.Sync("Frame", ref _frame);
 			ser.Sync("IsLag", ref _islag);
@@ -39,7 +29,12 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			ser.Sync(nameof(GB_bios_register), ref GB_bios_register);
 			ser.Sync(nameof(input_register), ref input_register);
 			ser.Sync(nameof(delays_to_process), ref delays_to_process);
+			ser.Sync(nameof(DIV_falling_edge), ref DIV_falling_edge);
+			ser.Sync(nameof(DIV_edge_old), ref DIV_edge_old);
 			ser.Sync(nameof(controller_delay_cd), ref controller_delay_cd);
+			ser.Sync(nameof(cpu_state_hold), ref cpu_state_hold);
+			ser.Sync(nameof(clear_counter), ref clear_counter);
+			ser.Sync(nameof(CycleCount), ref CycleCount);
 
 			ser.Sync(nameof(REG_FFFF), ref REG_FFFF);
 			ser.Sync(nameof(REG_FF0F), ref REG_FF0F);
@@ -54,12 +49,15 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			ser.Sync(nameof(_bios), ref _bios, false);
 
 			ser.Sync(nameof(RAM_Bank), ref RAM_Bank);
+			ser.Sync(nameof(RAM_Bank_ret), ref RAM_Bank_ret);
 			ser.Sync(nameof(VRAM_Bank), ref VRAM_Bank);
 			ser.Sync(nameof(is_GBC), ref is_GBC);
 			ser.Sync(nameof(GBC_compat), ref GBC_compat);
 			ser.Sync(nameof(double_speed), ref double_speed);
 			ser.Sync(nameof(speed_switch), ref speed_switch);
 			ser.Sync(nameof(HDMA_transfer), ref HDMA_transfer);
+			ser.Sync(nameof(bus_value), ref bus_value);
+			ser.Sync(nameof(bus_access_time), ref bus_access_time);
 
 			ser.Sync(nameof(IR_reg), ref IR_reg);
 			ser.Sync(nameof(IR_mask), ref IR_mask);

@@ -1,13 +1,11 @@
 ﻿using System;
-using System.Windows.Forms;
-
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Cores.Nintendo.NES;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class NESSoundConfig : ToolFormBase, IToolForm
+	public partial class NESSoundConfig : ToolFormBase
 	{
 		[RequiredService]
 		private NES NES { get; set; }
@@ -15,10 +13,12 @@ namespace BizHawk.Client.EmuHawk
 		private NES.NESSettings _oldSettings;
 		private NES.NESSettings _settings;
 
-		public void Restart()
+		public override void Restart()
 		{
 			NESSoundConfig_Load(null, null);
 		}
+
+		protected override string WindowTitleStatic => "NES Sound Channels";
 
 		public NESSoundConfig()
 		{

@@ -3,15 +3,12 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Consoles.ChannelF
 {
-	[Core(
-		"ChannelFHawk",
-		"Asnivor",
-		isPorted: false,
-		isReleased: false)]
+	[Core(CoreNames.ChannelFHawk, "Asnivor", isReleased: false)]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class ChannelF
 	{
-		public ChannelF(CoreComm comm, GameInfo game, byte[] rom, object settings, object syncSettings)
+		[CoreConstructor("ChannelF")]
+		public ChannelF(CoreComm comm, GameInfo game, byte[] rom)
 		{
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;

@@ -6,16 +6,17 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class ZxSpectrumPokeMemory : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly ZXSpectrum _speccy;
 		public ZxSpectrumPokeMemory(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			ZXSpectrum speccy)
 		{
 			_mainForm = mainForm;
 			_speccy = speccy;
 
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void OkBtn_Click(object sender, EventArgs e)

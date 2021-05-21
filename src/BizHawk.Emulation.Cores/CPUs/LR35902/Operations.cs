@@ -5,11 +5,10 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 	public partial class LR35902
 	{
 		// local variables for operations, not stated
-		int Reg16_d, Reg16_s, c;
-		ushort ans, ans_l, ans_h, temp;
-		byte a_d;
-		bool imm;
-
+		private int Reg16_d, Reg16_s, c;
+		private ushort ans, ans_l, ans_h, temp;
+		private byte a_d;
+		private bool imm;
 
 		public void Read_Func(ushort dest, ushort src_l, ushort src_h)
 		{
@@ -25,7 +24,7 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 		// special read for POP AF that always clears the lower 4 bits of F 
 		public void Read_Func_F(ushort dest, ushort src_l, ushort src_h)
 		{
-			Regs[dest] = (ushort)(ReadMemory((ushort)(Regs[src_l] | (Regs[src_h]) << 8)) & 0xF0);
+			Regs[dest] = (byte)(ReadMemory((ushort)(Regs[src_l] | (Regs[src_h]) << 8)) & 0xF0);
 		}
 
 		public void Write_Func(ushort dest_l, ushort dest_h, ushort src)

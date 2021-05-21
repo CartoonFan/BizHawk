@@ -7,21 +7,22 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class NesControllerSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly NES.NESSyncSettings _syncSettings;
 
 		public NesControllerSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			NES.NESSyncSettings syncSettings)
 		{
 			_mainForm = mainForm;
 			_syncSettings = syncSettings;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 
 			// TODO: use combobox extension and add descriptions to enum values
-			comboBoxFamicom.Items.AddRange(NESControlSettings.GetFamicomExpansionValues().ToArray());
-			comboBoxNESL.Items.AddRange(NESControlSettings.GetNesPortValues().ToArray());
-			comboBoxNESR.Items.AddRange(NESControlSettings.GetNesPortValues().ToArray());
+			comboBoxFamicom.Items.AddRange(NESControlSettings.GetFamicomExpansionValues().Cast<object>().ToArray());
+			comboBoxNESL.Items.AddRange(NESControlSettings.GetNesPortValues().Cast<object>().ToArray());
+			comboBoxNESR.Items.AddRange(NESControlSettings.GetNesPortValues().Cast<object>().ToArray());
 
 			comboBoxFamicom.SelectedItem = _syncSettings.Controls.FamicomExpPort;
 			comboBoxNESL.SelectedItem = _syncSettings.Controls.NesLeftPort;

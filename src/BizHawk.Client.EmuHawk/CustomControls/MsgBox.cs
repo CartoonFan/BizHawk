@@ -10,7 +10,7 @@ namespace BizHawk.Client.EmuHawk.CustomControls
 	/// <summary>
 	/// A customizable Dialog box with 3 buttons, custom icon, and checkbox.
 	/// </summary>
-	partial class MsgBox : Form
+	internal partial class MsgBox : Form
 	{
 		private readonly Icon _msgIcon;
 		private static readonly int FormYMargin = UIHelper.ScaleY(10);
@@ -31,6 +31,7 @@ namespace BizHawk.Client.EmuHawk.CustomControls
 		{
 			var icon = GetMessageBoxIcon(boxIcon);
 			InitializeComponent();
+			Icon = Properties.Resources.MsgBoxIcon;
 
 			ControlBox = false; // Do not set in designer (causes problems with auto scaling)
 			messageLbl.Text = message;
@@ -50,7 +51,6 @@ namespace BizHawk.Client.EmuHawk.CustomControls
 
 		public void SetMessageToAutoSize()
 		{
-			messageLbl.AutoSize = true;
 			messageLbl.MaximumSize = new Size(MaximumSize.Width - _msgIcon.Width - UIHelper.ScaleX(25), MaximumSize.Height);
 		}
 

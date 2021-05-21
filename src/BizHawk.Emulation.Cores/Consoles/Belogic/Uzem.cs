@@ -2,13 +2,15 @@
 using BizHawk.Emulation.Cores.Waterbox;
 using System;
 
+using BizHawk.Common;
+
 namespace BizHawk.Emulation.Cores.Consoles.Belogic
 {
-	[Core("uzem", "David Etherton", true, true, "", "", false)]
+	[PortedCore(CoreNames.Uzem, "David Etherton")]
 	public class Uzem : WaterboxCore
 	{
 		private LibUzem _uze;
-		private bool _mouseEnabled;
+		private readonly bool _mouseEnabled;
 
 		[CoreConstructor("UZE")]
 		public Uzem(CoreComm comm, byte[] rom)
@@ -59,16 +61,8 @@ namespace BizHawk.Emulation.Cores.Consoles.Belogic
 		private static readonly ControllerDefinition Mouse = new ControllerDefinition
 		{
 			Name = "SNES Controller",
-			BoolButtons =
-			{
-				"P1 Mouse Left", "P1 Mouse Right", "Power"
-			},
-			AxisControls =
-			{
-				"P1 Mouse X", "P1 Mouse Y"
-			},
-			AxisRanges = ControllerDefinition.CreateAxisRangePair(-127, 0, 127, ControllerDefinition.AxisPairOrientation.RightAndUp) //TODO verify direction against hardware
-		};
+			BoolButtons = { "P1 Mouse Left", "P1 Mouse Right", "Power" }
+		}.AddXYPair("P1 Mouse {0}", AxisPairOrientation.RightAndUp, (-127).RangeTo(127), 0); //TODO verify direction against hardware
 
 		private static readonly string[] PadBits =
 		{

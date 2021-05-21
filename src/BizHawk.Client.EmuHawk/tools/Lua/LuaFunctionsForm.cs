@@ -5,6 +5,7 @@ using System.Text;
 using System.Windows.Forms;
 
 using BizHawk.Client.Common;
+using BizHawk.Common;
 using BizHawk.Common.CollectionExtensions;
 
 namespace BizHawk.Client.EmuHawk
@@ -21,6 +22,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			_docs = docs;
 			InitializeComponent();
+			Icon = Properties.Resources.TextDocIcon;
 			FunctionView.RetrieveVirtualItem += FunctionView_QueryItemText;
 		}
 
@@ -112,7 +114,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void FunctionView_KeyDown(object sender, KeyEventArgs e)
 		{
-			if (e.KeyCode == Keys.C && e.Control && !e.Alt && !e.Shift) // Copy
+			if (e.IsCtrl(Keys.C))
 			{
 				FunctionView_Copy(null, null);
 			}

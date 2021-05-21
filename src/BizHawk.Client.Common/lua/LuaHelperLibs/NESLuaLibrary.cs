@@ -1,8 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
 
-using NLua;
-
 using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Nintendo.NES;
 using BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES;
@@ -12,20 +10,17 @@ using BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES;
 namespace BizHawk.Client.Common
 {
 	[Description("Functions related specifically to Nes Cores")]
-	public sealed class NESLuaLibrary : DelegatingLuaLibrary
+	public sealed class NESLuaLibrary : LuaLibraryBase
 	{
-		// TODO:  
+		// TODO:
 		// perhaps with the new core config system, one could
 		// automatically bring out all of the settings to a lua table, with names.  that
 		// would be completely arbitrary and would remove the whole requirement for this mess
 		[OptionalService]
 		private IMemoryDomains MemoryDomains { get; set; }
 
-		public NESLuaLibrary(Lua lua)
-			: base(lua) { }
-
-		public NESLuaLibrary(Lua lua, Action<string> logOutputCallback)
-			: base(lua, logOutputCallback) { }
+		public NESLuaLibrary(IPlatformLuaLibEnv luaLibsImpl, ApiContainer apiContainer, Action<string> logOutputCallback)
+			: base(luaLibsImpl, apiContainer, logOutputCallback) {}
 
 		public override string Name => "nes";
 
@@ -33,13 +28,6 @@ namespace BizHawk.Client.Common
 		{
 			get => APIs.Emulation.GetSettings();
 			set => APIs.Emulation.PutSettings(value);
-		}
-
-		[LuaDeprecatedMethod]
-		[LuaMethod("addgamegenie", "Adds the specified game genie code. If an NES game is not currently loaded or the code is not a valid game genie code, this will have no effect")]
-		public void AddGameGenie(string code)
-		{
-			Log("Method no longer supported, use client.addcheat() instead");
 		}
 
 		/// <exception cref="InvalidOperationException">loaded core is not NESHawk or QuickNes</exception>
@@ -78,7 +66,7 @@ namespace BizHawk.Client.Common
 		public bool GetDisplayBackground() => Settings switch
 		{
 			NES.NESSettings nhs => nhs.DispBackground,
-			QuickNES.QuickNESSettings _ => true,
+			QuickNES.QuickNESSettings => true,
 			_ => throw new InvalidOperationException()
 		};
 
@@ -101,13 +89,6 @@ namespace BizHawk.Client.Common
 			QuickNES.QuickNESSettings qns => qns.ClipTopAndBottom ? 8 : 0,
 			_ => throw new InvalidOperationException()
 		};
-
-		[LuaDeprecatedMethod]
-		[LuaMethod("removegamegenie", "Removes the specified game genie code. If an NES game is not currently loaded or the code is not a valid game genie code, this will have no effect")]
-		public void RemoveGameGenie(string code)
-		{
-			Log("Method no longer supported, use client.removecheat() instead");
-		}
 
 		/// <exception cref="InvalidOperationException">loaded core is not NESHawk or QuickNes</exception>
 		[LuaMethodExample("nes.setallowmorethaneightsprites( true );")]

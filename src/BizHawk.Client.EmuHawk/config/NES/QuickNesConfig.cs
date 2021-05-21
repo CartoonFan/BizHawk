@@ -10,12 +10,12 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class QuickNesConfig : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly Config _config;
 		private readonly QuickNES.QuickNESSettings _settings;
 
 		public QuickNesConfig(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			Config config,
 			QuickNES.QuickNESSettings settings)
 		{
@@ -23,6 +23,7 @@ namespace BizHawk.Client.EmuHawk
 			_config = config;
 			_settings = settings;
 			InitializeComponent();
+			Icon = Properties.Resources.QuickNesIcon;
 		}
 
 		private void QuickNesConfig_Load(object sender, EventArgs e)
@@ -96,7 +97,7 @@ namespace BizHawk.Client.EmuHawk
 
 			if (palette.Exists)
 			{
-				var data = Emulation.Cores.Nintendo.NES.Palettes.Load_FCEUX_Palette(HawkFile.ReadAllBytes(palette.Name));
+				var data = Emulation.Cores.Nintendo.NES.Palettes.Load_FCEUX_Palette(palette.ReadAllBytes());
 				_settings.SetNesHawkPalette(data);
 				SetPaletteImage();
 			}

@@ -1,7 +1,11 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+
+using BizHawk.Common;
+
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 #pragma warning disable 618
@@ -10,7 +14,7 @@ namespace BizHawk.Client.Common
 {
 	public static class ConfigService
 	{
-		private static readonly JsonSerializer Serializer;
+		internal static readonly JsonSerializer Serializer;
 
 		static ConfigService()
 		{
@@ -28,6 +32,54 @@ namespace BizHawk.Client.Common
 					DefaultMembersSearchFlags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic
 				},
 			};
+		}
+
+		public static bool IsFromSameVersion(string filepath, out string msg)
+		{
+			const string MSGFMT_NEWER = "Your config file ({0}) is from a newer version of EmuHawk, {2} (this is {1}). It may fail to load.";
+			const string MSGFMT_OLDER = "Your config file ({0}) is from an older version of EmuHawk, {2} (this is {1}). It may fail to load.";
+			const string MSGFMT_PRE_2_3_3 = "Your config file ({0}) is corrupted, or is from an older version of EmuHawk, predating 2.3.3 (this is {1}). It may fail to load.";
+			const string MSGFMT_PRE_2_5 = "Your config file ({0}) is corrupted, or is from an older version of EmuHawk, predating 2.5 (this is {1}). It may fail to load.";
+
+			if (!new FileInfo(filepath).Exists)
+			{
+				msg = null;
+				return true;
+			}
+			string cfgVersionStr = null;
+			try
+			{
+				cfgVersionStr = JObject.Parse(File.ReadAllText(filepath))["LastWrittenFrom"]?.Value<string>();
+			}
+			catch (Exception)
+			{
+				// ignored
+			}
+			if (cfgVersionStr == VersionInfo.MainVersion)
+			{
+				msg = null;
+				return true;
+			}
+			string fmt;
+			if (cfgVersionStr == null)
+			{
+				fmt = MSGFMT_PRE_2_3_3;
+			}
+			else
+			{
+				var cfgVersion = VersionInfo.VersionStrToInt(cfgVersionStr);
+				if (cfgVersion < 0x02050000U)
+				{
+					fmt = MSGFMT_PRE_2_5;
+				}
+				else
+				{
+					var thisVersion = VersionInfo.VersionStrToInt(VersionInfo.MainVersion);
+					fmt = cfgVersion < thisVersion ? MSGFMT_OLDER : MSGFMT_NEWER;
+				}
+			}
+			msg = string.Format(fmt, Path.GetFileName(filepath), VersionInfo.MainVersion, cfgVersionStr);
+			return false;
 		}
 
 		/// <exception cref="InvalidOperationException">internal error</exception>
