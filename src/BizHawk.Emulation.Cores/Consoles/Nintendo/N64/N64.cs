@@ -6,14 +6,7 @@ using BizHawk.Emulation.Cores.Nintendo.N64.NativeApi;
 
 namespace BizHawk.Emulation.Cores.Nintendo.N64
 {
-	[Core(
-		"Mupen64Plus",
-		"",
-		isPorted: true,
-		isReleased: true,
-		portedVersion: "2.0",
-		portedUrl: "https://code.google.com/p/mupen64plus/",
-		singleInstance: true)]
+	[PortedCore(CoreNames.Mupen64Plus, "", "2.0", "https://code.google.com/p/mupen64plus/", singleInstance: true)]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class N64 : IEmulator, ISaveRam, IDebuggable, IStatable, IInputPollable, IDisassemblable, IRegionable,
 		ISettable<N64Settings, N64SyncSettings>
@@ -22,10 +15,10 @@ namespace BizHawk.Emulation.Cores.Nintendo.N64
 		/// Create mupen64plus Emulator
 		/// </summary>
 		/// <param name="game">Game information of game to load</param>
-		/// <param name="rom">Rom that should be loaded</param>
+		/// <param name="file">Rom that should be loaded</param>
 		/// <param name="syncSettings">N64SyncSettings object</param>
 		[CoreConstructor("N64")]
-		public N64(GameInfo game, byte[] file, object settings, object syncSettings)
+		public N64(GameInfo game, byte[] file, N64Settings settings, N64SyncSettings syncSettings)
 		{
 			ServiceProvider = new BasicServiceProvider(this);
 			InputCallbacks = new InputCallbackSystem();
@@ -154,11 +147,11 @@ namespace BizHawk.Emulation.Cores.Nintendo.N64
 
 		private bool _pendingThreadTerminate;
 
-		private DisplayType _display_type = DisplayType.NTSC;
+		private readonly DisplayType _display_type = DisplayType.NTSC;
 
 		private Action _pendingThreadAction;
 
-		private bool _disableExpansionSlot = true;
+		private readonly bool _disableExpansionSlot = true;
 
 		public IEmulatorServiceProvider ServiceProvider { get; }
 
@@ -259,7 +252,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.N64
 
 		public DisplayType Region => _display_type;
 
-		public ControllerDefinition ControllerDefinition => _inputProvider.ControllerDefinition;
+		public ControllerDefinition ControllerDefinition { get; } = new ControllerDefinition { Name = "Nintendo 64 Controller" };
 
 		public void ResetCounters()
 		{

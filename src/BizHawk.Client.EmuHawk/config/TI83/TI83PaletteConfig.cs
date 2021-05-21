@@ -7,16 +7,17 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class TI83PaletteConfig : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly TI83.TI83Settings _settings;
 
 		public TI83PaletteConfig(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			TI83.TI83Settings settings)
 		{
 			_mainForm = mainForm;
 			_settings = settings;
 			InitializeComponent();
+			Icon = Properties.Resources.CalculateIcon;
 		}
 
 		private void TI83PaletteConfig_Load(object sender, EventArgs e)

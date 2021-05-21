@@ -17,14 +17,10 @@ namespace BizHawk.Client.EmuHawk
 		private string _inputKey;
 		private IMovieController _controller;
 
-		public MovieZone(IMovie movie, IEmulator emulator, ToolManager tools, IMovieSession movieSession, int start, int length, string key = "")
+		public MovieZone(IEmulator emulator, ToolManager tools, IMovieSession movieSession, int start, int length, string key = "")
+			: this(emulator, tools, movieSession)
 		{
-			_emulator = emulator;
-			_tools = tools;
-			_movieSession = movieSession;
-			var lg = movie.LogGeneratorInstance(movieSession.MovieController);
-			_targetController = movieSession.GenerateMovieController();
-			_targetController.SetFrom(_targetController); // Reference and create all buttons
+			var lg = movieSession.Movie.LogGeneratorInstance(movieSession.MovieController);
 
 			if (key == "")
 			{
@@ -39,6 +35,42 @@ namespace BizHawk.Client.EmuHawk
 			_log = new string[length];
 
 			// Get a IController that only contains buttons in key.
+			InitController(_inputKey);
+
+			var logGenerator = movieSession.Movie.LogGeneratorInstance(_controller);
+			logGenerator.GenerateLogEntry(); // Reference and create all buttons.
+
+			string movieKey = logGenerator.GenerateLogKey().Replace("LogKey:", "").Replace("#", "");
+			movieKey = movieKey.Substring(0, movieKey.Length - 1);
+			if (key == movieKey)
+			{
+				for (int i = 0; i < length; i++)
+				{
+					_log[i] = movieSession.Movie.GetInputLogEntry(i + start);
+				}
+			}
+			else
+			{
+				for (int i = 0; i < length; i++)
+				{
+					_controller.SetFrom(movieSession.Movie.GetInputState(i + start));
+					_log[i] = logGenerator.GenerateLogEntry();
+				}
+			}
+		}
+
+		private MovieZone(IEmulator emulator, ToolManager tools, IMovieSession movieSession)
+		{
+			_emulator = emulator;
+			_tools = tools;
+			_movieSession = movieSession;
+
+			_targetController = movieSession.GenerateMovieController();
+			_targetController.SetFrom(_targetController); // Reference and create all buttons
+		}
+
+		private void InitController(string key)
+		{
 			string[] keys = key.Split('|');
 			var d = new ControllerDefinition();
 			foreach (var k in keys)
@@ -49,33 +81,11 @@ namespace BizHawk.Client.EmuHawk
 				}
 				else
 				{
-					d.AxisControls.Add(k);
-					int rangeIndex = _emulator.ControllerDefinition.AxisControls.IndexOf(k);
-					d.AxisRanges.Add(_emulator.ControllerDefinition.AxisRanges[rangeIndex]);
+					d.Axes.Add(k, _emulator.ControllerDefinition.Axes[key]);
 				}
 			}
 
-			_controller = movieSession.GenerateMovieController(d);
-			var logGenerator = movieSession.Movie.LogGeneratorInstance(_controller);
-			logGenerator.GenerateLogEntry(); // Reference and create all buttons.
-
-			string movieKey = logGenerator.GenerateLogKey().Replace("LogKey:", "").Replace("#", "");
-			movieKey = movieKey.Substring(0, movieKey.Length - 1);
-			if (key == movieKey)
-			{
-				for (int i = 0; i < length; i++)
-				{
-					_log[i] = movie.GetInputLogEntry(i + start);
-				}
-			}
-			else
-			{
-				for (int i = 0; i < length; i++)
-				{
-					_controller.SetFrom(movie.GetInputState(i + start));
-					_log[i] = logGenerator.GenerateLogEntry();
-				}
-			}
+			_controller = _movieSession.GenerateMovieController(d);
 		}
 
 		public string Name { get; set; }
@@ -104,7 +114,7 @@ namespace BizHawk.Client.EmuHawk
 				}
 				else
 				{
-					d.AxisControls.Add(key);
+					d.Axes.Add(key, _emulator.ControllerDefinition.Axes[key]);
 				}
 			}
 
@@ -126,7 +136,7 @@ namespace BizHawk.Client.EmuHawk
 			_controller = newController;
 		}
 
-		public void PlaceZone(IMovie movie)
+		public void PlaceZone(IMovie movie, Config config)
 		{
 			if (movie is ITasMovie tasMovie)
 			{
@@ -134,14 +144,14 @@ namespace BizHawk.Client.EmuHawk
 			}
 
 			if (Start > movie.InputLogLength)
-			{ 
+			{
 				// Cannot place a frame here. Find a nice way around this.
 				return;
 			}
 
 			// Can't be done with a regular movie.
 			if (!Replace && movie is ITasMovie tasMovie2)
-			{ 
+			{
 				tasMovie2.InsertEmptyFrame(Start, Length);
 			}
 
@@ -159,7 +169,7 @@ namespace BizHawk.Client.EmuHawk
 			{
 				// Copy over the frame.
 				for (int i = 0; i < Length; i++)
-				{ 
+				{
 					_controller.SetFromMnemonic(_log[i]);
 					LatchFromSourceButtons(_targetController, _controller);
 					movie.PokeFrame(i + Start, _targetController);
@@ -194,7 +204,7 @@ namespace BizHawk.Client.EmuHawk
 			if (movie.InputLogLength >= _emulator.Frame)
 			{
 				movie.SwitchToPlay();
-				GlobalWin.Config.Movies.MovieEndAction = MovieEndAction.Record;
+				config.Movies.MovieEndAction = MovieEndAction.Record; // TODO: this is a bad place to do this, and introduces a config dependency
 			}
 		}
 
@@ -213,15 +223,13 @@ namespace BizHawk.Client.EmuHawk
 			File.AppendAllLines(fileName, _log);
 		}
 
-		public MovieZone(string fileName, IEmulator emulator, ToolManager tools)
+		public MovieZone(string fileName, IDialogController dialogController, IEmulator emulator, IMovieSession movieSession, ToolManager tools)
+			: this(emulator, tools, movieSession)
 		{
 			if (!File.Exists(fileName))
 			{
 				return;
 			}
-
-			_emulator = emulator;
-			_tools = tools;
 
 			string[] readText = File.ReadAllLines(fileName);
 
@@ -238,7 +246,7 @@ namespace BizHawk.Client.EmuHawk
 			{
 				if (!emuKeys.Contains(macro))
 				{
-					System.Windows.Forms.MessageBox.Show($"The selected macro is not compatible with the current emulator core.\nMacro controller: {readText[1]}\nMacro player count: {readText[2]}", "Error");
+					dialogController.ShowMessageBox($"The selected macro is not compatible with the current emulator core.\nMacro controller: {readText[1]}\nMacro player count: {readText[2]}", "Error");
 					return;
 				}
 			}
@@ -255,24 +263,8 @@ namespace BizHawk.Client.EmuHawk
 
 			Name = Path.GetFileNameWithoutExtension(fileName);
 
-			// Adapters
-			_targetController = _movieSession.GenerateMovieController();
-			_targetController.SetFrom(_targetController); // Reference and create all buttons
-			string[] keys = _inputKey.Split('|');
-			var d = new ControllerDefinition(_emulator.ControllerDefinition);
-			foreach (var k in keys)
-			{
-				if (_emulator.ControllerDefinition.BoolButtons.Contains(k))
-				{
-					d.BoolButtons.Add(k);
-				}
-				else
-				{
-					d.AxisControls.Add(k);
-				}
-			}
-
-			_controller = _movieSession.GenerateMovieController(d);
+			// Get a IController that only contains buttons in key.
+			InitController(_inputKey);
 		}
 
 		private void LatchFromSourceButtons(IMovieController latching, IController source)
@@ -282,7 +274,7 @@ namespace BizHawk.Client.EmuHawk
 				latching.SetBool(button, source.IsPressed(button));
 			}
 
-			foreach (string name in source.Definition.AxisControls)
+			foreach (string name in source.Definition.Axes.Keys)
 			{
 				latching.SetAxis(name, source.AxisValue(name));
 			}
@@ -295,13 +287,12 @@ namespace BizHawk.Client.EmuHawk
 				latching.SetBool(button, latching.IsPressed(button) | source.IsPressed(button));
 			}
 
-			foreach (string name in latching.Definition.AxisControls)
+			foreach (string name in latching.Definition.Axes.Keys)
 			{
-				var sFloat = source.AxisValue(name);
-				int indexRange = source.Definition.AxisControls.IndexOf(name);
-				if (sFloat == source.Definition.AxisRanges[indexRange].Mid)
+				var axisValue = source.AxisValue(name);
+				if (axisValue == source.Definition.Axes[name].Neutral)
 				{
-					latching.SetAxis(name, sFloat);
+					latching.SetAxis(name, axisValue);
 				}
 			}
 		}

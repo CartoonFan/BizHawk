@@ -7,15 +7,16 @@ using BizHawk.Common;
 using System.Collections.Generic;
 using System.Linq;
 
+using BizHawk.Emulation.Cores.Nintendo.SNES;
+
 namespace BizHawk.Emulation.Cores.Nintendo.SNES9X
 {
-	[Core(CoreNames.Snes9X, "", true, true,
-		"5e0319ab3ef9611250efb18255186d0dc0d7e125", "https://github.com/snes9xgit/snes9x", false)]
+	[PortedCore(CoreNames.Snes9X, "", "5e0319ab3ef9611250efb18255186d0dc0d7e125", "https://github.com/snes9xgit/snes9x")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public class Snes9x : WaterboxCore, 
 		ISettable<Snes9x.Settings, Snes9x.SyncSettings>, IRegionable
 	{
-		private LibSnes9x _core;
+		private readonly LibSnes9x _core;
 
 		[CoreConstructor("SNES")]
 		public Snes9x(CoreComm comm, byte[] rom, Settings settings, SyncSettings syncSettings)
@@ -193,7 +194,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES9X
 
 			public void ApplyState(IController controller, short[] input, int offset)
 			{
-				foreach (var s in Definition.AxisControls)
+				foreach (var s in Definition.Axes.Keys)
 					input[offset++] = (short)(controller.AxisValue(s));
 				foreach (var s in Definition.BoolButtons)
 					input[offset++] = (short)(controller.IsPressed(s) ? 1 : 0);
@@ -202,62 +203,27 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES9X
 
 		private class Mouse : Analog
 		{
-			private static readonly ControllerDefinition _definition = new ControllerDefinition
-			{
-				BoolButtons = new List<string>
-				{
-					"0Mouse Left",
-					"0Mouse Right"
-				},
-				AxisControls =
-				{
-					"0Mouse X",
-					"0Mouse Y"
-				},
-				AxisRanges = ControllerDefinition.CreateAxisRangePair(-127, 0, 127, ControllerDefinition.AxisPairOrientation.RightAndUp) //TODO verify direction against hardware
-			};
+			private static readonly ControllerDefinition _definition
+				= new ControllerDefinition { BoolButtons = { "0Mouse Left", "0Mouse Right" } }
+					.AddXYPair("0Mouse {0}", AxisPairOrientation.RightAndUp, (-127).RangeTo(127), 0); //TODO verify direction against hardware
 
 			public override ControllerDefinition Definition => _definition;
 		}
 
 		private class SuperScope : Analog
 		{
-			private static readonly ControllerDefinition _definition = new ControllerDefinition
-			{
-				BoolButtons = new List<string>
-				{
-					"0Trigger",
-					"0Cursor",
-					"0Turbo",
-					"0Pause"
-				},
-				AxisControls =
-				{
-					"0Scope X",
-					"0Scope Y"
-				},
-				AxisRanges = SNES.LibsnesControllerDeck.LightGunRanges
-			};
+			private static readonly ControllerDefinition _definition
+				= new ControllerDefinition { BoolButtons = { "0Trigger", "0Cursor", "0Turbo", "0Pause" } }
+					.AddLightGun("0Scope {0}");
 
 			public override ControllerDefinition Definition => _definition;
 		}
 
 		private class Justifier : Analog
 		{
-			private static readonly ControllerDefinition _definition = new ControllerDefinition
-			{
-				BoolButtons = new List<string>
-				{
-					"0Trigger",
-					"0Start",
-				},
-				AxisControls =
-				{
-					"0Justifier X",
-					"0Justifier Y",
-				},
-				AxisRanges = SNES.LibsnesControllerDeck.LightGunRanges
-			};
+			private static readonly ControllerDefinition _definition
+				= new ControllerDefinition { BoolButtons = { "0Trigger", "0Start" } }
+					.AddLightGun("0Justifier {0}");
 
 			public override ControllerDefinition Definition => _definition;
 		}

@@ -10,13 +10,12 @@ using BizHawk.Client.EmuHawk.ToolExtensions;
 
 using BizHawk.Emulation.Common;
 using BizHawk.Client.Common;
+using BizHawk.Client.EmuHawk.Properties;
 
 namespace BizHawk.Client.EmuHawk
 {
 	public partial class BasicBot : ToolFormBase, IToolFormAutoConfig
 	{
-		private const string DialogTitle = "Basic Bot";
-
 		private string _currentFileName = "";
 
 		private string CurrentFileName
@@ -26,9 +25,10 @@ namespace BizHawk.Client.EmuHawk
 			{
 				_currentFileName = value;
 
-				Text = !string.IsNullOrWhiteSpace(_currentFileName)
-					? $"{DialogTitle} - {Path.GetFileNameWithoutExtension(_currentFileName)}"
-					: DialogTitle;
+				_windowTitle = !string.IsNullOrWhiteSpace(_currentFileName)
+					? $"{WindowTitleStatic} - {Path.GetFileNameWithoutExtension(_currentFileName)}"
+					: WindowTitleStatic;
+				UpdateWindowTitle();
 			}
 
 		}
@@ -78,10 +78,26 @@ namespace BizHawk.Client.EmuHawk
 			public bool InvisibleEmulation { get; set; }
 		}
 
+		private string _windowTitle = "Basic Bot";
+
+		protected override string WindowTitle => _windowTitle;
+
+		protected override string WindowTitleStatic => "Basic Bot";
+
 		public BasicBot()
 		{
 			InitializeComponent();
-			Text = DialogTitle;
+			Icon = Resources.BasicBot;
+			NewMenuItem.Image = Resources.NewFile;
+			OpenMenuItem.Image = Resources.OpenFile;
+			SaveMenuItem.Image = Resources.SaveAs;
+			RecentSubMenu.Image = Resources.Recent;
+			RunBtn.Image = Resources.Play;
+			BotStatusButton.Image = Resources.Placeholder;
+			btnCopyBestInput.Image = Resources.Duplicate;
+			PlayBestButton.Image = Resources.Play;
+			ClearBestButton.Image = Resources.Close;
+			StopBtn.Image = Resources.Stop;
 			Settings = new BasicBotSettings();
 
 			_comparisonBotAttempt = new BotAttempt();
@@ -238,8 +254,8 @@ namespace BizHawk.Client.EmuHawk
 		}
 
 
-		// Upon Load State, TAStudio uses GlobalWin.Tools.UpdateBefore(); as well as GlobalWin.Tools.UpdateAfter(); 
-		// Both of which will Call UpdateValues() and Update() which both end up in the Update() function.  Calling Update() will cause the Log to add an additional log.  
+		// Upon Load State, TAStudio uses global ToolManager.UpdateBefore(); as well as global ToolManager.UpdateAfter();
+		// Both of which will Call UpdateValues() and Update() which both end up in the Update() function.  Calling Update() will cause the Log to add an additional log.
 		// By not handling both of those calls the _currentBotAttempt.Log.Count will be 2 more than expected.
 		// However this also causes a problem with RamWatch not being up to date since that TOO gets called.
 		// Need to find out if having RamWatch open while TasStudio is open causes issues.
@@ -248,7 +264,7 @@ namespace BizHawk.Client.EmuHawk
 		protected override void UpdateBefore() => Update(fast: false);
 		protected override void FastUpdateBefore() => Update(fast: true);
 
-		public void Restart()
+		public override void Restart()
 		{
 			if (_currentDomain == null
 				|| MemoryDomains.Contains(_currentDomain))
@@ -283,7 +299,7 @@ namespace BizHawk.Client.EmuHawk
 		private void RecentSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
 			RecentSubMenu.DropDownItems.Clear();
-			RecentSubMenu.DropDownItems.AddRange(Settings.RecentBotFiles.RecentMenu(LoadFileFromRecent, "Bot Parameters"));
+			RecentSubMenu.DropDownItems.AddRange(Settings.RecentBotFiles.RecentMenu(MainForm, LoadFileFromRecent, "Bot Parameters"));
 		}
 
 		private void NewMenuItem_Click(object sender, EventArgs e)
@@ -343,22 +359,24 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SaveAsMenuItem_Click(object sender, EventArgs e)
 		{
+			var fileName = CurrentFileName;
+			if (string.IsNullOrWhiteSpace(fileName))
+			{
+				fileName = Game.FilesystemSafeName();
+			}
+
 			var file = SaveFileDialog(
-					CurrentFileName,
-					Config.PathEntries.ToolsAbsolutePath(),
-					"Bot files",
-					"bot");
+				fileName,
+				Config.PathEntries.ToolsAbsolutePath(),
+				"Bot files",
+				"bot",
+				this);
 
 			if (file != null)
 			{
 				SaveBotFile(file.FullName);
 				_currentFileName = file.FullName;
 			}
-		}
-
-		private void ExitMenuItem_Click(object sender, EventArgs e)
-		{
-			Close();
 		}
 
 		private void OptionsSubMenu_DropDownOpened(object sender, EventArgs e)
@@ -387,17 +405,17 @@ namespace BizHawk.Client.EmuHawk
 			_4ByteMenuItem.Checked = _dataSize == 4;
 		}
 
-		private void _1ByteMenuItem_Click(object sender, EventArgs e)
+		private void OneByteMenuItem_Click(object sender, EventArgs e)
 		{
 			_dataSize = 1;
 		}
 
-		private void _2ByteMenuItem_Click(object sender, EventArgs e)
+		private void TwoByteMenuItem_Click(object sender, EventArgs e)
 		{
 			_dataSize = 2;
 		}
 
-		private void _4ByteMenuItem_Click(object sender, EventArgs e)
+		private void FourByteMenuItem_Click(object sender, EventArgs e)
 		{
 			_dataSize = 4;
 		}
@@ -501,7 +519,7 @@ namespace BizHawk.Client.EmuHawk
 			var result = LoadBotFile(path);
 			if (!result)
 			{
-				Settings.RecentBotFiles.HandleLoadError(path);
+				Settings.RecentBotFiles.HandleLoadError(MainForm, path);
 			}
 		}
 
@@ -740,7 +758,7 @@ namespace BizHawk.Client.EmuHawk
 					foreach (var button in controller.Definition.BoolButtons)
 					{
 						// TODO: make an input adapter specifically for the bot?
-						GlobalWin.InputManager.ButtonOverrideAdapter.SetButton(button, controller.IsPressed(button));
+						InputManager.ButtonOverrideAdapter.SetButton(button, controller.IsPressed(button));
 					}
 				}
 				else
@@ -878,7 +896,7 @@ namespace BizHawk.Client.EmuHawk
 				double probability = _cachedControlProbabilities[button];
 				bool pressed = !(rand.Next(100) < probability);
 
-				GlobalWin.InputManager.ClickyVirtualPadController.SetBool(button, pressed);
+				InputManager.ClickyVirtualPadController.SetBool(button, pressed);
 			}
 
 			_currentBotAttempt.Log.Add(_logGenerator.GenerateLogEntry());
@@ -889,7 +907,7 @@ namespace BizHawk.Client.EmuHawk
 			var message = CanStart();
 			if (!string.IsNullOrWhiteSpace(message))
 			{
-				MessageBox.Show(message);
+				DialogController.ShowMessageBox(message);
 				return;
 			}
 
@@ -931,7 +949,7 @@ namespace BizHawk.Client.EmuHawk
 			UpdateBotStatusIcon();
 			MessageLabel.Text = "Running...";
 			_cachedControlProbabilities = ControlProbabilities;
-			_logGenerator = MovieSession.Movie.LogGeneratorInstance(GlobalWin.InputManager.ClickyVirtualPadController);
+			_logGenerator = MovieSession.Movie.LogGeneratorInstance(InputManager.ClickyVirtualPadController);
 		}
 
 		private string CanStart()
@@ -983,17 +1001,17 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (_replayMode)
 			{
-				BotStatusButton.Image = Properties.Resources.Play;
+				BotStatusButton.Image = Resources.Play;
 				BotStatusButton.ToolTipText = "Replaying best result";
 			}
 			else if (_isBotting)
 			{
-				BotStatusButton.Image = Properties.Resources.RecordHS;
+				BotStatusButton.Image = Resources.Record;
 				BotStatusButton.ToolTipText = "Botting in progress";
 			}
 			else
 			{
-				BotStatusButton.Image = Properties.Resources.Pause;
+				BotStatusButton.Image = Resources.Pause;
 				BotStatusButton.ToolTipText = "Bot is currently not running";
 			}
 		}
@@ -1164,7 +1182,7 @@ namespace BizHawk.Client.EmuHawk
 		}
 
 		// Copy to Clipboard
-		private void btnCopyBestInput_Click(object sender, EventArgs e)
+		private void BtnCopyBestInput_Click(object sender, EventArgs e)
 		{
 			Clipboard.SetText(BestAttemptLogLabel.Text);
 		}

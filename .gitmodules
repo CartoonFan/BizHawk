@@ -12,7 +12,7 @@
 	url = https://github.com/TASVideos/snes9x.git
 	branch = bizsnes
 [submodule "mgba"]
-	path = mgba
+	path = submodules/mgba
 	url = https://github.com/TASVideos/mgba.git
 	branch = bizhawk-0.9
 [submodule "melonds"]
@@ -29,3 +29,12 @@
 	path = submodules/gambatte
 	url = https://github.com/TASVideos/gambatte-speedrun.git
 	branch = bizhawk
+[submodule "waterbox/llvm-project"]
+	path = waterbox/llvm-project
+	url = https://github.com/llvm/llvm-project.git
+[submodule "waterbox/dobie/dobiestation"]
+	path = waterbox/dobie/dobiestation
+	url = https://github.com/nattthebear/DobieStation.git
+[submodule "submodules/libdarm"]
+	path = submodules/libdarm
+	url = https://github.com/jbremer/darm.git

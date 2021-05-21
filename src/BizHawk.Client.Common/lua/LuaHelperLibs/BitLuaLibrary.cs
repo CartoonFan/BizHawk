@@ -1,19 +1,14 @@
 ﻿using System;
 using System.ComponentModel;
 
-using NLua;
-
 // ReSharper disable UnusedMember.Global
 namespace BizHawk.Client.Common
 {
 	[Description("A library for performing standard bitwise operations.")]
 	public sealed class BitLuaLibrary : LuaLibraryBase
 	{
-		public BitLuaLibrary(Lua lua)
-			: base(lua) { }
-
-		public BitLuaLibrary(Lua lua, Action<string> logOutputCallback)
-			: base(lua, logOutputCallback) { }
+		public BitLuaLibrary(IPlatformLuaLibEnv luaLibsImpl, ApiContainer apiContainer, Action<string> logOutputCallback)
+			: base(luaLibsImpl, apiContainer, logOutputCallback) {}
 
 		public override string Name => "bit";
 
@@ -70,7 +65,7 @@ namespace BizHawk.Client.Common
 		[LuaMethod("rshift", "Logical shift right of 'val' by 'amt' bits")]
 		public static uint Rshift(uint val, int amt)
 		{
-			return (uint)(val >> amt);
+			return val >> amt;
 		}
 
 		[LuaMethodExample("local inbitars = bit.arshift( -1000, 4 );")]
@@ -91,7 +86,7 @@ namespace BizHawk.Client.Common
 		[LuaMethod("set", "Sets the bit 'pos' in 'num'")]
 		public static uint Set(uint num, int pos)
 		{
-			return (uint)(num | 1U << pos);
+			return num | 1U << pos;
 		}
 
 		[LuaMethodExample("local lobitcle = bit.clear( 25, 35 );")]

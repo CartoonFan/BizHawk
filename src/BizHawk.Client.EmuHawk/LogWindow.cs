@@ -23,9 +23,17 @@ namespace BizHawk.Client.EmuHawk
 		[RequiredService]
 		private IEmulator Emulator { get; set; }
 
+		private string _windowTitle = "Log Window";
+
+		protected override string WindowTitle => _windowTitle;
+
+		protected override string WindowTitleStatic => "Log Window";
+
 		public LogWindow()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.CommandWindow;
+			AddToGameDbBtn.Image = Properties.Resources.Add;
 			Closing += (o, e) =>
 			{
 				Detach();
@@ -34,14 +42,12 @@ namespace BizHawk.Client.EmuHawk
 			Attach();
 		}
 
-		public void Restart() { }
-
 		private void Attach()
 		{
 			_logStream = new LogStream();
 			Log.HACK_LOG_STREAM = _logStream;
 			Console.SetOut(new StreamWriter(_logStream) { AutoFlush = true });
-			_logStream.Emit = Append;
+			_logStream.Emit = appendInvoked;
 		}
 
 		private void Detach()
@@ -58,37 +64,68 @@ namespace BizHawk.Client.EmuHawk
 		public void ShowReport(string title, string report)
 		{
 			var ss = report.Split('\n');
-			foreach (var s in ss)
-			{
-				_lines.Add(s.TrimEnd('\r'));
-			}
+			
+			lock (_lines)
+				foreach (var s in ss)
+				{
+					_lines.Add(s.TrimEnd('\r'));
+				}
 
 			virtualListView1.VirtualListSize = ss.Length;
-			Text = title;
+			_windowTitle = title;
+			UpdateWindowTitle();
 			btnClear.Visible = false;
 		}
 
-		public void Append(string str)
+		private void append(string str, bool invoked)
 		{
 			var ss = str.Split('\n');
 			foreach (var s in ss)
 			{
 				if (!string.IsNullOrWhiteSpace(s))
 				{
-					_lines.Add(s.TrimEnd('\r'));
-					virtualListView1.VirtualListSize++;
+					lock (_lines)
+					{
+						_lines.Add(s.TrimEnd('\r'));
+						if (invoked)
+						{
+							//basically an easy way to post an update message which should hopefully happen before anything else happens (redraw or user interaction)
+							BeginInvoke((Action)doUpdateListSize);
+						}
+						else
+							doUpdateListSize();
+					}
 				}
 			}
 		}
 
-		private void btnClear_Click(object sender, EventArgs e)
+		private void doUpdateListSize()
 		{
-			_lines.Clear();
-			virtualListView1.VirtualListSize = 0;
-			virtualListView1.SelectedIndices.Clear();
+			virtualListView1.VirtualListSize = _lines.Count;
+			virtualListView1.EnsureVisible(_lines.Count - 1);
 		}
 
-		private void btnClose_Click(object sender, EventArgs e)
+		private void appendInvoked(string str)
+		{
+			append(str, true);
+		}
+
+		public void Append(string str)
+		{
+			append(str, false);
+		}
+
+		private void BtnClear_Click(object sender, EventArgs e)
+		{
+			lock (_lines)
+			{
+				_lines.Clear();
+				virtualListView1.VirtualListSize = 0;
+				virtualListView1.SelectedIndices.Clear();
+			}
+		}
+
+		private void BtnClose_Click(object sender, EventArgs e)
 		{
 			Close();
 		}
@@ -110,7 +147,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void ListView_KeyDown(object sender, KeyEventArgs e)
 		{
-			if (e.KeyCode == Keys.C && e.Control && !e.Alt && !e.Shift)
+			if (e.IsCtrl(Keys.C))
 			{
 				ButtonCopy_Click(null, null);
 			}
@@ -119,8 +156,9 @@ namespace BizHawk.Client.EmuHawk
 		private void ButtonCopy_Click(object sender, EventArgs e)
 		{
 			var sb = new StringBuilder();
-			foreach (int i in virtualListView1.SelectedIndices)
-				sb.AppendLine(_lines[i]);
+			lock(_lines)
+				foreach (int i in virtualListView1.SelectedIndices)
+					sb.AppendLine(_lines[i]);
 			if (sb.Length > 0)
 				Clipboard.SetText(sb.ToString(), TextDataFormat.Text);
 		}
@@ -128,8 +166,9 @@ namespace BizHawk.Client.EmuHawk
 		private void ButtonCopyAll_Click(object sender, EventArgs e)
 		{
 			var sb = new StringBuilder();
-			foreach (var s in _lines)
-				sb.AppendLine(s);
+			lock(_lines)
+				foreach (var s in _lines)
+					sb.AppendLine(s);
 			if (sb.Length > 0)
 				Clipboard.SetText(sb.ToString(), TextDataFormat.Text);
 		}
@@ -147,10 +186,9 @@ namespace BizHawk.Client.EmuHawk
 			if (result.IsOk())
 			{
 				var gameDbEntry = Emulator.AsGameDBEntryGenerator().GenerateGameDbEntry();
-				var userDb = Path.Combine(PathUtils.ExeDirectoryPath, "gamedb", "gamedb_user.txt");
-				GlobalWin.Game.Status = gameDbEntry.Status = picker.PickedStatus;
-				Database.SaveDatabaseEntry(userDb, gameDbEntry);
-				MainForm.UpdateDumpIcon();
+				gameDbEntry.Status = picker.PickedStatus;
+				Database.SaveDatabaseEntry(Path.Combine(PathUtils.ExeDirectoryPath, "gamedb", "gamedb_user.txt"), gameDbEntry);
+				MainForm.UpdateDumpInfo(gameDbEntry.Status);
 				HideShowGameDbButton();
 			}
 		}
@@ -194,7 +232,7 @@ namespace BizHawk.Client.EmuHawk
 				// TODO - buffer undecoded characters (this may be important)
 				//(use decoder = System.Text.Encoding.Unicode.GetDecoder())
 				string str = Encoding.ASCII.GetString(buffer, offset, count);
-				Emit?.Invoke(str);
+				Emit(str);
 			}
 
 			public Action<string> Emit;

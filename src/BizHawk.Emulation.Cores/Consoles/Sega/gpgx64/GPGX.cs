@@ -6,30 +6,23 @@ using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Waterbox;
 using BizHawk.Common;
 using BizHawk.Emulation.DiscSystem;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 {
-	[Core(
-		CoreNames.Gpgx,
-		"",
-		isPorted: true,
-		isReleased: true,
-		portedVersion: "r874",
-		portedUrl: "https://code.google.com/p/genplus-gx/",
-		singleInstance: false)]
+	[PortedCore(CoreNames.Gpgx, "", "r874", "https://code.google.com/p/genplus-gx/")]
 	public partial class GPGX : IEmulator, IVideoProvider, ISaveRam, IStatable, IRegionable,
 		IInputPollable, IDebuggable, IDriveLight, ICodeDataLogger, IDisassemblable
 	{
 		[CoreConstructor("GEN")]
-		public GPGX(CoreComm comm, GameInfo game, byte[] file, object settings, object syncSettings)
-			: this(comm, game, file, null, settings, syncSettings)
+		public GPGX(CoreLoadParameters<GPGXSettings, GPGXSyncSettings> lp)
 		{
-		}
+			LoadCallback = new LibGPGX.load_archive_cb(load_archive);
+			_inputCallback = new LibGPGX.input_cb(input_callback);
+			InitMemCallbacks(); // ExecCallback, ReadCallback, WriteCallback
+			CDCallback = new LibGPGX.CDCallback(CDCallbackProc);
+			cd_callback_handle = new LibGPGX.cd_read_cb(CDRead);
 
-		public GPGX(CoreComm comm, GameInfo game, byte[] rom, IEnumerable<Disc> cds, object settings, object syncSettings)
-		{
 			ServiceProvider = new BasicServiceProvider(this);
 			// this can influence some things internally (autodetect romtype, etc)
 			string romextension = "GEN";
@@ -38,41 +31,44 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 			// http://www.sega-16.com/forum/showthread.php?4398-Forgotten-Worlds-giving-you-GAME-OVER-immediately-Fix-inside&highlight=forgotten%20worlds
 
 			//hack, don't use
-			if (rom != null && rom.Length > 32 * 1024 * 1024)
+			if (lp.Roms.FirstOrDefault()?.RomData.Length > 32 * 1024 * 1024)
 			{
 				throw new InvalidOperationException("ROM too big!  Did you try to load a CD as a ROM?");
 			}
 
 			_elf = new WaterboxHost(new WaterboxOptions
 			{
-				Path = comm.CoreFileProvider.DllPath(),
+				Path = lp.Comm.CoreFileProvider.DllPath(),
 				Filename = "gpgx.wbx",
 				SbrkHeapSizeKB = 512,
-				SealedHeapSizeKB = 36 * 1024,
+				SealedHeapSizeKB = 4 * 1024,
 				InvisibleHeapSizeKB = 4 * 1024,
-				PlainHeapSizeKB = 64 + 1024,
+				PlainHeapSizeKB = 34 * 1024,
 				MmapHeapSizeKB = 1 * 1024,
-				SkipCoreConsistencyCheck = comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxCoreConsistencyCheck),
-				SkipMemoryConsistencyCheck = comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxMemoryConsistencyCheck),
+				SkipCoreConsistencyCheck = lp.Comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxCoreConsistencyCheck),
+				SkipMemoryConsistencyCheck = lp.Comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxMemoryConsistencyCheck),
 			});
+
+			var callingConventionAdapter = CallingConventionAdapters.MakeWaterbox(new Delegate[]
+			{
+				LoadCallback, _inputCallback, ExecCallback, ReadCallback, WriteCallback,
+				CDCallback, cd_callback_handle,
+			}, _elf);
 
 			using (_elf.EnterExit())
 			{
-				Core = BizInvoker.GetInvoker<LibGPGX>(_elf, _elf, CallingConventionAdapters.Waterbox);
-				_syncSettings = (GPGXSyncSettings)syncSettings ?? new GPGXSyncSettings();
-				_settings = (GPGXSettings)settings ?? new GPGXSettings();
+				Core = BizInvoker.GetInvoker<LibGPGX>(_elf, _elf, callingConventionAdapter);
+				_syncSettings = lp.SyncSettings ?? new GPGXSyncSettings();
+				_settings = lp.Settings ?? new GPGXSettings();
 
-				CoreComm = comm;
+				CoreComm = lp.Comm;
 
-				LoadCallback = new LibGPGX.load_archive_cb(load_archive);
+				_romfile = lp.Roms.FirstOrDefault()?.RomData;
 
-				_romfile = rom;
-
-				if (cds != null)
+				if (lp.Discs.Count > 0)
 				{
-					_cds = cds.ToArray();
-					_cdReaders = cds.Select(c => new DiscSectorReader(c)).ToArray();
-					cd_callback_handle = new LibGPGX.cd_read_cb(CDRead);
+					_cds = lp.Discs.Select(d => d.DiscData).ToArray();
+					_cdReaders = _cds.Select(c => new DiscSectorReader(c)).ToArray();
 					Core.gpgx_set_cdd_callback(cd_callback_handle);
 					DriveLightEnabled = true;
 				}
@@ -80,10 +76,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 				LibGPGX.INPUT_SYSTEM system_a = SystemForSystem(_syncSettings.ControlTypeLeft);
 				LibGPGX.INPUT_SYSTEM system_b = SystemForSystem(_syncSettings.ControlTypeRight);
 
-				var initResult = Core.gpgx_init(
-					romextension,
-					LoadCallback, _syncSettings.UseSixButton, system_a, system_b, _syncSettings.Region, game["sram"],
-					_syncSettings.GetNativeSettings());
+				var initResult = Core.gpgx_init(romextension, LoadCallback, _syncSettings.GetNativeSettings(lp.Game));
 
 				if (!initResult)
 					throw new Exception($"{nameof(Core.gpgx_init)}() failed");
@@ -112,16 +105,11 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 				SetMemoryDomains();
 
-				_inputCallback = new LibGPGX.input_cb(input_callback);
 				Core.gpgx_set_input_callback(_inputCallback);
 
 				// process the non-init settings now
 				PutSettings(_settings);
 
-				//TODO - this hits performance, we need to make it controllable
-				CDCallback = new LibGPGX.CDCallback(CDCallbackProc);
-
-				InitMemCallbacks();
 				KillMemCallbacks();
 
 				_tracer = new GPGXTraceBuffer(this, _memoryDomains, this);
@@ -153,22 +141,22 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 			}
 		}
 
-		private LibGPGX Core;
-		private WaterboxHost _elf;
+		private readonly LibGPGX Core;
+		private readonly WaterboxHost _elf;
 
-		private Disc[] _cds;
+		private readonly Disc[] _cds;
 		private int _discIndex;
-		private DiscSectorReader[] _cdReaders;
+		private readonly DiscSectorReader[] _cdReaders;
 		private bool _prevDiskPressed;
 		private bool _nextDiskPressed;
 
-		byte[] _romfile;
+		private readonly byte[] _romfile;
 
 		private bool _disposed = false;
 
-		LibGPGX.load_archive_cb LoadCallback = null;
+		private LibGPGX.load_archive_cb LoadCallback;
 
-		LibGPGX.InputData input = new LibGPGX.InputData();
+		private readonly LibGPGX.InputData input = new LibGPGX.InputData();
 
 		public enum ControlType
 		{
@@ -189,7 +177,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 		/// <param name="buffer">buffer to load file to</param>
 		/// <param name="maxsize">maximum length buffer can hold</param>
 		/// <returns>actual size loaded, or 0 on failure</returns>
-		int load_archive(string filename, IntPtr buffer, int maxsize)
+		private int load_archive(string filename, IntPtr buffer, int maxsize)
 		{
 			byte[] srcdata = null;
 
@@ -283,7 +271,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 		private CoreComm CoreComm { get; }
 
-		void CDRead(int lba, IntPtr dest, bool audio)
+		private void CDRead(int lba, IntPtr dest, bool audio)
 		{
 			if ((uint)_discIndex < _cds.Length)
 			{
@@ -312,7 +300,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 			}
 		}
 
-		LibGPGX.cd_read_cb cd_callback_handle;
+		private readonly LibGPGX.cd_read_cb cd_callback_handle;
 
 		public static LibGPGX.CDData GetCDDataStruct(Disc cd)
 		{
@@ -361,9 +349,9 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 		/// <summary>
 		/// size of native input struct
 		/// </summary>
-		int inputsize;
+		private int inputsize;
 
-		GPGXControlConverter ControlConverter;
+		private GPGXControlConverter ControlConverter;
 
 		private void SetControllerDefinition()
 		{

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Windows.Forms;
 
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 using BizHawk.Client.Common;
 
@@ -22,6 +22,8 @@ namespace BizHawk.Client.EmuHawk
 		
 		private bool _readOnly;
 
+		public override bool BlocksInputWhenFocused { get; } = false;
+
 		private List<VirtualPad> Pads =>
 			ControllerPanel.Controls
 				.OfType<VirtualPad>()
@@ -37,10 +39,13 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
+		protected override string WindowTitleStatic => "Virtual Pads";
+
 		public VirtualpadTool()
 		{
 			StickyPads = true;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void VirtualpadTool_Load(object sender, EventArgs e)
@@ -69,45 +74,45 @@ namespace BizHawk.Client.EmuHawk
 		{
 			ControllerPanel.Controls.Clear();
 
-			var schemaType = Assembly
-				.GetExecutingAssembly()
-				.GetTypes()
-				.Where(t => typeof(IVirtualPadSchema)
-					.IsAssignableFrom(t) && t.GetCustomAttributes(false)
-					.OfType<SchemaAttribute>()
-					.Any())
-				.FirstOrDefault(t => t.GetCustomAttributes(false)
-					.OfType<SchemaAttribute>()
-					.First().SystemId == Emulator.SystemId);
-
-			if (schemaType == null) return;
+			Type schemaType;
+			try
+			{
+				schemaType = Emulation.Cores.ReflectionCache.Types.Where(typeof(IVirtualPadSchema).IsAssignableFrom)
+					.Select(t => (SchemaType: t, Attr: t.GetCustomAttributes(false).OfType<SchemaAttribute>().FirstOrDefault()))
+					.First(tuple => tuple.Attr?.SystemId == Emulator.SystemId)
+					.SchemaType;
+			}
+			catch (Exception)
+			{
+				return;
+			}
 
 			var padSchemata = ((IVirtualPadSchema) Activator.CreateInstance(schemaType))
-				.GetPadSchemas(Emulator)
+				.GetPadSchemas(Emulator, s => DialogController.ShowMessageBox(s))
 				.ToList();
 
 			if (VersionInfo.DeveloperBuild)
 			{
 				var buttonControls = Emulator.ControllerDefinition.BoolButtons;
-				var axisControls = Emulator.ControllerDefinition.AxisControls;
+				var axisControls = Emulator.ControllerDefinition.Axes;
 				foreach (var schema in padSchemata) foreach (var controlSchema in schema.Buttons)
 				{
 					Predicate<string> searchSetContains = controlSchema switch
 					{
-						ButtonSchema _ => buttonControls.Contains,
-						DiscManagerSchema _ => s => buttonControls.Contains(s) || axisControls.Contains(s),
-						_ => axisControls.Contains
+						ButtonSchema => buttonControls.Contains,
+						DiscManagerSchema => s => buttonControls.Contains(s) || axisControls.ContainsKey(s),
+						_ => axisControls.ContainsKey
 					};
 					if (!searchSetContains(controlSchema.Name))
 					{
-						MessageBox.Show(this,
+						this.ModalMessageBox(
 							$"Schema warning: Schema entry '{schema.DisplayName}':'{controlSchema.Name}' will not correspond to any control in definition '{Emulator.ControllerDefinition.Name}'",
 							"Dev Warning");
 					}
 				}
 			}
 
-			ControllerPanel.Controls.AddRange(padSchemata.Select(s => (Control) new VirtualPad(s)).Reverse().ToArray());
+			ControllerPanel.Controls.AddRange(padSchemata.Select(s => (Control) new VirtualPad(s, InputManager)).Reverse().ToArray());
 		}
 
 		public void ScrollToPadSchema(string padSchemaName)
@@ -127,7 +132,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			if (!IsHandleCreated || IsDisposed)
 			{
@@ -145,10 +150,10 @@ namespace BizHawk.Client.EmuHawk
 			}
 
 			Pads.ForEach(p => p.SetPrevious(null)); // Not the cleanest way to clear this every frame
+			Readonly = MovieSession.Movie.IsPlaying();
 
 			if (MovieSession.Movie.IsPlaying())
 			{
-				Readonly = true;
 				var currentInput = CurrentInput();
 				if (currentInput != null)
 				{
@@ -159,7 +164,6 @@ namespace BizHawk.Client.EmuHawk
 			{
 				var previousFrame = PreviousFrame();
 				Pads.ForEach(p => p.SetPrevious(previousFrame));
-				Readonly = false;
 			}
 
 			if (!Readonly && !StickyPads && !MouseButtons.HasFlag(MouseButtons.Left))
@@ -180,7 +184,7 @@ namespace BizHawk.Client.EmuHawk
 			return null;
 		}
 
-		public IController PreviousFrame()
+		private IController PreviousFrame()
 		{
 			if (MovieSession.Movie.IsPlayingOrRecording() && Emulator.Frame > 1)
 			{

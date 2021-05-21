@@ -1,8 +1,10 @@
 ﻿using System;
 using System.IO;
 using System.Windows.Forms;
+
+using BizHawk.Bizware.BizwareGL;
 using BizHawk.Client.Common;
-using BizHawk.Client.EmuHawk.Filters;
+using BizHawk.Client.Common.Filters;
 using BizHawk.Common;
 
 namespace BizHawk.Client.EmuHawk
@@ -11,13 +13,17 @@ namespace BizHawk.Client.EmuHawk
 	{
 		private readonly Config _config;
 
+		private readonly IGL _gl;
+
 		private string _pathSelection;
 
 		public bool NeedReset { get; set; }
 
-		public DisplayConfig(Config config)
+		public DisplayConfig(Config config, IGL gl)
 		{
 			_config = config;
+			_gl = gl;
+
 			InitializeComponent();
 
 			rbNone.Checked = _config.TargetDisplayFilter == 0;
@@ -43,6 +49,8 @@ namespace BizHawk.Client.EmuHawk
 			if (_config.DispSpeedupFeatures == 2) rbDisplayFull.Checked = true;
 			if (_config.DispSpeedupFeatures == 1) rbDisplayMinimal.Checked = true;
 			if (_config.DispSpeedupFeatures == 0) rbDisplayAbsoluteZero.Checked = true;
+
+			cbStaticWindowTitles.Checked = _config.UseStaticWindowTitles;
 
 			rbOpenGL.Checked = _config.DispMethod == EDispMethod.OpenGL;
 			rbGDIPlus.Checked = _config.DispMethod == EDispMethod.GdiPlus;
@@ -97,7 +105,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void btnOk_Click(object sender, EventArgs e)
+		private void BtnOk_Click(object sender, EventArgs e)
 		{
 			if (rbNone.Checked)
 				_config.TargetDisplayFilter = 0;
@@ -137,6 +145,8 @@ namespace BizHawk.Client.EmuHawk
 			if (rbDisplayFull.Checked) _config.DispSpeedupFeatures = 2;
 			if (rbDisplayMinimal.Checked) _config.DispSpeedupFeatures = 1;
 			if (rbDisplayAbsoluteZero.Checked) _config.DispSpeedupFeatures = 0;
+
+			_config.UseStaticWindowTitles = cbStaticWindowTitles.Checked;
 
 			if (rbUseRaw.Checked)
 				_config.DispManagerAR = EDispManagerAR.None;
@@ -239,7 +249,7 @@ namespace BizHawk.Client.EmuHawk
 			lblUserFilterName.Text = Path.GetFileNameWithoutExtension(_pathSelection);
 		}
 
-		private void btnSelectUserFilter_Click(object sender, EventArgs e)
+		private void BtnSelectUserFilter_Click(object sender, EventArgs e)
 		{
 			using var ofd = new OpenFileDialog
 			{
@@ -255,18 +265,13 @@ namespace BizHawk.Client.EmuHawk
 				using (var stream = File.OpenRead(choice))
 				{
 					var cgp = new RetroShaderPreset(stream);
-					if (cgp.ContainsGlsl)
-					{
-						MessageBox.Show("Specified CGP contains references to .glsl files. This is illegal. Use .cg");
-						return;
-					}
 
 					// try compiling it
 					bool ok = false;
 					string errors = "";
-					try 
+					try
 					{
-						var filter = new RetroShaderChain(GlobalWin.GL, cgp, Path.GetDirectoryName(choice));
+						var filter = new RetroShaderChain(_gl, cgp, Path.GetDirectoryName(choice));
 						ok = filter.Available;
 						errors = filter.Errors;
 					}
@@ -284,22 +289,22 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void checkLetterbox_CheckedChanged(object sender, EventArgs e)
+		private void CheckLetterbox_CheckedChanged(object sender, EventArgs e)
 		{
 			RefreshAspectRatioOptions();
 		}
 
-		private void checkPadInteger_CheckedChanged(object sender, EventArgs e)
+		private void CheckPadInteger_CheckedChanged(object sender, EventArgs e)
 		{
 			RefreshAspectRatioOptions();
 		}
 
-		private void rbUseRaw_CheckedChanged(object sender, EventArgs e)
+		private void RbUseRaw_CheckedChanged(object sender, EventArgs e)
 		{
 			RefreshAspectRatioOptions();
 		}
 
-		private void rbUseSystem_CheckedChanged(object sender, EventArgs e)
+		private void RbUseSystem_CheckedChanged(object sender, EventArgs e)
 		{
 			RefreshAspectRatioOptions();
 		}
@@ -310,7 +315,7 @@ namespace BizHawk.Client.EmuHawk
 			checkPadInteger.Enabled = checkLetterbox.Checked;
 		}
 
-		public void tbScanlineIntensity_Scroll(object sender, EventArgs e)
+		public void TbScanlineIntensity_Scroll(object sender, EventArgs e)
 		{
 			_config.TargetScanlineFilterIntensity = tbScanlineIntensity.Value;
 			int scanlines = _config.TargetScanlineFilterIntensity;
@@ -341,17 +346,17 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+		private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
 		{
 			System.Diagnostics.Process.Start("http://tasvideos.org/Bizhawk/DisplayConfig.html");
 		}
 
-		private void label13_Click(object sender, EventArgs e)
+		private void Label13_Click(object sender, EventArgs e)
 		{
 			cbAlternateVsync.Checked ^= true;
 		}
 
-		private void btnDefaults_Click(object sender, EventArgs e)
+		private void BtnDefaults_Click(object sender, EventArgs e)
 		{
 			nudPrescale.Value = 1;
 			rbNone.Checked = true;

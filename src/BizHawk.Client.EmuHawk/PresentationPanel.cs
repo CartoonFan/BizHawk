@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Windows.Forms;
 
 using BizHawk.Client.Common;
@@ -11,13 +12,21 @@ namespace BizHawk.Client.EmuHawk
 	/// </summary>
 	public class PresentationPanel
 	{
-		private readonly MainForm _mainForm;
 		private readonly Config _config;
 
-		public PresentationPanel(MainForm mainForm, Config config, IGL gl)
+		private readonly Action<bool> _fullscreenToggleCallback;
+
+		public PresentationPanel(
+			Config config,
+			IGL gl,
+			Action<bool> fullscreenToggleCallback,
+			MouseEventHandler onClick,
+			MouseEventHandler onMove,
+			MouseEventHandler onWheel)
 		{
-			_mainForm = mainForm;
 			_config = config;
+
+			_fullscreenToggleCallback = fullscreenToggleCallback;
 
 			GraphicsControl = new GraphicsControl(gl)
 			{
@@ -27,10 +36,10 @@ namespace BizHawk.Client.EmuHawk
 
 			// pass through these events to the form. we might need a more scalable solution for mousedown etc. for zapper and whatnot.
 			// http://stackoverflow.com/questions/547172/pass-through-mouse-events-to-parent-control (HTTRANSPARENT)
+			GraphicsControl.MouseClick += onClick;
 			GraphicsControl.MouseDoubleClick += HandleFullscreenToggle;
-			GraphicsControl.MouseClick += (o, e) => _mainForm.MainForm_MouseClick(o, e);
-			GraphicsControl.MouseMove += (o, e) => _mainForm.MainForm_MouseMove(o, e);
-			GraphicsControl.MouseWheel += (o, e) => _mainForm.MainForm_MouseWheel(o, e);
+			GraphicsControl.MouseMove += onMove;
+			GraphicsControl.MouseWheel += onWheel;
 		}
 
 		private bool _isDisposed;
@@ -55,7 +64,7 @@ namespace BizHawk.Client.EmuHawk
 				bool allowSuppress = Control.ModifierKeys != Keys.Shift;
 				if (_config.DispChromeAllowDoubleClickFullscreen || !allowSuppress)
 				{
-					_mainForm.ToggleFullscreen(allowSuppress);
+					_fullscreenToggleCallback(allowSuppress);
 				}
 			}
 		}
@@ -64,6 +73,4 @@ namespace BizHawk.Client.EmuHawk
 
 		public Size NativeSize => GraphicsControl.ClientSize;
 	}
-
-	public interface IBlitterFont { }
 }

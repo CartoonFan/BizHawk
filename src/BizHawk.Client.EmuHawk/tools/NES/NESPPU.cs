@@ -44,9 +44,12 @@ namespace BizHawk.Client.EmuHawk
 			set { _chrRomView = value; CalculateFormSize(); }
 		}
 
+		protected override string WindowTitleStatic => "PPU Viewer";
+
 		public NesPPU()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.NesControllerIcon;
 			CalculateFormSize();
 		}
 
@@ -62,7 +65,7 @@ namespace BizHawk.Client.EmuHawk
 			_ppu.InstallCallback2(() => Generate(), _scanline);
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			Generate(true);
 			ChrRomViewReload();
@@ -311,7 +314,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void Screenshot(Bitmap b, string suffix)
 		{
-			b.SaveAsFile(Game, suffix, "NES", Config.PathEntries);
+			b.SaveAsFile(Game, suffix, "NES", Config.PathEntries, this);
 		}
 
 		private void SavePaletteScreenshotMenuItem_Click(object sender, EventArgs e)
@@ -342,11 +345,6 @@ namespace BizHawk.Client.EmuHawk
 		private void CopySpriteToClipboardMenuItem_Click(object sender, EventArgs e)
 		{
 			SpriteView.ToBitMap().ToClipBoard();
-		}
-
-		private void ExitMenuItem_Click(object sender, EventArgs e)
-		{
-			Close();
 		}
 
 		private void Table0PaletteSubMenu_DropDownOpened(object sender, EventArgs e)

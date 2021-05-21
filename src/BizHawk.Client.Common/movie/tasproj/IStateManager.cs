@@ -5,73 +5,74 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.Common
 {
-	public interface IStateManager
+	public interface IStateManager : IDisposable
 	{
 		/// <summary>
 		/// Retrieves the savestate for the given frame,
-		/// If this frame does not have a state currently, will return an empty array
+		/// If this frame does not have a state currently, will return an empty array.false
+		/// Try not to use this as it is not fast.
 		/// </summary>
 		/// <returns>A savestate for the given frame or an empty array if there isn't one</returns>
 		byte[] this[int frame] { get; }
 
-		/// <summary>
-		/// Attaches a core to the given state manager instance, this must be done and
-		/// it must be done only once, a state manager can not and should not exist for more
-		/// than the lifetime of the core
-		/// </summary>
-		/// <exception cref="InvalidOperationException">
-		/// Thrown if attempting to attach a core when one is already attached
-		/// or if the given core does not meet all required dependencies
-		/// </exception>
-		void Attach(IEmulator emulator);
-
-		TasStateManagerSettings Settings { get; set; }
-
-		Action<int> InvalidateCallback { set; }
+		ZwinderStateManagerSettings Settings { get; }
 
 		/// <summary>
-		/// Requests that the current emulator state be captured 
+		/// Requests that the current emulator state be captured
 		/// Unless force is true, the state may or may not be captured depending on the logic employed by "green-zone" management
 		/// </summary>
-		void Capture(bool force = false);
+		void Capture(int frame, IStatable source, bool force = false);
+
+		/// <summary>
+		/// Commands the state manager to remove a reserved state for the given frame, if it is exists
+		/// </summary>
+		void EvictReserved(int frame);
 
 		bool HasState(int frame);
 
 		/// <summary>
 		/// Clears out all savestates after the given frame number
 		/// </summary>
-		bool Invalidate(int frame);
+		bool InvalidateAfter(int frame);
 
+		// Remove all states, but not the frame 0 state
 		void Clear();
 
-		void Save(BinaryWriter bw);
+		/// <summary>
+		/// Get a nearby state.  The returned frame must be less than or equal to the passed frame.
+		/// This may not fail; the StateManager strongly holds a frame 0 state to ensure there's always a possible result.
+		/// </summary>
+		/// <param name="frame"></param>
+		/// <returns>This stream may be consumed only once, and before any other calls to statemanager occur</returns>
+		KeyValuePair<int, Stream> GetStateClosestToFrame(int frame);
 
-		void Load(BinaryReader br);
-
-		KeyValuePair<int, byte[]> GetStateClosestToFrame(int frame);
-
-		bool Any();
-
+		/// <summary>
+		/// Returns the total number of states currently held by the state manager
+		/// </summary>
+		/// <value></value>
 		int Count { get; }
 
+		/// <summary>
+		/// Returns the most recent frame number that the state manager possesses
+		/// </summary>
+		/// <value></value>
 		int Last { get; }
 
-		void UpdateStateFrequency();
+		/// <summary>
+		/// Updates the internal state saving logic settings
+		/// </summary>
+		void UpdateSettings(ZwinderStateManagerSettings settings, bool keepOldStates = false);
 
 		/// <summary>
-		/// Returns index of the state right above the given frame
+		/// Serializes the current state of the instance for persisting to disk
 		/// </summary>
-		int GetStateIndexByFrame(int frame);
+		void SaveStateHistory(BinaryWriter bw);
 
 		/// <summary>
-		/// Returns frame of the state at the given index
+		/// Enables the instance to be used. An instance of <see cref="IStateManager"/> should not
+		/// be useable until this method is called
 		/// </summary>
-		int GetStateFrameByIndex(int index);
-
-		/// <summary>
-		/// Directly remove a state from the given frame, if it exists
-		/// Should only be called by pruning operations
-		/// </summary>
-		bool Remove(int frame);
+		/// <param name="frameZeroState"></param>
+		void Engage(byte[] frameZeroState);
 	}
 }

@@ -12,18 +12,12 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 	{
 		public VectrexHawkControllerDeck(string controller1Name, string controller2Name)
 		{
-			if (!ValidControllerTypes.ContainsKey(controller1Name))
-			{
-				throw new InvalidOperationException("Invalid controller type: " + controller1Name);
-			}
-
-			if (!ValidControllerTypes.ContainsKey(controller2Name))
-			{
-				throw new InvalidOperationException("Invalid controller type: " + controller2Name);
-			}
-
-			Port1 = (IPort)Activator.CreateInstance(ValidControllerTypes[controller1Name], 1);
-			Port2 = (IPort)Activator.CreateInstance(ValidControllerTypes[controller2Name], 2);
+			Port1 = ControllerCtors.TryGetValue(controller1Name, out var ctor1)
+				? ctor1(1)
+				: throw new InvalidOperationException($"Invalid controller type: {controller1Name}");
+			Port2 = ControllerCtors.TryGetValue(controller2Name, out var ctor2)
+				? ctor2(2)
+				: throw new InvalidOperationException($"Invalid controller type: {controller2Name}");
 
 			Definition = new ControllerDefinition
 			{
@@ -38,11 +32,8 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 							.ToList()
 			};
 
-			Definition.AxisControls.AddRange(Port1.Definition.AxisControls);
-			Definition.AxisControls.AddRange(Port2.Definition.AxisControls);
-
-			Definition.AxisRanges.AddRange(Port1.Definition.AxisRanges);
-			Definition.AxisRanges.AddRange(Port2.Definition.AxisRanges);
+			foreach (var kvp in Port1.Definition.Axes) Definition.Axes.Add(kvp);
+			foreach (var kvp in Port2.Definition.Axes) Definition.Axes.Add(kvp);
 		}
 
 		public byte ReadPort1(IController c)
@@ -71,24 +62,14 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 		private readonly IPort Port1;
 		private readonly IPort Port2;
 
-		private static Dictionary<string, Type> _controllerTypes;
+		private static IReadOnlyDictionary<string, Func<int, IPort>> _controllerCtors;
 
-		public static Dictionary<string, Type> ValidControllerTypes
-		{
-			get
+		public static IReadOnlyDictionary<string, Func<int, IPort>> ControllerCtors => _controllerCtors
+			??= new Dictionary<string, Func<int, IPort>>
 			{
-				if (_controllerTypes == null)
-				{
-					_controllerTypes = typeof(VectrexHawkControllerDeck).Assembly
-						.GetTypes()
-						.Where(t => typeof(IPort).IsAssignableFrom(t))
-						.Where(t => !t.IsAbstract && !t.IsInterface)
-						.ToDictionary(tkey => tkey.DisplayName());
-				}
-
-				return _controllerTypes;
-			}
-		}
+				[typeof(StandardControls).DisplayName()] = portNum => new StandardControls(portNum),
+				[typeof(AnalogControls).DisplayName()] = portNum => new AnalogControls(portNum)
+			};
 
 		public static string DefaultControllerName => typeof(StandardControls).DisplayName();
 	}

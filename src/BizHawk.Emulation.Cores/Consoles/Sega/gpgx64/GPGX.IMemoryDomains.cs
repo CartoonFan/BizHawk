@@ -52,7 +52,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 					else
 					{
 						// TODO: are the Z80 domains really Swap16 in the core?  Check this
-						mm.Add(new MemoryDomainIntPtrSwap16Monitor(name, endian, area, size, name != "MD CART" && name != "CD BOOT ROM", _elf));
+						mm.Add(new MemoryDomainIntPtrSwap16Monitor(name, endian, area, size, true, _elf));
 					}
 				}
 				var m68Bus = new MemoryDomainDelegate("M68K BUS", 0x1000000, MemoryDomain.Endian.Big,
@@ -94,6 +94,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 					mm.Add(s68Bus);
 				}
+				mm.Add(_elf.GetPagesDomain());
 
 				_memoryDomains = new MemoryDomainList(mm) { SystemBus = m68Bus };
 				((BasicServiceProvider) ServiceProvider).Register(_memoryDomains);

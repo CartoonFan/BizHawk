@@ -36,6 +36,12 @@ CheatArea* FindCheatArea(uint32_t address)
 	}
 }
 
+static void (*FrontendFirmwareNotify)(const char* name);
+ECL_EXPORT void SetFrontendFirmwareNotify(void (*cb)(const char* name))
+{
+	FrontendFirmwareNotify = cb;
+}
+
 namespace Mednafen
 {
 	MDFNGI *MDFNGameInfo = NULL;
@@ -61,6 +67,8 @@ namespace Mednafen
 			default: ret += "UNKNOWN:"; break;
 		}
 		ret += cd1;
+		if (type == MDFNMKF_FIRMWARE)
+			FrontendFirmwareNotify(ret.c_str());
 		return ret;
 	}
 
@@ -156,9 +164,27 @@ namespace Mednafen
 	}
 	int64 MDFN_GetSettingI(const char *name)
 	{
+		auto s = GetSetting(name);
 		char tmp[SETTING_VALUE_MAX_LENGTH];
 		FrontendSettingQuery(name, tmp);
-		return strtol(tmp, nullptr, 10);
+		if (s && s->type == MDFNST_ENUM)
+		{
+			for (int i = 0; s->enum_list[i].string; i++)
+			{
+				if (strcmp(s->enum_list[i].string, tmp) == 0)
+					return s->enum_list[i].number;
+			}
+			for (int i = 0; s->enum_list[i].string; i++)
+			{
+				if (strcmp(s->enum_list[i].string, s->default_value) == 0)
+					return s->enum_list[i].number;
+			}
+			return 0;
+		}
+		else
+		{
+			return strtol(tmp, nullptr, 10);
+		}
 	}
 	double MDFN_GetSettingF(const char *name)
 	{
@@ -168,9 +194,7 @@ namespace Mednafen
 	}
 	bool MDFN_GetSettingB(const char *name)
 	{
-		char tmp[SETTING_VALUE_MAX_LENGTH];
-		FrontendSettingQuery(name, tmp);
-		return strtol(tmp, nullptr, 10) != 0;
+		return (bool)MDFN_GetSettingUI(name);
 	}
 	std::string MDFN_GetSettingS(const char *name)
 	{

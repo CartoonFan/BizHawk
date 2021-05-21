@@ -6,17 +6,18 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class AmstradCpcAudioSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly AmstradCPC.AmstradCPCSettings _settings;
 
 		public AmstradCpcAudioSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			AmstradCPC.AmstradCPCSettings settings)
 		{
 			_mainForm = mainForm;
 			_settings = settings;
 
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void IntvControllerSettings_Load(object sender, EventArgs e)
@@ -51,15 +52,9 @@ namespace BizHawk.Client.EmuHawk
 				_settings.AYVolume = ayVolumetrackBar.Value;
 
 				_mainForm.PutCoreSettings(_settings);
-
-				DialogResult = DialogResult.OK;
-				Close();
 			}
-			else
-			{
-				DialogResult = DialogResult.OK;
-				Close();
-			}
+			DialogResult = DialogResult.OK;
+			Close();
 		}
 
 		private void CancelBtn_Click(object sender, EventArgs e)

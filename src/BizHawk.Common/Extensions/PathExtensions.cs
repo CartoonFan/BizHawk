@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Text;
 using System.IO;
 using System.Reflection;
+using System.Linq;
 
 using BizHawk.Common.StringExtensions;
 
@@ -18,8 +20,9 @@ namespace BizHawk.Common.PathExtensions
 			if (OSTailoredCode.IsUnixHost)
 			{
 #if true
-				return OSTailoredCode.SimpleSubshell("realpath", $"-L \"{childPath}\"", $"invalid path {childPath} or missing realpath binary")
-					.StartsWith(OSTailoredCode.SimpleSubshell("realpath", $"-L \"{parentPath}\"", $"invalid path {parentPath} or missing realpath binary"));
+				var c = OSTailoredCode.SimpleSubshell("realpath", $"-Lm \"{childPath}\"", $"invalid path {childPath} or missing realpath binary");
+				var p = OSTailoredCode.SimpleSubshell("realpath", $"-Lm \"{parentPath}\"", $"invalid path {parentPath} or missing realpath binary");
+				return c == p || c.StartsWith($"{p}/");
 #else // written for Unix port but may be useful for Windows when moving to .NET Core
 				var parentUriPath = new Uri(parentPath.TrimEnd('.')).AbsolutePath.TrimEnd('/');
 				try
@@ -37,13 +40,81 @@ namespace BizHawk.Common.PathExtensions
 #endif
 			}
 
-			var parentUri = new Uri(parentPath);
-			for (var childUri = new DirectoryInfo(childPath).Parent; childUri != null; childUri = childUri.Parent)
+			var parentUri = new Uri(parentPath.RemoveSuffix(Path.DirectorySeparatorChar));
+			for (var childUri = new DirectoryInfo(childPath); childUri != null; childUri = childUri.Parent)
 			{
 				if (new Uri(childUri.FullName) == parentUri) return true;
 			}
 			return false;
 		}
+
+		/// <returns><see langword="true"/> iff absolute (OS-dependent)</returns>
+		/// <seealso cref="IsRelative"/>
+		public static bool IsAbsolute(this string path)
+		{
+			if (OSTailoredCode.IsUnixHost) return path.Length >= 1 && path[0] == '/';
+			if (path.Contains('/')) return IsAbsolute(path.Replace('/', '\\'));
+			return path.Length >= 3
+				&& path[2] switch
+				{
+					'\\' => path[1] == '\\' && ('A'.RangeTo('Z').Contains(path[0]) || 'a'.RangeTo('z').Contains(path[0])),
+					'?' => path.StartsWith(@"\\?\"),
+					_ => false
+				};
+		}
+
+		/// <returns><see langword="false"/> iff absolute (OS-dependent)</returns>
+		/// <remarks>that means it may return <see langword="true"/> for invalid paths</remarks>
+		/// <seealso cref="IsAbsolute"/>
+		public static bool IsRelative(this string path) => !path.IsAbsolute();
+
+		/// <exception cref="ArgumentException">running on Windows host, and unmanaged call failed</exception>
+		/// <exception cref="FileNotFoundException">running on Windows host, and either path is not a regular file or directory</exception>
+		/// <remarks>
+		/// always returns a relative path, even if it means going up first<br/>
+		/// algorithm for Windows taken from https://stackoverflow.com/a/485516/7467292<br/>
+		/// the parameter names seem backwards, but those are the names used in the Win32 API we're calling
+		/// </remarks>
+		public static string? GetRelativePath(string? fromPath, string? toPath)
+		{
+			if (fromPath == null || toPath == null) return null;
+			if (OSTailoredCode.IsUnixHost)
+			{
+				var realpathOutput = OSTailoredCode.SimpleSubshell("realpath", $"--relative-to=\"{fromPath}\" \"{toPath}\"", $"invalid path {toPath}, invalid path {fromPath}, or missing realpath binary");
+				return !realpathOutput.StartsWith("../") && realpathOutput != "." && realpathOutput != ".." ? $"./{realpathOutput}" : realpathOutput;
+			}
+
+			//TODO merge this with the Windows implementation in MakeRelativeTo
+			static FileAttributes GetPathAttribute(string path1)
+			{
+				var di = new DirectoryInfo(path1.Split('|').First());
+				if (di.Exists)
+				{
+					return FileAttributes.Directory;
+				}
+
+				var fi = new FileInfo(path1.Split('|').First());
+				if (fi.Exists)
+				{
+					return FileAttributes.Normal;
+				}
+
+				throw new FileNotFoundException();
+			}
+			var path = new StringBuilder(260 /* = MAX_PATH */);
+			return Win32Imports.PathRelativePathTo(path, fromPath, GetPathAttribute(fromPath), toPath, GetPathAttribute(toPath))
+				? path.ToString()
+				: throw new ArgumentException("Paths must have a common prefix");
+		}
+
+		/// <returns>absolute path (OS-dependent) equivalent to <paramref name="path"/></returns>
+		/// <remarks>
+		/// unless <paramref name="cwd"/> is given, uses <see cref="CWDHacks.Get">CWDHacks.Get</see>/<see cref="Environment.CurrentDirectory">Environment.CurrentDirectory</see>,
+		/// so take care when calling this after startup
+		/// </remarks>
+		public static string MakeAbsolute(this string path, string? cwd = null) => path.IsAbsolute()
+			? path
+			: new FileInfo($"{cwd ?? (OSTailoredCode.IsUnixHost ? Environment.CurrentDirectory : CWDHacks.Get())}/{path}").FullName; // FileInfo for normalisation ("C:\a\b\..\c" => "C:\a\c")
 
 		/// <returns>the absolute path equivalent to <paramref name="path"/> which contains <c>%exe%</c> (expanded) as a prefix</returns>
 		/// <remarks>
@@ -53,14 +124,17 @@ namespace BizHawk.Common.PathExtensions
 		public static string MakeProgramRelativePath(this string path) => Path.Combine(PathUtils.ExeDirectoryPath, path);
 
 		/// <returns>the relative path which is equivalent to <paramref name="absolutePath"/> when the CWD is <paramref name="basePath"/>, or <see langword="null"/> if either path is <see langword="null"/></returns>
-		/// <remarks>returned string omits trailing slash; implementation calls <see cref="IsSubfolderOf"/> for you</remarks>
+		/// <remarks>
+		/// only returns a relative path if <paramref name="absolutePath"/> is a child of <paramref name="basePath"/> (uses <see cref="IsSubfolderOf"/>), otherwise returns <paramref name="absolutePath"/><br/>
+		/// returned string omits trailing slash
+		/// </remarks>
 		public static string? MakeRelativeTo(this string? absolutePath, string? basePath)
 		{
 			if (absolutePath == null || basePath == null) return null;
 			if (!absolutePath.IsSubfolderOf(basePath)) return absolutePath;
 			if (!OSTailoredCode.IsUnixHost) return absolutePath.Replace(basePath, ".").RemoveSuffix(Path.DirectorySeparatorChar);
 #if true // Unix implementation using realpath
-			var realpathOutput = OSTailoredCode.SimpleSubshell("realpath", $"--relative-to=\"{basePath}\" \"{absolutePath}\"", $"invalid path {absolutePath}, invalid path {basePath}, or missing realpath binary");
+			var realpathOutput = OSTailoredCode.SimpleSubshell("realpath", $"--relative-base=\"{basePath}\" \"{absolutePath}\"", $"invalid path {absolutePath}, invalid path {basePath}, or missing realpath binary");
 			return !realpathOutput.StartsWith("../") && realpathOutput != "." && realpathOutput != ".." ? $"./{realpathOutput}" : realpathOutput;
 #else // for some reason there were two Unix implementations in the codebase before me? --yoshi
 			// alt. #1
@@ -101,8 +175,8 @@ namespace BizHawk.Common.PathExtensions
 		{
 			var dirPath = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
 			ExeDirectoryPath = OSTailoredCode.IsUnixHost
-				? (string.IsNullOrEmpty(dirPath) || dirPath == "/" ? string.Empty : dirPath)
-				: (string.IsNullOrEmpty(dirPath) ? throw new Exception("failed to get location of executable, very bad things must have happened") : dirPath.RemoveSuffix('\\'));
+				? string.IsNullOrEmpty(dirPath) || dirPath == "/" ? string.Empty : dirPath
+				: string.IsNullOrEmpty(dirPath) ? throw new Exception("failed to get location of executable, very bad things must have happened") : dirPath.RemoveSuffix('\\');
 			DllDirectoryPath = Path.Combine(OSTailoredCode.IsUnixHost && ExeDirectoryPath == string.Empty ? "/" : ExeDirectoryPath, "dll");
 			// yes, this is a lot of extra code to make sure BizHawk can run in `/` on Unix, but I've made up for it by caching these for the program lifecycle --yoshi
 		}

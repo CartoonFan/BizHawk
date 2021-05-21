@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public class JumpLists
+	public static class JumpLists
 	{
 		private static readonly Type JumpList;
 		private static readonly Type JumpTask;
@@ -41,9 +41,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			try
 			{
-				string execPath = Assembly.GetEntryAssembly()
-					?.Location;
-
+				string execPath = Assembly.GetEntryAssembly().Location;
 				dynamic ji = Activator.CreateInstance(JumpTask);
 
 				ji.ApplicationPath = execPath;

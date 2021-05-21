@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using BizHawk.Client.Common;
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Tests.Client.Common.Display
@@ -22,15 +23,7 @@ namespace BizHawk.Tests.Client.Common.Display
 
 			_axisController = new SimpleController
 			{
-				Definition = new ControllerDefinition
-				{
-					AxisControls = { "StickX", "StickY" },
-					AxisRanges =
-					{
-						new ControllerDefinition.AxisRange(0, MidValue, 200),
-						new ControllerDefinition.AxisRange(0, MidValue, 200)
-					}
-				}
+				Definition = new ControllerDefinition().AddXYPair("Stick{0}", AxisPairOrientation.RightAndUp, 0.RangeTo(200), MidValue)
 			};
 		}
 

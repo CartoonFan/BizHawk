@@ -63,7 +63,7 @@ namespace BizHawk.Client.EmuHawk
 			RefreshDialog(refreshNeeded, refreshBranches: false);
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			if (!IsHandleCreated || IsDisposed)
 			{
@@ -92,6 +92,9 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
+		/// <summary>
+		/// Ask whether changes should be saved. Returns false if cancelled, else true.
+		/// </summary>
 		public override bool AskSaveChanges()
 		{
 			if (_suppressAskSave)
@@ -103,18 +106,14 @@ namespace BizHawk.Client.EmuHawk
 
 			if (CurrentTasMovie != null && CurrentTasMovie.Changes)
 			{
-				GlobalWin.Sound.StopSound();
-				var result = MessageBox.Show(
+				var result = MainForm.DoWithTempMute(() => MessageBox.Show(
 					"Save Changes?",
 					"Tastudio",
 					MessageBoxButtons.YesNoCancel,
 					MessageBoxIcon.Question,
-					MessageBoxDefaultButton.Button3);
-
-				GlobalWin.Sound.StartSound();
+					MessageBoxDefaultButton.Button3));
 				if (result == DialogResult.Yes)
 				{
-					_exiting = true; // Asking to save changes should only ever be called when closing something
 					SaveTas();
 				}
 				else if (result == DialogResult.No)

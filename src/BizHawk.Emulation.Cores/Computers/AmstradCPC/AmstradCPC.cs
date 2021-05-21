@@ -13,25 +13,22 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 	/// CPCHawk: Core Class
 	/// * Main Initialization *
 	/// </summary>
-	[Core(
-		"CPCHawk",
-		"Asnivor",
-		isPorted: false,
-		isReleased: false)]
+	[Core(CoreNames.CPCHawk, "Asnivor", isReleased: false)]
 	public partial class AmstradCPC : IRegionable, IDriveLight
 	{
-		public AmstradCPC(CoreComm comm, IEnumerable<byte[]> files, List<GameInfo> game, object settings, object syncSettings)
+		[CoreConstructor("AmstradCPC")]
+		public AmstradCPC(CoreLoadParameters<AmstradCPCSettings, AmstradCPCSyncSettings> lp)
 		{
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;
-			CoreComm = comm;
-			_gameInfo = game;
+			CoreComm = lp.Comm;
+			_gameInfo = lp.Roms.Select(r => r.Game).ToList();
 			_cpu = new Z80A();
 			_tracer = new TraceBuffer { Header = _cpu.TraceHeader };
-			_files = files?.ToList() ?? new List<byte[]>();
+			_files = lp.Roms.Select(r => r.RomData).ToList();
 
-			settings ??= new AmstradCPCSettings();
-			syncSettings ??= new AmstradCPCSyncSettings();
+			var settings = lp.Settings ?? new AmstradCPCSettings();
+			var syncSettings = lp.SyncSettings ?? new AmstradCPCSyncSettings();
 
 			PutSyncSettings((AmstradCPCSyncSettings)syncSettings);
 			PutSettings((AmstradCPCSettings)settings);
@@ -106,8 +103,8 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 		public CPCBase _machine;
 
 		public List<GameInfo> _gameInfo;
-		public List<GameInfo> _tapeInfo = new List<GameInfo>();
-		public List<GameInfo> _diskInfo = new List<GameInfo>();
+		public readonly IList<GameInfo> _tapeInfo = new List<GameInfo>();
+		public readonly IList<GameInfo> _diskInfo = new List<GameInfo>();
 
 		private SoundProviderMixer SoundMixer;
 

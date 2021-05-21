@@ -7,17 +7,18 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class SNESControllerSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly LibsnesCore.SnesSyncSettings _syncSettings;
 		private bool _suppressDropdownChangeEvents;
 
 		public SNESControllerSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			LibsnesCore.SnesSyncSettings syncSettings)
 		{
 			_mainForm = mainForm;
 			_syncSettings = syncSettings;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void SNESControllerSettings_Load(object sender, EventArgs e)
@@ -25,8 +26,8 @@ namespace BizHawk.Client.EmuHawk
 			LimitAnalogChangeCheckBox.Checked = _syncSettings.LimitAnalogChangeSensitivity;
 
 			_suppressDropdownChangeEvents = true;
-			Port1ComboBox.PopulateFromEnum<LibsnesControllerDeck.ControllerType>(_syncSettings.LeftPort);
-			Port2ComboBox.PopulateFromEnum<LibsnesControllerDeck.ControllerType>(_syncSettings.RightPort);
+			Port1ComboBox.PopulateFromEnum(_syncSettings.LeftPort);
+			Port2ComboBox.PopulateFromEnum(_syncSettings.RightPort);
 			_suppressDropdownChangeEvents = false;
 		}
 

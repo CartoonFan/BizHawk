@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Windows.Forms;
 using System.IO;
 using BizHawk.Common.StringExtensions;
@@ -10,13 +11,16 @@ namespace BizHawk.Client.DiscoHawk
 	public partial class MainDiscoForm : Form
 	{
 		// Release TODO:
-		// An input (queue) list 
+		// An input (queue) list
 		// An outputted list showing new file name
 		// Progress bar should show file being converted
 		// Add disc button, which puts it on the progress cue (converts it)
 		public MainDiscoForm()
 		{
 			InitializeComponent();
+			var icoStream = typeof(MainDiscoForm).Assembly.GetManifestResourceStream("BizHawk.Client.DiscoHawk.discohawk.ico");
+			if (icoStream != null) Icon = new Icon(icoStream);
+			else Console.WriteLine("couldn't load .ico EmbeddedResource?");
 		}
 
 		private void MainDiscoForm_Load(object sender, EventArgs e)
@@ -38,7 +42,7 @@ namespace BizHawk.Client.DiscoHawk
 				Cursor = Cursors.WaitCursor;
 				foreach (var file in files)
 				{
-					var job = new DiscMountJob { IN_FromPath = file };
+					var job = new DiscMountJob(fromPath: file);
 					job.Run();
 					var disc = job.OUT_Disc;
 					if (job.OUT_ErrorLevel)

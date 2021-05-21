@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -16,7 +14,8 @@ namespace BizHawk.Common.CollectionExtensions
 			return desc ? source.OrderByDescending(keySelector) : source.OrderBy(keySelector);
 		}
 
-		public static int LowerBoundBinarySearch<T, TKey>(this IList<T> list, Func<T, TKey> keySelector, TKey key) where TKey : IComparable<TKey>
+		public static int LowerBoundBinarySearch<T, TKey>(this IList<T> list, Func<T, TKey> keySelector, TKey key)
+			where TKey : IComparable<TKey>
 		{
 			int min = 0;
 			int max = list.Count;
@@ -73,7 +72,7 @@ namespace BizHawk.Common.CollectionExtensions
 		/// <exception cref="InvalidOperationException"><paramref name="key"/> not found after mapping <paramref name="keySelector"/> over <paramref name="list"/></exception>
 		/// <remarks>implementation from https://stackoverflow.com/a/1766369/7467292</remarks>
 		public static T BinarySearch<T, TKey>(this IList<T> list, Func<T, TKey> keySelector, TKey key)
-		where TKey : IComparable<TKey>
+			where TKey : IComparable<TKey>
 		{
 			int min = 0;
 			int max = list.Count;
@@ -104,6 +103,57 @@ namespace BizHawk.Common.CollectionExtensions
 			}
 
 			throw new InvalidOperationException("Item not found");
+		}
+
+		/// <inheritdoc cref="List{T}.AddRange"/>
+		/// <remarks>
+		/// (This is an extension method which reimplements <see cref="List{T}.AddRange"/> for other <see cref="ICollection{T}">collections</see>.
+		/// It defers to the existing <see cref="List{T}.AddRange">AddRange</see> if the receiver's type is <see cref="List{T}"/> or a subclass.)
+		/// </remarks>
+		public static void AddRange<T>(this ICollection<T> list, IEnumerable<T> collection)
+		{
+			if (list is List<T> listImpl)
+			{
+				listImpl.AddRange(collection);
+				return;
+			}
+			foreach (var item in collection) list.Add(item);
+		}
+
+		public static T? FirstOrNull<T>(this IEnumerable<T> list, Func<T, bool> predicate)
+			where T : struct
+		{
+			foreach (var t in list)
+				if (predicate(t))
+					return t;
+			return null;
+		}
+
+		/// <inheritdoc cref="List{T}.RemoveAll"/>
+		/// <remarks>
+		/// (This is an extension method which reimplements <see cref="List{T}.RemoveAll"/> for other <see cref="ICollection{T}">collections</see>.
+		/// It defers to the existing <see cref="List{T}.RemoveAll">RemoveAll</see> if the receiver's type is <see cref="List{T}"/> or a subclass.)
+		/// </remarks>
+		public static int RemoveAll<T>(this ICollection<T> list, Predicate<T> match)
+		{
+			if (list is List<T> listImpl) return listImpl.RemoveAll(match);
+			var c = list.Count;
+			if (list is IList<T> iList)
+			{
+				for (var i = 0; i < iList.Count; i++)
+				{
+					if (match(iList[i])) iList.RemoveAt(i--);
+				}
+			}
+			else
+			{
+				foreach (var item in list.Where(item => match(item)) // can't simply cast to Func<T, bool>
+					.ToList()) // very important
+				{
+					list.Remove(item);
+				}
+			}
+			return c - list.Count;
 		}
 	}
 }

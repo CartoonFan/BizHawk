@@ -11,6 +11,9 @@ namespace BizHawk.Client.Common
 
 		public override void RecordFrame(int frame, IController source)
 		{
+			// RetroEdit: This check is questionable; recording at frame 0 is valid and should be reversible.
+			// Also, frame - 1, why?
+			// Is the precondition compensating for frame - 1 reindexing?
 			if (frame != 0)
 			{
 				ChangeLog.AddGeneralUndo(frame - 1, frame - 1, $"Record Frame: {frame}");
@@ -26,7 +29,8 @@ namespace BizHawk.Client.Common
 
 			if (this.IsRecording())
 			{
-				TasStateManager.Invalidate(frame + 1);
+				TasStateManager.InvalidateAfter(frame);
+				GreenzoneInvalidated(frame + 1);
 			}
 
 			if (frame != 0)
@@ -48,7 +52,8 @@ namespace BizHawk.Client.Common
 			base.Truncate(frame);
 
 			LagLog.RemoveFrom(frame);
-			TasStateManager.Invalidate(frame);
+			TasStateManager.InvalidateAfter(frame);
+			GreenzoneInvalidated(frame);
 			Markers.TruncateAt(frame);
 
 			ChangeLog.SetGeneralRedo();
@@ -109,18 +114,21 @@ namespace BizHawk.Client.Common
 			{
 				// Separate the given frames into contiguous blocks
 				// and process each block independently
-				List<int> framesToDelete = frames.OrderBy(f => f).ToList();
+				List<int> framesToDelete = frames
+					.Where(fr => fr >= 0 && fr < InputLogLength)
+					.OrderBy(fr => fr)
+					.ToList();
 				// f is the current index for framesToDelete
-				int startFrame, prevFrame, frame;
 				int f = 0;
 				int numDeleted = 0;
 				while (numDeleted != framesToDelete.Count)
 				{
-					prevFrame = startFrame = framesToDelete[f];
+					int startFrame;
+					var prevFrame = startFrame = framesToDelete[f];
 					f++;
 					for (; f < framesToDelete.Count; f++)
 					{
-						frame = framesToDelete[f];
+						var frame = framesToDelete[f];
 						if (frame - 1 != prevFrame)
 						{
 							f--;
@@ -181,8 +189,7 @@ namespace BizHawk.Client.Common
 
 		public void InsertInput(int frame, string inputState)
 		{
-			var inputLog = new List<string>();
-			inputLog.Add(inputState);
+			var inputLog = new List<string> { inputState };
 			InsertInput(frame, inputLog); // ChangeLog handled within
 		}
 
@@ -253,10 +260,12 @@ namespace BizHawk.Client.Common
 
 		public void InsertEmptyFrame(int frame, int count = 1)
 		{
+#pragma warning disable CA1829 //TODO check StreamStringLog.Count is counting the same things as its enumerator
 			if (frame > Log.Count())
 			{
 				frame = Log.Count();
 			}
+#pragma warning restore CA1829
 
 			var lg = LogGeneratorInstance(Session.MovieController);
 			Log.InsertRange(frame, Enumerable.Repeat(lg.EmptyEntry, count).ToList());

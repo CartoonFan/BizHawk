@@ -15,12 +15,12 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class ProfileConfig : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly IEmulator _emulator;
 		private readonly Config _config;
 
 		public ProfileConfig(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			IEmulator emulator,
 			Config config)
 		{
@@ -28,7 +28,7 @@ namespace BizHawk.Client.EmuHawk
 			_emulator = emulator;
 			_config = config;
 			InitializeComponent();
-			Icon = Properties.Resources.user_blue;
+			Icon = Properties.Resources.ProfileIcon;
 		}
 
 		private void ProfileConfig_Load(object sender, EventArgs e)
@@ -75,6 +75,7 @@ namespace BizHawk.Client.EmuHawk
 			_config.UpdateAutoCheckEnabled = AutoCheckForUpdates.Checked;
 			if (_config.UpdateAutoCheckEnabled != oldUpdateAutoCheckEnabled)
 			{
+				UpdateChecker.GlobalConfig = _config;
 				if (!_config.UpdateAutoCheckEnabled)
 				{
 					UpdateChecker.ResetHistory();
@@ -101,9 +102,7 @@ namespace BizHawk.Client.EmuHawk
 			_config.Savestates.MakeBackups = false;
 
 			_config.Savestates.CompressionLevelNormal = 0;
-			_config.Rewind.EnabledLarge = false;
-			_config.Rewind.EnabledMedium = false;
-			_config.Rewind.EnabledSmall = true;
+			_config.Rewind.Enabled = true;
 			_config.SkipLagFrame = false;
 
 			// N64
@@ -142,12 +141,11 @@ namespace BizHawk.Client.EmuHawk
 			_config.PreferredCores["NES"] = CoreNames.QuickNes;
 
 			// GB
-			{
-				var s = GetSyncSettings<Gameboy, Gameboy.GambatteSyncSettings>();
-				s.EnableBIOS = false;
-				// TODO: Do we want to set anything else here?
-				PutSyncSettings<Gameboy>(s);
-			}
+			_config.PreferredCores["GB"] = CoreNames.Gambatte;
+			_config.PreferredCores["GBC"] = CoreNames.Gambatte;
+			var s = GetSyncSettings<Gameboy, Gameboy.GambatteSyncSettings>();
+			s.EnableBIOS = false;
+			PutSyncSettings<Gameboy>(s);
 		}
 
 		private void SetLongPlay()
@@ -171,6 +169,13 @@ namespace BizHawk.Client.EmuHawk
 
 			// NES
 			_config.PreferredCores["NES"] = CoreNames.NesHawk;
+
+			// GB
+			_config.PreferredCores["GB"] = CoreNames.Gambatte;
+			_config.PreferredCores["GBC"] = CoreNames.Gambatte;
+			var s = GetSyncSettings<Gameboy, Gameboy.GambatteSyncSettings>();
+			s.EnableBIOS = true;
+			PutSyncSettings<Gameboy>(s);
 		}
 
 		private void SetTas()
@@ -183,9 +188,7 @@ namespace BizHawk.Client.EmuHawk
 			_config.Savestates.CompressionLevelNormal = 5;
 
 			// Rewind
-			_config.Rewind.EnabledLarge = false;
-			_config.Rewind.EnabledMedium = false;
-			_config.Rewind.EnabledSmall = false;
+			_config.Rewind.Enabled = false;
 
 			// N64
 			var n64Settings = GetSyncSettings<N64, N64SyncSettings>();
@@ -194,7 +197,7 @@ namespace BizHawk.Client.EmuHawk
 			PutSyncSettings<N64>(n64Settings);
 
 			// SNES
-			_config.PreferredCores["SNES"] = CoreNames.Snes9X;
+			_config.PreferredCores["SNES"] = CoreNames.Bsnes;
 
 			// Genesis
 			var genesisSettings = GetSyncSettings<GPGX, GPGX.GPGXSyncSettings>();
@@ -217,12 +220,12 @@ namespace BizHawk.Client.EmuHawk
 			_config.PreferredCores["NES"] = CoreNames.NesHawk;
 
 			// GB
-			{
-				var s = GetSyncSettings<Gameboy, Gameboy.GambatteSyncSettings>();
-				s.EnableBIOS = true;
-				// TODO: Do we want to set anything else here?
-				PutSyncSettings<Gameboy>(s);
-			}
+			_config.PreferredCores["GB"] = CoreNames.Gambatte;
+			_config.PreferredCores["GBC"] = CoreNames.Gambatte;
+			var s = GetSyncSettings<Gameboy, Gameboy.GambatteSyncSettings>();
+			s.EnableBIOS = true;
+			PutSyncSettings<Gameboy>(s);
+			
 		}
 
 		private void SetN64Tas()
@@ -237,7 +240,6 @@ namespace BizHawk.Client.EmuHawk
 			where TSetting : class, new()
 			where TEmulator : IEmulator
 		{
-			// should we complain if we get a successful object from the config file, but it is the wrong type?
 			object fromCore = null;
 			var settable = new SettingsAdapter(_emulator);
 			if (settable.HasSyncSettings)
@@ -246,7 +248,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 
 			return fromCore as TSetting
-				?? _config.GetCoreSyncSettings<TEmulator>() as TSetting
+				?? _config.GetCoreSyncSettings<TEmulator, TSetting>()
 				?? new TSetting(); // guaranteed to give sensible defaults
 		}
 

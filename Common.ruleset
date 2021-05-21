@@ -19,9 +19,6 @@
 		<!-- Use the preferred exception type -->
 		<Rule Id="MEN009" Action="Hidden" />
 
-		<!-- Align using directives -->
-		<Rule Id="MEN011" Action="Hidden" />
-
 		<!-- Flags should be powers of two -->
 		<Rule Id="MEN012" Action="Hidden" />
 
@@ -32,17 +29,14 @@
 		<!-- Types that own disposable fields should be disposable -->
 		<Rule Id="CA1001" Action="Hidden" />
 
-		<!-- Collections should implement generic interface -->
-		<Rule Id="CA1010" Action="Hidden" />
-
 		<!-- Mark assemblies with assembly version -->
 		<Rule Id="CA1016" Action="Hidden" />
 
-		<!-- Mark attributes with AttributeUsageAttribute -->
-		<Rule Id="CA1018" Action="Hidden" />
-
 		<!-- Enum Storage should be Int32 -->
 		<Rule Id="CA1028" Action="Hidden" />
+
+		<!-- Use events where appropriate -->
+		<Rule Id="CA1030" Action="Hidden" />
 
 		<!-- Do not catch general exception types -->
 		<Rule Id="CA1031" Action="Hidden" />
@@ -71,14 +65,14 @@
 		<!-- Do not declare visible instance fields -->
 		<Rule Id="CA1051" Action="Hidden" />
 
-		<!-- Static holder types should be Static or NotInheritable -->
-		<Rule Id="CA1052" Action="Hidden" />
-
 		<!-- Uri parameters should not be strings -->
 		<Rule Id="CA1054" Action="Hidden" />
 
 		<!-- Uri return values should not be strings -->
 		<Rule Id="CA1055" Action="Hidden" />
+
+		<!-- Uri properties should not be strings -->
+		<Rule Id="CA1056" Action="Hidden" />
 
 		<!-- Validate arguments of public methods -->
 		<Rule Id="CA1062" Action="Hidden" />
@@ -128,6 +122,9 @@
 		<!-- Do not prefix enum values with type name -->
 		<Rule Id="CA1712" Action="Hidden" />
 
+		<!-- Events should not have 'Before' or 'After' prefix -->
+		<Rule Id="CA1713" Action="Hidden" />
+
 		<!-- Flags enums should have plural names -->
 		<Rule Id="CA1714" Action="Hidden" />
 
@@ -154,6 +151,9 @@
 
 		<!-- Use literals where appropriate -->
 		<Rule Id="CA1802" Action="Hidden" />
+
+		<!-- Do not initialize unnecessarily -->
+		<Rule Id="CA1805" Action="Hidden" />
 
 		<!-- Do not ignore method results -->
 		<Rule Id="CA1806" Action="Hidden" />
@@ -191,14 +191,14 @@
 		<!-- Do not use Count() or LongCount() when Any() can be used -->
 		<Rule Id="CA1827" Action="Hidden" />
 
-		<!-- Use Length/Count property instead of Count() when available -->
-		<Rule Id="CA1829" Action="Hidden" />
-
 		<!-- Dispose objects before losing scope -->
 		<Rule Id="CA2000" Action="Hidden" />
 
 		<!-- Do not lock on objects with weak identity -->
 		<Rule Id="CA2002" Action="Hidden" />
+
+		<!-- Do not use stackalloc in loops -->
+		<Rule Id="CA2014" Action="Hidden" />
 
 		<!-- Review SQL queries for security vulnerabilities -->
 		<Rule Id="CA2100" Action="Hidden" />
@@ -230,6 +230,9 @@
 		<!-- Implement serialization constructors -->
 		<Rule Id="CA2229" Action="Hidden" />
 
+		<!-- Pass system uri objects instead of strings -->
+		<Rule Id="CA2234" Action="Hidden" />
+
 		<!-- Mark ISerializable types with serializable -->
 		<Rule Id="CA2237" Action="Hidden" />
 
@@ -247,11 +250,6 @@
 
 		<!-- Do Not Use Broken Cryptographic Algorithms -->
 		<Rule Id="CA5351" Action="Hidden" />
-	</Rules>
-
-	<Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers.SpecialRules">
-		<!-- XML comment analysis disabled -->
-		<Rule Id="SA0001" Action="Hidden" />
 	</Rules>
 
 	<Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers.SpacingRules">
@@ -294,9 +292,6 @@
 		<!-- Closing braces should be spaced correctly -->
 		<Rule Id="SA1013" Action="Hidden" />
 
-		<!-- Closing generic brackets should be spaced correctly -->
-		<Rule Id="SA1015" Action="Hidden" />
-
 		<!-- Member access symbols should be spaced correctly -->
 		<Rule Id="SA1019" Action="Hidden" />
 
@@ -311,9 +306,6 @@
 
 		<!-- Code should not contain multiple whitespace in a row -->
 		<Rule Id="SA1025" Action="Hidden" />
-
-		<!-- Code should not contain space after new or stackalloc keyword in implicitly typed array allocation -->
-		<Rule Id="SA1026" Action="Hidden" />
 
 		<!-- Use tabs correctly -->
 		<Rule Id="SA1027" Action="Hidden" />
@@ -356,9 +348,6 @@
 		<!-- Comments should contain text -->
 		<Rule Id="SA1120" Action="Hidden" />
 
-		<!-- Use built-in type alias -->
-		<Rule Id="SA1121" Action="Hidden" />
-
 		<!-- Use string.Empty for empty strings -->
 		<Rule Id="SA1122" Action="Hidden" />
 
@@ -370,9 +359,6 @@
 
 		<!-- Do not use default value type constructor -->
 		<Rule Id="SA1129" Action="Hidden" />
-
-		<!-- Use lambda syntax -->
-		<Rule Id="SA1130" Action="Hidden" />
 
 		<!-- Use readable conditions -->
 		<Rule Id="SA1131" Action="Hidden" />
@@ -390,7 +376,7 @@
 		<Rule Id="SA1136" Action="Hidden" />
 
 		<!-- Elements should have the same indentation -->
-		<Rule Id="SA1137" Action="Hidden" />
+		<Rule Id="SA1137" Action="Error" />
 	</Rules>
 
 	<Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers.OrderingRules">
@@ -406,20 +392,14 @@
 		<!-- Static elements should appear before instance elements -->
 		<Rule Id="SA1204" Action="Hidden" />
 
-		<!-- Partial elements should declare access -->
-		<Rule Id="SA1205" Action="Hidden" />
-
 		<!-- System using directives should be placed before other using directives -->
-		<Rule Id="SA1208" Action="Hidden" />
+		<Rule Id="SA1208" Action="Error" />
 
 		<!-- Using directives should be ordered alphabetically by namespace -->
 		<Rule Id="SA1210" Action="Hidden" />
 
 		<!-- Using alias directives should be ordered alphabetically by alias name -->
-		<Rule Id="SA1211" Action="Hidden" />
-
-		<!-- Property accessors should follow order -->
-		<Rule Id="SA1212" Action="Hidden" />
+		<Rule Id="SA1211" Action="Error" />
 
 		<!-- Readonly fields should appear before non-readonly fields -->
 		<Rule Id="SA1214" Action="Hidden" />
@@ -461,9 +441,6 @@
 
 		<!-- Parameter names should begin with lower-case letter -->
 		<Rule Id="SA1313" Action="Hidden" />
-
-		<!-- Type parameter names should begin with T -->
-		<Rule Id="SA1314" Action="Hidden" />
 	</Rules>
 
 	<Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers.MaintainabilityRules">
@@ -472,7 +449,7 @@
 		<Rule Id="SA1119" Action="Hidden" />
 
 		<!-- Access modifier should be declared -->
-		<Rule Id="SA1400" Action="Hidden" />
+		<Rule Id="SA1400" Action="Error" />
 
 		<!-- Fields should be private -->
 		<Rule Id="SA1401" Action="Hidden" />
@@ -488,9 +465,6 @@
 
 		<!-- Conditional expressions should declare precedence -->
 		<Rule Id="SA1408" Action="Hidden" />
-
-		<!-- Remove delegate parenthesis when possible -->
-		<Rule Id="SA1410" Action="Hidden" />
 
 		<!-- Use trailing comma in multi-line initializers -->
 		<Rule Id="SA1413" Action="Hidden" />
@@ -511,6 +485,9 @@
 
 		<!-- Opening braces should not be followed by blank line -->
 		<Rule Id="SA1505" Action="Hidden" />
+
+		<!-- Element documentation headers should not be followed by blank line -->
+		<Rule Id="SA1506" Action="Hidden" />
 
 		<!-- Code should not contain multiple blank lines in a row -->
 		<Rule Id="SA1507" Action="Hidden" />
@@ -553,14 +530,29 @@
 	</Rules>
 
 	<Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers.DocumentationRules">
+		<!-- Element documentation should have summary text -->
+		<Rule Id="SA1606" Action="Hidden" />
+
+		<!-- Property documentation should have value text -->
+		<Rule Id="SA1610" Action="Hidden" />
+
 		<!-- Element parameter documentation should match element parameters -->
 		<Rule Id="SA1612" Action="Hidden" />
+
+		<!-- Element parameter documentation should have text -->
+		<Rule Id="SA1614" Action="Hidden" />
+
+		<!-- Element return value documentation should have text -->
+		<Rule Id="SA1616" Action="Hidden" />
+
+		<!-- Generic type parameter documentation should have text -->
+		<Rule Id="SA1622" Action="Hidden" />
 
 		<!-- Property summary documentation should match accessors -->
 		<Rule Id="SA1623" Action="Hidden" />
 
-		<!-- Single-line comments should not use documentation style slashes -->
-		<Rule Id="SA1626" Action="Hidden" />
+		<!-- Element documentation should not be copied and pasted -->
+		<Rule Id="SA1625" Action="Hidden" />
 
 		<!-- Documentation text should not be empty -->
 		<Rule Id="SA1627" Action="Hidden" />

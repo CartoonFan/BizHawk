@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using BizHawk.Emulation.Common;
-using BizHawk.Emulation.Cores.Consoles.Sega.Saturn;
 
 namespace BizHawk.Client.Common.movie.import
 {
@@ -18,18 +17,18 @@ namespace BizHawk.Client.Common.movie.import
 			{
 				PortDevices =
 				{
-					{ 0, "gamepad" },
-					{ 1, "none" },
-					{ 2, "none" },
-					{ 3, "none" },
-					{ 4, "none" },
-					{ 5, "none" },
-					{ 6, "none" },
-					{ 7, "none" },
-					{ 8, "none" },
-					{ 9, "none" },
-					{ 10, "none" },
-					{ 11, "none" },
+					[0] = "gamepad",
+					[1] = "none",
+					[2] = "none",
+					[3] = "none",
+					[4] = "none",
+					[5] = "none",
+					[6] = "none",
+					[7] = "none",
+					[8] = "none",
+					[9] = "none",
+					[10] = "none",
+					[11] = "none",
 				}
 			};
 
@@ -114,7 +113,7 @@ namespace BizHawk.Client.Common.movie.import
 			};
 
 			// Split up the sections of the frame.
-			string[] sections = line.Split(new [] { "|" }, StringSplitOptions.RemoveEmptyEntries);
+			var sections = line.Split(new[] { "|" }, StringSplitOptions.RemoveEmptyEntries);
 			if (sections.Length != 2)
 			{
 				Result.Errors.Add("Unsupported input configuration");

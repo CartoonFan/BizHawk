@@ -16,7 +16,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 	/// </summary>
 	public class AmstradGateArray : IPortIODevice, IVideoProvider
 	{
-		private CPCBase _machine;
+		private readonly CPCBase _machine;
 		private Z80A CPU => _machine.CPU;
 		private CRCT_6845 CRCT => _machine.CRCT;
 		//private CRTDevice CRT => _machine.CRT;
@@ -679,18 +679,18 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 		/// <summary>
 		/// The current character line we are working from
 		/// </summary>
-		private CharacterLine CurrentLine;
+		private readonly CharacterLine CurrentLine;
 
 		/// <summary>
 		/// List of screen lines as they are built up
 		/// </summary>
-		private List<CharacterLine> ScreenLines = new List<CharacterLine>();
+		private readonly List<CharacterLine> ScreenLines = new List<CharacterLine>();
 
 		/// <summary>
 		/// Pixel value lookups for every scanline byte value
 		/// Based on the lookup at https://github.com/gavinpugh/xnacpc
 		/// </summary>
-		private int[][] ByteLookup = new int[4][];
+		private readonly int[][] ByteLookup = new int[4][];
 		private void InitByteLookup()
 		{
 			int pix;
@@ -1255,7 +1255,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 				Phases.Add(phase);
 			}
 
-			public int PhaseCount => Phases.Count();
+			public int PhaseCount => Phases.Count;
 
 			public void Clear(int screenMode)
 			{
@@ -1322,7 +1322,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 			/// </summary>
 			Amstrad40226,
 			/// <summary>
-			/// Plus & GX-4000
+			/// Plus &amp; GX-4000
 			/// All the Plus range is built upon a bigger ASIC chip which is integrating many features of the classic CPC (FDC, CRTC, PPI, Gate Array/PAL) and all 
 			/// the new Plus specific features. The Gate Array on the Plus have a new register, named RMR2, to expand the ROM mapping functionnalities of the machine. 
 			/// This register requires to be unlocked first to be available. And finally, the RGB levels produced by the ASIC on the Plus are noticeably differents

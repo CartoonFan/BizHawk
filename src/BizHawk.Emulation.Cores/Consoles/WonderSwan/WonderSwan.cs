@@ -6,13 +6,13 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.WonderSwan
 {
-	[Core("Cygne/Mednafen", "Dox, Mednafen Team", true, true, "1.24.3", "https://mednafen.github.io/releases/", false)]
+	[PortedCore(CoreNames.Cygne, "Dox, Mednafen Team", "1.24.3", "https://mednafen.github.io/releases/")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight), typeof(IRegionable) })]
 	public partial class WonderSwan : IEmulator, IVideoProvider, ISoundProvider,
 		IInputPollable, IDebuggable
 	{
 		[CoreConstructor("WSWAN")]
-		public WonderSwan(byte[] file, bool deterministic, object settings, object syncSettings)
+		public WonderSwan(byte[] file, bool deterministic, WonderSwan.Settings settings, WonderSwan.SyncSettings syncSettings)
 		{
 			ServiceProvider = new BasicServiceProvider(this);
 			_settings = (Settings)settings ?? new Settings();
@@ -62,7 +62,6 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 
 		public bool FrameAdvance(IController controller, bool render, bool rendersound = true)
 		{
-			Frame++;
 			IsLagFrame = true;
 
 			if (controller.IsPressed("Power"))
@@ -79,6 +78,8 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 			if (IsLagFrame)
 				LagCount++;
 
+			Frame++;
+
 			return true;
 		}
 
@@ -89,7 +90,7 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 			LagCount = 0;
 		}
 
-		IntPtr Core;
+		private IntPtr Core;
 
 		public int Frame { get; private set; }
 		public int LagCount { get; set; }
@@ -130,12 +131,12 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 		[FeatureNotImplemented]
 		public long TotalExecutedCycles => throw new NotImplementedException();
 
-		BizSwan.MemoryCallback ReadCallbackD;
-		BizSwan.MemoryCallback WriteCallbackD;
-		BizSwan.MemoryCallback ExecCallbackD;
-		BizSwan.ButtonCallback ButtonCallbackD;
+		private BizSwan.MemoryCallback ReadCallbackD;
+		private BizSwan.MemoryCallback WriteCallbackD;
+		private BizSwan.MemoryCallback ExecCallbackD;
+		private BizSwan.ButtonCallback ButtonCallbackD;
 
-		void ReadCallback(uint addr)
+		private void ReadCallback(uint addr)
 		{
 			if (MemoryCallbacks.HasReads)
 			{
@@ -143,7 +144,8 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 				MemoryCallbacks.CallMemoryCallbacks(addr, 0, flags, "System Bus");
 			}
 		}
-		void WriteCallback(uint addr)
+
+		private void WriteCallback(uint addr)
 		{
 			if (MemoryCallbacks.HasWrites)
 			{
@@ -151,7 +153,8 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 				MemoryCallbacks.CallMemoryCallbacks(addr, 0, flags, "System Bus");
 			}
 		}
-		void ExecCallback(uint addr)
+
+		private void ExecCallback(uint addr)
 		{
 			if (MemoryCallbacks.HasExecutes)
 			{
@@ -159,12 +162,13 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 				MemoryCallbacks.CallMemoryCallbacks(addr, 0, flags, "System Bus");
 			}
 		}
-		void ButtonCallback()
+
+		private void ButtonCallback()
 		{
 			InputCallbacks.Call();
 		}
 
-		void InitDebugCallbacks()
+		private void InitDebugCallbacks()
 		{
 			ReadCallbackD = new BizSwan.MemoryCallback(ReadCallback);
 			WriteCallbackD = new BizSwan.MemoryCallback(WriteCallback);
@@ -174,12 +178,12 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 			_memorycallbacks.ActiveChanged += SetMemoryCallbacks;
 		}
 
-		void SetInputCallback()
+		private void SetInputCallback()
 		{
 			BizSwan.bizswan_setbuttoncallback(Core, InputCallbacks.Any() ? ButtonCallbackD : null);
 		}
 
-		void SetMemoryCallbacks()
+		private void SetMemoryCallbacks()
 		{
 			BizSwan.bizswan_setmemorycallbacks(Core,
 				MemoryCallbacks.HasReads ? ReadCallbackD : null,
@@ -187,7 +191,7 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 				MemoryCallbacks.HasExecutes ? ExecCallbackD : null);
 		}
 
-		void InitVideo(bool rotate)
+		private void InitVideo(bool rotate)
 		{
 			if (rotate)
 			{
@@ -201,7 +205,7 @@ namespace BizHawk.Emulation.Cores.WonderSwan
 			}
 		}
 
-		private int[] vbuff = new int[224 * 144];
+		private readonly int[] vbuff = new int[224 * 144];
 
 		public int[] GetVideoBuffer() => vbuff;
 

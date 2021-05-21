@@ -96,7 +96,7 @@ namespace BizHawk.Emulation.Cores.Intellivision
 			"S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
 		};
 
-		private static byte[] HandControllerButtons =
+		private static readonly byte[] HandControllerButtons =
 		{
 			0x60, // OUTPUT_ACTION_BUTTON_BOTTOM_LEFT
 			0xC0, // OUTPUT_ACTION_BUTTON_BOTTOM_RIGHT
@@ -139,14 +139,8 @@ namespace BizHawk.Emulation.Cores.Intellivision
 		public FakeAnalogController(int portNum)
 		{
 			PortNum = portNum;
-			Definition = new ControllerDefinition
-			{
-				BoolButtons = BaseBoolDefinition
-				.Select(b => "P" + PortNum + " " + b)
-				.ToList(),
-				AxisControls = { "P" + PortNum + " Disc X", "P" + PortNum + " Disc Y" },
-				AxisRanges = ControllerDefinition.CreateAxisRangePair(-127, 0, 127, ControllerDefinition.AxisPairOrientation.RightAndUp) //TODO verify direction against hardware
-			};
+			Definition = new ControllerDefinition { BoolButtons = BaseBoolDefinition.Select(b => $"P{PortNum} {b}").ToList() }
+				.AddXYPair($"P{PortNum} Disc {{0}}", AxisPairOrientation.RightAndUp, (-127).RangeTo(127), 0); //TODO verify direction against hardware
 		}
 
 		public int PortNum { get; }
@@ -164,8 +158,8 @@ namespace BizHawk.Emulation.Cores.Intellivision
 				}
 			}
 
-			int x = (int)c.AxisValue(Definition.AxisControls[0]);
-			int y = (int)c.AxisValue(Definition.AxisControls[1]);
+			int x = (int)c.AxisValue(Definition.Axes[0]);
+			int y = (int)c.AxisValue(Definition.Axes[1]);
 			result |= CalcDirection(x, y);
 
 			return result;
@@ -183,7 +177,7 @@ namespace BizHawk.Emulation.Cores.Intellivision
 			"Key 6", "Key 7", "Key 8", "Key 9", "Enter", "Clear"
 		};
 
-		private static byte[] BoolControllerButtons =
+		private static readonly byte[] BoolControllerButtons =
 		{
 			0x60, // OUTPUT_ACTION_BUTTON_BOTTOM_LEFT
 			0xC0, // OUTPUT_ACTION_BUTTON_BOTTOM_RIGHT
@@ -223,7 +217,7 @@ namespace BizHawk.Emulation.Cores.Intellivision
 
 		private const int Deadzone = 50;
 
-		private static byte[] FloatControllerButtons =
+		private static readonly byte[] FloatControllerButtons =
 		{
 			0x02, // E
 			0x06, // ENE

@@ -1,25 +1,24 @@
 ﻿using System;
-using System.Linq;
 using BizHawk.Common;
 
 namespace BizHawk.Emulation.Cores.Nintendo.NES
 {
 	internal sealed class Mapper030 : NesBoardBase
 	{
-		enum flashmode { fm_default, fm_erase, fm_write, fm_id }
+		private enum flashmode { fm_default, fm_erase, fm_write, fm_id }
 
 		// config
-		int prg_bank_mask_16k;
-		int vram_bank_mask_8k;
+		private int prg_bank_mask_16k;
+		private int vram_bank_mask_8k;
 
 		// state
-		int prg;
-		int chr;
-		int flash_state = 0;
-		flashmode flash_mode = flashmode.fm_default;
-		byte[] flash_rom = null;
+		private int prg;
+		private int chr;
+		private int flash_state = 0;
+		private flashmode flash_mode = flashmode.fm_default;
+		private byte[] flash_rom = null;
 
-		int get_flash_write_count(int addr)
+		private int get_flash_write_count(int addr)
 		{
 			if (flash_rom == null)
 				return 0;
@@ -29,7 +28,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			return value[0];
 		}
 
-		void increment_flash_write_count(int addr, bool direct = false)
+		private void increment_flash_write_count(int addr, bool direct = false)
 		{
 			if (flash_rom == null)
 				return;
@@ -103,9 +102,9 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			return true;
 		}
 
-		static readonly int[] addr_state = new int[5] { 0x1555, 0x2AAA, 0x1555, 0x1555, 0x2AAA };
-		static readonly int[] addr_bank = new int[5] { 1, 0, 1, 1, 0 };
-		static readonly byte[] addr_data = new byte[5] { 0xAA, 0x55, 0x80, 0xAA, 0x55 };
+		private static readonly int[] addr_state = new int[5] { 0x1555, 0x2AAA, 0x1555, 0x1555, 0x2AAA };
+		private static readonly int[] addr_bank = new int[5] { 1, 0, 1, 1, 0 };
+		private static readonly byte[] addr_data = new byte[5] { 0xAA, 0x55, 0x80, 0xAA, 0x55 };
 
 		public override void WritePrg(int addr, byte value)
 		{
@@ -154,7 +153,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 					{                   //Of course, we gotta emulate the behaviour.
 						for (int i = 0; i < (Cart.PrgSize / 4); i++)
 							increment_flash_write_count(i, true);
-						for (int i = 0; i < flash_rom.Count(); i++)
+						for (int i = 0; i < flash_rom.Length; i++)
 							flash_rom[Cart.PrgSize + i] = 0xFF;
 					}
 					else if (value == 0x30)

@@ -2,34 +2,43 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Reflection;
 using System.Windows.Forms;
 
 using BizHawk.Client.Common;
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class ToolBox : ToolFormBase, IToolForm
+	public partial class ToolBox : ToolFormBase
 	{
 		[RequiredService]
 		private IEmulator Emulator { get; set; }
 
+		protected override string WindowTitleStatic => string.Empty;
+
 		public ToolBox()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.ToolBoxIcon;
 		}
 
 		private void ToolBox_Load(object sender, EventArgs e)
 		{
+			if (OSTailoredCode.IsUnixHost)
+			{
+				Close();
+				return;
+			}
 			Location = new Point(
 				Owner.Location.X + Owner.Size.Width,
 				Owner.Location.Y
 			);
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
+			if (OSTailoredCode.IsUnixHost) return;
 			SetTools();
 			SetSize();
 
@@ -41,7 +50,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			ToolBoxStrip.Items.Clear();
 
-			var tools = Assembly.GetAssembly(GetType()).GetTypes()
+			var tools = EmuHawk.ReflectionCache.Types
 				.Where(t => typeof(IToolForm).IsAssignableFrom(t))
 				.Where(t => typeof(Form).IsAssignableFrom(t))
 				.Where(t => !typeof(ToolBox).IsAssignableFrom(t))

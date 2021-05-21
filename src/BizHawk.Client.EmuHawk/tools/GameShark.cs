@@ -1,8 +1,9 @@
 ﻿using System;
-using System.Windows.Forms;
+
 using BizHawk.Emulation.Common;
 using BizHawk.Client.Common;
 using BizHawk.Client.Common.cheats;
+using BizHawk.Emulation.Cores;
 
 // TODO:
 // Add Support/Handling for The Following Systems and Devices:
@@ -11,7 +12,10 @@ using BizHawk.Client.Common.cheats;
 // SNES: GoldFinger (Action Replay II) Support?
 namespace BizHawk.Client.EmuHawk
 {
-	[Tool(true, new[] { "GB", "GBA", "GEN", "N64", "NES", "PSX", "SAT", "SMS", "SNES" }, new[] { "Snes9x" })]
+	[Tool(
+		released: true,
+		supportedSystems: new[] { "GB", "GBA", "GEN", "N64", "NES", "PSX", "SAT", "SMS", "SNES" },
+		unsupportedCores: new[] { CoreNames.Snes9X })]
 	public partial class GameShark : ToolFormBase, IToolFormAutoConfig
 	{
 		[RequiredService]
@@ -22,13 +26,12 @@ namespace BizHawk.Client.EmuHawk
 		// ReSharper disable once UnusedAutoPropertyAccessor.Local
 		private IEmulator Emulator { get; set; }
 
+		protected override string WindowTitleStatic => "Cheat Code Converter";
+
 		public GameShark()
 		{
 			InitializeComponent();
-		}
-
-		public void Restart()
-		{
+			Icon = Properties.Resources.SharkIcon;
 		}
 
 		private void Go_Click(object sender, EventArgs e)
@@ -42,21 +45,21 @@ namespace BizHawk.Client.EmuHawk
 					var result = decoder.Decode(code);
 					var domain = decoder.CheatDomain();
 
-					if (result.IsValid)
+					if (result.IsValid(out var valid))
 					{
 						var description = !string.IsNullOrWhiteSpace(txtDescription.Text)
 							? txtDescription.Text
 							: code;
-						MainForm.CheatList.Add(result.ToCheat(domain, description));
+						MainForm.CheatList.Add(valid.ToCheat(domain, description));
 					}
 					else
 					{
-						MessageBox.Show(result.Error, "Input Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+						DialogController.ShowMessageBox(result.Error, "Input Error", EMsgBoxIcon.Error);
 					}
 				}
 				catch (Exception ex)
 				{
-					MessageBox.Show($"An Error occured: {ex.GetType()}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					DialogController.ShowMessageBox($"An Error occured: {ex.GetType()}", "Error", EMsgBoxIcon.Error);
 				}
 			}
 
@@ -67,8 +70,8 @@ namespace BizHawk.Client.EmuHawk
 		private void BtnClear_Click(object sender, EventArgs e)
 		{
 			// Clear old Inputs
-			var result = MessageBox.Show("Are you sure you want to clear this form?", "Clear Form", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-			if (result == DialogResult.Yes)
+			var result = DialogController.ShowMessageBox2("Are you sure you want to clear this form?", "Clear Form", EMsgBoxIcon.Question);
+			if (result)
 			{
 				txtDescription.Clear();
 				txtCheat.Clear();

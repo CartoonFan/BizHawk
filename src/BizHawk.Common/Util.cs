@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 
 namespace BizHawk.Common
@@ -21,6 +23,22 @@ namespace BizHawk.Common
 			}
 		}
 
+		/// <summary>equivalent to <see cref="Console.WriteLine()">Console.WriteLine</see> but is <c>#ifdef DEBUG</c></summary>
+		[Conditional("DEBUG")]
+		public static void DebugWriteLine() => Console.WriteLine();
+
+		/// <summary>equivalent to <see cref="Console.WriteLine(string)">Console.WriteLine</see> but is <c>#ifdef DEBUG</c></summary>
+		[Conditional("DEBUG")]
+		public static void DebugWriteLine(string value) => Console.WriteLine(value);
+
+		/// <summary>equivalent to <see cref="Console.WriteLine(object)">Console.WriteLine</see> but is <c>#ifdef DEBUG</c></summary>
+		[Conditional("DEBUG")]
+		public static void DebugWriteLine(object value) => Console.WriteLine(value);
+
+		/// <summary>equivalent to <see cref="Console.WriteLine(string, object[])">Console.WriteLine</see> but is <c>#ifdef DEBUG</c></summary>
+		[Conditional("DEBUG")]
+		public static void DebugWriteLine(string format, params object[] arg) => Console.WriteLine(format, arg);
+
 		/// <exception cref="InvalidOperationException">issues with parsing <paramref name="src"/></exception>
 		/// <remarks>TODO use <see cref="MemoryStream(int)"/> and <see cref="MemoryStream.ToArray"/> instead of using <see cref="MemoryStream(byte[])"/> and keeping a reference to the array? --yoshi</remarks>
 		public static byte[] DecompressGzipFile(Stream src)
@@ -38,7 +56,7 @@ namespace BizHawk.Common
 			return data;
 		}
 
-		/// <remarks>adapted from https://stackoverflow.com/a/3928856/7467292, values are compared using <see cref="EqualityComparer.Default">EqualityComparer.Default</see></remarks>
+		/// <remarks>adapted from https://stackoverflow.com/a/3928856/7467292, values are compared using <see cref="EqualityComparer{T}.Default">EqualityComparer.Default</see></remarks>
 		public static bool DictionaryEqual<TKey, TValue>(IDictionary<TKey, TValue> a, IDictionary<TKey, TValue> b)
 			where TKey : notnull
 		{
@@ -62,7 +80,20 @@ namespace BizHawk.Common
 		/// <returns>all <see cref="Type">Types</see> with the name <paramref name="className"/></returns>
 		/// <remarks>adapted from https://stackoverflow.com/a/13727044/7467292</remarks>
 		public static IList<Type> GetTypeByName(string className) => AppDomain.CurrentDomain.GetAssemblies()
-			.SelectMany(asm => asm.GetTypes().Where(type => className.Equals(type.Name, StringComparison.InvariantCultureIgnoreCase))).ToList();
+			.SelectMany(asm => asm.GetTypesWithoutLoadErrors().Where(type => className.Equals(type.Name, StringComparison.InvariantCultureIgnoreCase))).ToList();
+
+		/// <remarks>TODO replace this with GetTypes (i.e. the try block) when VB.NET dep is properly removed</remarks>
+		public static IEnumerable<Type> GetTypesWithoutLoadErrors(this Assembly assembly)
+		{
+			try
+			{
+				return assembly.GetTypes();
+			}
+			catch (ReflectionTypeLoadException e)
+			{
+				return e.Types.Where(t => t != null);
+			}
+		}
 
 		/// <exception cref="ArgumentException"><paramref name="str"/> has an odd number of chars or contains a char not in <c>[0-9A-Fa-f]</c></exception>
 		public static byte[] HexStringToBytes(this string str)

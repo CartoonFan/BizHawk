@@ -1,8 +1,6 @@
 using System;
 using System.IO;
 using System.Drawing;
-using OpenTK;
-using OpenTK.Graphics.OpenGL;
 
 using BizHawk.Bizware.BizwareGL;
 
@@ -49,9 +47,7 @@ namespace BizHawk.Client.EmuHawk
 			_currentClearColor = color;
 		}
 		
-		public unsafe void BindArrayData(void* pData)
-		{
-		}
+		public void BindArrayData(IntPtr pData) {}
 
 		public void FreeTexture(Texture2d tex)
 		{
@@ -59,16 +55,17 @@ namespace BizHawk.Client.EmuHawk
 			tw.Dispose();
 		}
 
-		public Shader CreateFragmentShader(bool cg, string source, string entry, bool required) => null;
-		public Shader CreateVertexShader(bool cg, string source, string entry, bool required) => null;
+		public Shader CreateFragmentShader(string source, string entry, bool required) => null;
+		public Shader CreateVertexShader(string source, string entry, bool required) => null;
 
 		public void SetBlendState(IBlendState rsBlend)
 		{
 			//TODO for real
 		}
 
-		class MyBlendState : IBlendState { }
-		static readonly MyBlendState _rsBlendNoneVerbatim = new MyBlendState(), _rsBlendNoneOpaque = new MyBlendState(), _rsBlendNormal = new MyBlendState();
+		private class MyBlendState : IBlendState { }
+
+		private static readonly MyBlendState _rsBlendNoneVerbatim = new MyBlendState(), _rsBlendNoneOpaque = new MyBlendState(), _rsBlendNormal = new MyBlendState();
 
 		public IBlendState BlendNoneCopy => _rsBlendNoneVerbatim;
 		public IBlendState BlendNoneOpaque => _rsBlendNoneOpaque;
@@ -105,11 +102,11 @@ namespace BizHawk.Client.EmuHawk
 		
 		}
 
-		public unsafe void SetPipelineUniformMatrix(PipelineUniform uniform, Matrix4 mat, bool transpose)
+		public void SetPipelineUniformMatrix(PipelineUniform uniform, Matrix4 mat, bool transpose)
 		{
 		}
 
-		public unsafe void SetPipelineUniformMatrix(PipelineUniform uniform, ref Matrix4 mat, bool transpose)
+		public void SetPipelineUniformMatrix(PipelineUniform uniform, ref Matrix4 mat, bool transpose)
 		{
 		}
 
@@ -125,7 +122,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 		}
 
-		public unsafe void SetPipelineUniform(PipelineUniform uniform, Vector4[] values)
+		public void SetPipelineUniform(PipelineUniform uniform, Vector4[] values)
 		{
 		}
 
@@ -134,14 +131,11 @@ namespace BizHawk.Client.EmuHawk
 	
 		}
 
-		public void TexParameter2d(Texture2d tex, TextureParameterName pname, int param)
-		{
-			var tw = tex.Opaque as GDIPTextureWrapper;
-			if (pname == TextureParameterName.TextureMinFilter)
-				tw.MinFilter = (TextureMinFilter)param;
-			if (pname == TextureParameterName.TextureMagFilter)
-				tw.MagFilter = (TextureMagFilter)param;
-		}
+		public void SetMinFilter(Texture2d texture, Bizware.BizwareGL.TextureMinFilter minFilter)
+			=> ((GDIPTextureWrapper) texture.Opaque).MinFilter = minFilter;
+
+		public void SetMagFilter(Texture2d texture, Bizware.BizwareGL.TextureMagFilter magFilter)
+			=> ((GDIPTextureWrapper) texture.Opaque).MagFilter = magFilter;
 
 		public Texture2d LoadTexture(Bitmap bitmap)
 		{
@@ -186,7 +180,7 @@ namespace BizHawk.Client.EmuHawk
 			{
 				AllowWrap = false // must be an independent resource
 			};
-			var bb = new BitmapBuffer(tw.SDBitmap, blow); 
+			var bb = new BitmapBuffer(tw.SDBitmap, blow);
 			return bb;
 		}
 
@@ -226,7 +220,7 @@ namespace BizHawk.Client.EmuHawk
 			//  ret.M42 = dims.Height;
 			//  return ret;
 			//}
-			//else 
+			//else
 				return Matrix4.Identity;
 		}
 
@@ -268,7 +262,7 @@ namespace BizHawk.Client.EmuHawk
 			{
 			}
 
-			IGL_GdiPlus Gdi;
+			private readonly IGL_GdiPlus Gdi;
 
 			/// <summary>
 			/// the control associated with this render target (if any)
@@ -338,7 +332,7 @@ namespace BizHawk.Client.EmuHawk
 			rtw.Dispose();
 		}
 
-		public unsafe RenderTarget CreateRenderTarget(int w, int h)
+		public RenderTarget CreateRenderTarget(int w, int h)
 		{
 			var tw = new GDIPTextureWrapper
 			{
@@ -388,7 +382,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		Graphics _CurrentOffscreenGraphics;
+		private Graphics _CurrentOffscreenGraphics;
 
 		public Graphics GetCurrentGraphics()
 		{

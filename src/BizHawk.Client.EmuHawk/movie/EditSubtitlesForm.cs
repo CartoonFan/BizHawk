@@ -5,22 +5,52 @@ using System.Windows.Forms;
 using System.Globalization;
 
 using BizHawk.Client.Common;
+using BizHawk.Common.NumberExtensions;
 
 namespace BizHawk.Client.EmuHawk
 {
 	public partial class EditSubtitlesForm : Form
 	{
-		public bool ReadOnly { get; set; }
-		private IMovie _selectedMovie;
+		
+		private readonly IMovie _selectedMovie;
+		private readonly bool _readOnly;
 
-		public EditSubtitlesForm()
+		public IDialogController DialogController { get; }
+
+		public EditSubtitlesForm(IDialogController dialogController, IMovie movie, bool readOnly)
 		{
+			_selectedMovie = movie;
+			_readOnly = readOnly;
+			DialogController = dialogController;
 			InitializeComponent();
+			Icon = Properties.Resources.TAStudioIcon;
 		}
 
 		private void EditSubtitlesForm_Load(object sender, EventArgs e)
 		{
-			if (ReadOnly)
+			var subs = new SubtitleList();
+			subs.AddRange(_selectedMovie.Subtitles);
+
+			for (int x = 0; x < subs.Count; x++)
+			{
+				var s = subs[x];
+				SubGrid.Rows.Add();
+				var c = SubGrid.Rows[x].Cells[0];
+				c.Value = s.Frame;
+				c = SubGrid.Rows[x].Cells[1];
+				c.Value = s.X;
+				c = SubGrid.Rows[x].Cells[2];
+				c.Value = s.Y;
+				c = SubGrid.Rows[x].Cells[3];
+				c.Value = s.Duration;
+				c = SubGrid.Rows[x].Cells[4];
+				c.Value = $"{s.Color:X8}";
+				c.Style.BackColor = Color.FromArgb((int)s.Color);
+				c = SubGrid.Rows[x].Cells[5];
+				c.Value = s.Message;
+			}
+
+			if (_readOnly)
 			{
 				// Set all columns to read only
 				for (int i = 0; i < SubGrid.Columns.Count; i++)
@@ -48,12 +78,12 @@ namespace BizHawk.Client.EmuHawk
 			var c = SubGrid.Rows[row].Cells[column];
 			var error = $"Unable to parse value: {c.Value}";
 			var caption = $"Parse Error Row {row} Column {column}";
-			MessageBox.Show(error, caption, MessageBoxButtons.OK, MessageBoxIcon.Error);
+			DialogController.ShowMessageBox(error, caption, EMsgBoxIcon.Error);
 		}
 
 		private void Ok_Click(object sender, EventArgs e)
 		{
-			if (!ReadOnly)
+			if (!_readOnly)
 			{
 				_selectedMovie.Subtitles.Clear();
 				for (int i = 0; i < SubGrid.Rows.Count - 1; i++)
@@ -84,32 +114,6 @@ namespace BizHawk.Client.EmuHawk
 			}
 
 			Close();
-		}
-
-		public void GetMovie(IMovie m)
-		{
-			_selectedMovie = m;
-			var subs = new SubtitleList();
-			subs.AddRange(m.Subtitles);
-
-			for (int x = 0; x < subs.Count; x++)
-			{
-				var s = subs[x];
-				SubGrid.Rows.Add();
-				var c = SubGrid.Rows[x].Cells[0];
-				c.Value = s.Frame;
-				c = SubGrid.Rows[x].Cells[1];
-				c.Value = s.X;
-				c = SubGrid.Rows[x].Cells[2];
-				c.Value = s.Y;
-				c = SubGrid.Rows[x].Cells[3];
-				c.Value = s.Duration;
-				c = SubGrid.Rows[x].Cells[4];
-				c.Value = $"{s.Color:X8}";
-				c.Style.BackColor = Color.FromArgb((int)s.Color);
-				c = SubGrid.Rows[x].Cells[5];
-				c.Value = s.Message;
-			}
 		}
 
 		private void ChangeRow(Subtitle s, int index)
@@ -176,7 +180,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SubGrid_MouseDoubleClick(object sender, MouseEventArgs e)
 		{
-			if (ReadOnly)
+			if (_readOnly)
 			{
 				return;
 			}
@@ -213,24 +217,15 @@ namespace BizHawk.Client.EmuHawk
 				return;
 			}
 
-			// Fetch fps
-			var system = _selectedMovie.HeaderEntries[HeaderKeys.Platform];
-			var pal = _selectedMovie.HeaderEntries.ContainsKey(HeaderKeys.Pal)
-				&& _selectedMovie.HeaderEntries[HeaderKeys.Pal] == "1";
-			var pfr = new PlatformFrameRates();
 			double fps;
-
 			try
 			{
-				fps = pfr[system, pal];
+				// RetroEdit: This cannot actually fail because it defaults to 60.0, so the try-catch block is pointless
+				fps = _selectedMovie.FrameRate;
 			}
 			catch
 			{
-				MessageBox.Show(
-					"Could not determine movie fps, export failed.",
-					"Error",
-					MessageBoxButtons.OK,
-					MessageBoxIcon.Error);
+				DialogController.ShowMessageBox( "Could not determine movie fps, export failed.", "Error", EMsgBoxIcon.Error);
 
 				return;
 			}
@@ -240,7 +235,7 @@ namespace BizHawk.Client.EmuHawk
 			File.WriteAllText(fileName, str);
 
 			// Display success
-			MessageBox.Show($"Subtitles successfully exported to {fileName}.", "Success");
+			DialogController.ShowMessageBox($"Subtitles successfully exported to {fileName}.", "Success");
 		}
 
 		private void SubGrid_DefaultValuesNeeded(object sender, DataGridViewRowEventArgs e)
@@ -260,6 +255,28 @@ namespace BizHawk.Client.EmuHawk
 		private void AddColorTag_CheckedChanged(object sender, EventArgs e)
 		{
 			_selectedMovie.Subtitles.AddColorTag = AddColorTag.Checked;
+		}
+
+		private void SubGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
+		{
+			if (!_readOnly && e.ColumnIndex == 4)
+			{
+				var color = Color.White;
+				var val = SubGrid[e.ColumnIndex, e.RowIndex].Value;
+				if (val != null)
+				{
+					var hex = int.Parse(val.ToString(), NumberStyles.HexNumber);
+					color = Color.FromArgb(hex);
+				}
+
+				using var picker = new ColorDialog { AllowFullOpen = true, AnyColor = true, Color = color };
+				if (picker.ShowDialog().IsOk())
+				{
+					SubGrid[e.ColumnIndex, e.RowIndex].Value = picker.Color.ToArgb().ToHexString(8);
+					SubGrid[e.ColumnIndex, e.RowIndex].Style.BackColor = picker.Color;
+					SubGrid.RefreshEdit();
+				}
+			}
 		}
 	}
 }

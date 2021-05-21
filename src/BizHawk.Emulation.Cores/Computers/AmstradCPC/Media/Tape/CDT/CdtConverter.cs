@@ -13,7 +13,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 		/// <summary>
 		/// The type of serializer
 		/// </summary>
-		private MediaConverterType _formatType = MediaConverterType.CDT;
+		private readonly MediaConverterType _formatType = MediaConverterType.CDT;
 		public override MediaConverterType FormatType => _formatType;
 
 		/// <summary>
@@ -29,7 +29,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 		/// <summary>
 		/// Working list of generated tape data blocks
 		/// </summary>
-		private List<TapeDataBlock> _blocks = new List<TapeDataBlock>();
+		private readonly IList<TapeDataBlock> _blocks = new List<TapeDataBlock>();
 
 		/// <summary>
 		/// Position counter
@@ -39,9 +39,9 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 		/// <summary>
 		/// Object to keep track of loops - this assumes there is only one loop at a time
 		/// </summary>
-		private List<KeyValuePair<int, int>> _loopCounter = new List<KeyValuePair<int, int>>();
+		private readonly List<KeyValuePair<int, int>> _loopCounter = new List<KeyValuePair<int, int>>();
 
-		private DatacorderDevice _datacorder;
+		private readonly DatacorderDevice _datacorder;
 
 		public CdtConverter(DatacorderDevice _tapeDevice)
 		{
@@ -68,7 +68,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 
 			double multiplier = 8.0 / 7.0;
 			//double cycleScale = ((40 << 16) / 35);
-			double origPeriods = db.DataPeriods.Count();
+			double origPeriods = db.DataPeriods.Count;
 
 			for (int i = 0; i < origPeriods; i++)
 			{
@@ -182,7 +182,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 			/*
             // convert for Amstrad CPC
             List<TapeDataBlock> newBlocks = new List<TapeDataBlock>();
-            for (int i = 0; i < _datacorder.DataBlocks.Count(); i++)
+            for (int i = 0; i < _datacorder.DataBlocks.Count; i++)
             {
                 newBlocks.Add(ConvertClock(_datacorder.DataBlocks[i]));
             }
@@ -1002,7 +1002,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 			};
 
 			// loop should start from the next block
-			int loopStart = _datacorder.DataBlocks.Count() + 1;
+			int loopStart = _datacorder.DataBlocks.Count + 1;
 
 			int numberOfRepetitions = GetWordValue(data, _position);
 
@@ -1050,7 +1050,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 			}
 
 			// get the number of blocks to loop
-			int blockCnt = _datacorder.DataBlocks.Count() - loopStart;
+			int blockCnt = _datacorder.DataBlocks.Count - loopStart;
 
 			// loop through each group to repeat
 			for (int b = 0; b < numberOfRepetitions; b++)
@@ -1264,7 +1264,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 				If you do not obey these rules, emulators may display your message in any way they like.        */
 		private void ProcessBlockID31(byte[] data)
 		{
-			// currently not implemented properly in ZXHawk
+			// currently not implemented properly in CPCHawk
 			var t = new TapeDataBlock
 			{
 				BlockID = 0x31,
@@ -1428,7 +1428,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 				The list of hardware types and IDs is somewhat large, and may be found at the end of the format description.              */
 		private void ProcessBlockID33(byte[] data)
 		{
-			// currently not implemented properly in ZXHawk
+			// currently not implemented properly in CPCHawk
 
 			TapeDataBlock t = new TapeDataBlock
 			{
@@ -1531,11 +1531,11 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 			_position += 4;
 		}
 
-		// These mostly should be ignored by ZXHawk - here for completeness
+		// These mostly should be ignored by CPCHawk - here for completeness
 
 		private void ProcessBlockID16(byte[] data)
 		{
-			// zxhawk will not implement this block. it will however handle it so subsequent blocks can be parsed
+			// CPCHawk will not implement this block. it will however handle it so subsequent blocks can be parsed
 			TapeDataBlock t = new TapeDataBlock
 			{
 				BlockID = 0x16,
@@ -1554,7 +1554,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 
 		private void ProcessBlockID17(byte[] data)
 		{
-			// zxhawk will not implement this block. it will however handle it so subsequent blocks can be parsed
+			// CPCHawk will not implement this block. it will however handle it so subsequent blocks can be parsed
 			var t = new TapeDataBlock
 			{
 				BlockID = 0x17,
@@ -1573,7 +1573,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 
 		private void ProcessBlockID34(byte[] data)
 		{
-			// currently not implemented properly in ZXHawk
+			// currently not implemented properly in CPCHawk
 			var t = new TapeDataBlock
 			{
 				BlockID = 0x34,
@@ -1602,7 +1602,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
                 And when an emulator encounters the snapshot block it should load it and then continue with the next block.               */
 		private void ProcessBlockID40(byte[] data)
 		{
-			// currently not implemented properly in ZXHawk
+			// currently not implemented properly in CPCHawk
 
 			TapeDataBlock t = new TapeDataBlock
 			{
@@ -1733,7 +1733,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
                         sb.Append(type + ": ");
                         sb.Append(fileName + " ");
                         sb.Append(GetWordValue(blockdata, 14));
-                        sb.Append(":");
+                        sb.Append(':');
                         sb.Append(GetWordValue(blockdata, 12));
                         description = sb.ToString();
                     }

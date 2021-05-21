@@ -1,4 +1,4 @@
-﻿#nullable disable
+﻿using System;
 
 namespace BizHawk.Common
 {
@@ -32,7 +32,7 @@ namespace BizHawk.Common
 			}
 		}
 
-		public static int Calculate(byte[] data)
+		public static int Calculate(ReadOnlySpan<byte> data)
 		{
 			uint result = 0xFFFFFFFF;
 			foreach (var b in data)

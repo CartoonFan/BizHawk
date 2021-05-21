@@ -3,15 +3,15 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 	public partial class LR35902
 	{
 		public ulong TotalExecutedCycles;
+		public ulong instruction_start;
 
 		private int EI_pending;
-		private bool interrupts_enabled;
+		public bool interrupts_enabled;
 
 		// variables for executing instructions
 		public int instr_pntr = 0;
 		public ushort[] cur_instr = new ushort [60];
-		public ushort[] instr_table = new ushort[256 * 2 * 60 + 60 * 8];
-		public int opcode;
+		public ushort[] instr_table = new ushort[256 * 2 * 60 + 60 * 10];
 		public bool CB_prefix;
 		public bool halted;
 		public bool stopped;
@@ -20,7 +20,7 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 
 		// unsaved variables
 		public bool checker;
-		byte interrupt_src_reg, interrupt_enable_reg;
+		private byte interrupt_src_reg, interrupt_enable_reg, buttons_pressed;
 
 		public void BuildInstructionTable()
 		{
@@ -282,7 +282,7 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 					case 0xFB: EI_();									break; // EI
 					case 0xFC: JAM_();									break; // JAM
 					case 0xFD: JAM_();									break; // JAM
-					case 0xFE: REG_OP_IND_INC(CP8, A, PCl, PCh);		break; // XOR A, n
+					case 0xFE: REG_OP_IND_INC(CP8, A, PCl, PCh);		break; // CP A, n
 					case 0xFF: RST_(0x38);								break; // RST 0x38
 				}
 
@@ -603,7 +603,7 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 			// Stop loop
 			instr_table[256 * 60 * 2 + 60 * 5] = IDLE;
 			instr_table[256 * 60 * 2 + 60 * 5 + 1] = IDLE;
-			instr_table[256 * 60 * 2 + 60 * 5 + 2] = IDLE;
+			instr_table[256 * 60 * 2 + 60 * 5 + 2] = HALT_CHK;
 			instr_table[256 * 60 * 2 + 60 * 5 + 3] = STOP;
 
 			// interrupt vectors
@@ -621,6 +621,14 @@ namespace BizHawk.Emulation.Cores.Components.LR35902
 				instr_table[256 * 60 * 2 + 60 * 7 + i] = cur_instr[i];
 			}
 
+			// wait state during HDMA
+			instr_table[256 * 60 * 2 + 60 * 8] = WAIT;
+
+			// Speed Change Loop
+			instr_table[256 * 60 * 2 + 60 * 9] = IDLE;
+			instr_table[256 * 60 * 2 + 60 * 9 + 1] = DIV_RST;
+			instr_table[256 * 60 * 2 + 60 * 9 + 2] = HALT_CHK;
+			instr_table[256 * 60 * 2 + 60 * 9 + 3] = STOP;
 		}
 	}
 }

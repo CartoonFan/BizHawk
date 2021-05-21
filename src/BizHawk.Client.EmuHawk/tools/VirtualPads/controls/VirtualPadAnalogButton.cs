@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
-
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
 
@@ -9,8 +8,7 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class VirtualPadAnalogButton : UserControl, IVirtualPadControl
 	{
-		private string _displayName = "";
-		private int _maxValue, _minValue;
+		private readonly StickyXorAdapter _stickyXorAdapter;
 		private bool _programmaticallyChangingValue;
 		private bool _readonly;
 
@@ -25,14 +23,52 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public VirtualPadAnalogButton()
+		public VirtualPadAnalogButton(
+			StickyXorAdapter stickyXorAdapter,
+			string name,
+			string displayName,
+			int minValue,
+			int maxValue,
+			Orientation orientation)
 		{
+			_stickyXorAdapter = stickyXorAdapter;
+			
+
 			InitializeComponent();
+
+			// Name, AnalogTrackBar, DisplayNameLabel, and ValueLabel are now assigned
+			Name = name;
+			var trackbarWidth = Size.Width - 15;
+			int trackbarHeight;
+			if ((AnalogTrackBar.Orientation = orientation) == Orientation.Vertical)
+			{
+				AnalogTrackBar.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Bottom;
+				trackbarHeight = Size.Height - 30;
+				ValueLabel.Top = Size.Height / 2;
+			}
+			else
+			{
+				AnalogTrackBar.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
+				trackbarHeight = Size.Height - 15;
+			}
+			AnalogTrackBar.Size = new Size(trackbarWidth, trackbarHeight);
+
+			AnalogTrackBar.Minimum = minValue;
+			AnalogTrackBar.Maximum = maxValue;
+
+			// try to base it on the width, lets make a tick every 10 pixels at the minimum
+			// yo none of this makes any sense --yoshi
+			var range = maxValue - minValue + 1;
+			var canDoTicks = Math.Min(Math.Max(2, trackbarWidth / 10), range);
+			AnalogTrackBar.TickFrequency = range / Math.Max(1, canDoTicks);
+
+			DisplayNameLabel.Text = displayName ?? string.Empty;
+			ValueLabel.Text = AnalogTrackBar.Value.ToString();
 		}
 
 		public void UpdateValues()
 		{
-			if (AnalogTrackBar.Value != (int)GlobalWin.InputManager.StickyXorAdapter.AxisValue(Name))
+			if (AnalogTrackBar.Value != _stickyXorAdapter.AxisValue(Name))
 			{
 				RefreshWidgets();
 			}
@@ -40,13 +76,13 @@ namespace BizHawk.Client.EmuHawk
 
 		public void Clear()
 		{
-			GlobalWin.InputManager.StickyXorAdapter.Unset(Name);
+			_stickyXorAdapter.Unset(Name);
 			IsSet = false;
 		}
 
 		public void Set(IController controller)
 		{
-			var newVal = (int)controller.AxisValue(Name);
+			var newVal = controller.AxisValue(Name);
 			var changed = AnalogTrackBar.Value != newVal;
 			if (changed)
 			{
@@ -79,105 +115,6 @@ namespace BizHawk.Client.EmuHawk
 			{
 				CurrentValue += x.Value;
 			}
-		}
-
-		private void VirtualPadAnalogButton_Load(object sender, EventArgs e)
-		{
-			DisplayNameLabel.Text = DisplayName;
-			ValueLabel.Text = AnalogTrackBar.Value.ToString();
-			
-		}
-
-		public string DisplayName
-		{
-			get => _displayName;
-			set
-			{
-				_displayName = value ?? "";
-				if (DisplayNameLabel != null)
-				{
-					DisplayNameLabel.Text = _displayName;
-				}
-			}
-		}
-
-		public int MaxValue
-		{
-			get => _maxValue;
-
-			set
-			{
-				_maxValue = value;
-				if (AnalogTrackBar != null)
-				{
-					AnalogTrackBar.Maximum = _maxValue;
-					UpdateTickFrequency();
-				}
-			}
-		}
-
-		public int MinValue
-		{
-			get => _minValue;
-
-			set
-			{
-				_minValue = value;
-				if (AnalogTrackBar != null)
-				{
-					AnalogTrackBar.Minimum = _minValue;
-					UpdateTickFrequency();
-				}
-			}
-		}
-
-		public Orientation Orientation
-		{
-			get => AnalogTrackBar.Orientation;
-
-			set
-			{
-				AnalogTrackBar.Orientation = value;
-				if (value == Orientation.Horizontal)
-				{
-					AnalogTrackBar.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
-					AnalogTrackBar.Size = new Size(Size.Width - 15, Size.Height - 15);
-				}
-				else if (value == Orientation.Vertical)
-				{
-					AnalogTrackBar.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Bottom;
-					AnalogTrackBar.Size = new Size(Size.Width - 15, Size.Height - 30);
-					ValueLabel.Top = Size.Height / 2;
-				}
-			}
-		}
-
-		private void UpdateTickFrequency()
-		{
-			if (AnalogTrackBar == null)
-			{
-				return;
-			}
-
-			// try to base it on the width, lets make a tick every 10 pixels at the minimum
-			int canDoTicks = AnalogTrackBar.Width / 10;
-			if (canDoTicks < 2)
-			{
-				canDoTicks = 2;
-			}
-
-			int range = _maxValue - _minValue + 1;
-			if (range < canDoTicks)
-			{
-				canDoTicks = range;
-			}
-
-			if (canDoTicks <= 0)
-			{
-				canDoTicks = 1;
-			}
-
-			AnalogTrackBar.TickFrequency = range / canDoTicks;
 		}
 
 		public int CurrentValue
@@ -213,7 +150,7 @@ namespace BizHawk.Client.EmuHawk
 			if (!_programmaticallyChangingValue)
 			{
 				CurrentValue = AnalogTrackBar.Value;
-				GlobalWin.InputManager.StickyXorAdapter.SetAxis(Name, AnalogTrackBar.Value);
+				_stickyXorAdapter.SetAxis(Name, AnalogTrackBar.Value);
 			}
 		}
 
@@ -222,7 +159,7 @@ namespace BizHawk.Client.EmuHawk
 			if (!_isSet)
 			{
 				_programmaticallyChangingValue = true;
-				AnalogTrackBar.Value = (int)GlobalWin.InputManager.StickyXorAdapter.AxisValue(Name);
+				AnalogTrackBar.Value = _stickyXorAdapter.AxisValue(Name);
 				ValueLabel.Text = AnalogTrackBar.Value.ToString();
 				_programmaticallyChangingValue = false;
 			}

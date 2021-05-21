@@ -6,14 +6,10 @@ using BizHawk.Emulation.Cores.Components.MC6809;
 
 namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 {
-	[Core(
-		"VectrexHawk",
-		"",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.VectrexHawk, "")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class VectrexHawk : IEmulator, ISaveRam, IDebuggable, IInputPollable, IRegionable, 
-	ISettable<VectrexHawk.VectrexSettings, VectrexHawk.VectrexSyncSettings>
+	ISettable<object, VectrexHawk.VectrexSyncSettings>
 	{
 		public byte[] RAM = new byte[0x400];
 
@@ -32,7 +28,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 		public SerialPort serialport;
 
 		[CoreConstructor("VEC")]
-		public VectrexHawk(CoreComm comm, byte[] rom, object settings, object syncSettings)
+		public VectrexHawk(CoreComm comm, byte[] rom, VectrexHawk.VectrexSyncSettings syncSettings)
 		{
 			var ser = new BasicServiceProvider(this);
 
@@ -49,17 +45,17 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 			ppu = new PPU();
 			serialport = new SerialPort();
 
-			_settings = (VectrexSettings)settings ?? new VectrexSettings();
+			_settings = new object(); // TODO: wtf is this
 			_syncSettings = (VectrexSyncSettings)syncSettings ?? new VectrexSyncSettings();
 			_controllerDeck = new VectrexHawkControllerDeck(_syncSettings.Port1, _syncSettings.Port2);
 
 			byte[] Bios = null;
 			byte[] Mine = null;
 
-			Bios = comm.CoreFileProvider.GetFirmware("Vectrex", "Bios", true, "BIOS Not Found, Cannot Load");
+			Bios = comm.CoreFileProvider.GetFirmware("VEC", "Bios", true, "BIOS Not Found, Cannot Load");
 			_bios = Bios;
 
-			Mine = comm.CoreFileProvider.GetFirmware("Vectrex", "Minestorm", true, "Minestorm Not Found, Cannot Load");
+			Mine = comm.CoreFileProvider.GetFirmware("VEC", "Minestorm", true, "Minestorm Not Found, Cannot Load");
 			minestorm = Mine;
 
 			Console.WriteLine("SHA1:" + rom.HashSHA1(0, rom.Length));
@@ -109,7 +105,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 			ser.Register<ISoundProvider>(audio);
 			ServiceProvider = ser;
 
-			_settings = (VectrexSettings)settings ?? new VectrexSettings();
+			_settings = new object(); // TODO: wtf is this
 			_syncSettings = (VectrexSyncSettings)syncSettings ?? new VectrexSyncSettings();
 
 			_tracer = new TraceBuffer { Header = cpu.TraceHeader };

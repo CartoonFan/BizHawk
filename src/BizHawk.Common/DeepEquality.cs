@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -13,12 +11,12 @@ namespace BizHawk.Common
 	{
 	}
 
-	public class DeepEquality
+	public static class DeepEquality
 	{
 		/// <summary>
 		/// return true if an array type is not 0-based
 		/// </summary>
-		private static bool IsNonZeroBaedArray(Type t)
+		private static bool IsNonZeroBasedArray(Type t)
 		{
 			if (!t.IsArray)
 			{
@@ -32,7 +30,7 @@ namespace BizHawk.Common
 		/// <summary>
 		/// return all instance fields of a type
 		/// </summary>
-		public static IEnumerable<FieldInfo> GetAllFields(Type t)
+		public static IEnumerable<FieldInfo> GetAllFields(Type? t)
 		{
 			while (t != null)
 			{
@@ -49,17 +47,41 @@ namespace BizHawk.Common
 			}
 		}
 
-		static MethodInfo ArrayEqualsGeneric = typeof(DeepEquality).GetMethod("ArrayEquals", BindingFlags.NonPublic | BindingFlags.Static);
+		/// <summary>
+		/// test if two arrays are equal in contents; arrays should have same type
+		/// </summary>
+		private static bool ArrayEquals<T>(T[] o1, T[] o2)
+		{
+			if (o1.Length != o2.Length)
+			{
+				return false;
+			}
+
+			for (int i = 0; i < o1.Length; i++)
+			{
+				if (!DeepEquals(o1[i], o2[i]))
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		private static readonly MethodInfo ArrayEqualsGeneric
+			= typeof(DeepEquality).GetMethod(nameof(ArrayEquals), BindingFlags.NonPublic | BindingFlags.Static)
+				?? throw new NullReferenceException();
 
 		/// <summary>test if two objects <paramref name="o1"/> and <paramref name="o2"/> are equal, field-by-field (with deep inspection of each field)</summary>
 		/// <exception cref="InvalidOperationException"><paramref name="o1"/> is an array with rank > 1 or is a non-zero-indexed array</exception>
-		public static bool DeepEquals(object o1, object o2)
+		public static bool DeepEquals(object? o1, object? o2)
 		{
 			if (o1 == o2)
 			{
 				// reference equal, so nothing else to be done
 				return true;
 			}
+			if (o1 == null || o2 == null) return false; // not equal (above) and one is null
 
 			Type t1 = o1.GetType();
 			Type t2 = o2.GetType();
@@ -70,7 +92,7 @@ namespace BizHawk.Common
 			if (t1.IsArray)
 			{
 				// it's not too hard to support thesse if needed
-				if (t1.GetArrayRank() > 1 || IsNonZeroBaedArray(t1))
+				if (t1.GetArrayRank() > 1 || IsNonZeroBasedArray(t1))
 				{
 					throw new InvalidOperationException("Complex arrays not supported");
 				}

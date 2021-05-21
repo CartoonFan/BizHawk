@@ -9,7 +9,7 @@ using System.Linq;
 //  public string DisplayName;
 //  public string Bindings;
 // }
-// ...also. We should consider using something other than DisplayName for keying, maybe make a KEYNAME distinct from displayname. 
+// ...also. We should consider using something other than DisplayName for keying, maybe make a KEYNAME distinct from displayname.
 // displayname is OK for now though.
 namespace BizHawk.Client.Common
 {
@@ -105,9 +105,9 @@ namespace BizHawk.Client.Common
 					_defaultValues = new List<Binding>
 					{
 						Bind("General", "Frame Advance", "F"),
-						Bind("General", "Rewind", "Shift+R, J1 B7, X1 LeftTrigger"),
+						Bind("General", "Rewind", "Shift+R"),
 						Bind("General", "Pause", "Pause"),
-						Bind("General", "Fast Forward", "Tab, J1 B8, X1 RightTrigger"),
+						Bind("General", "Fast Forward", "Tab"),
 						Bind("General", "Turbo", "Shift+Tab"),
 						Bind("General", "Toggle Throttle"),
 						Bind("General", "Soft Reset"),
@@ -135,8 +135,9 @@ namespace BizHawk.Client.Common
 						Bind("General", "Stop A/V"),
 						Bind("General", "Larger Window", "Alt+Up"),
 						Bind("General", "Smaller Window", "Alt+Down"),
-						Bind("General", "Increase Speed", "Plus"),
+						Bind("General", "Increase Speed", "Equals"),
 						Bind("General", "Decrease Speed", "Minus"),
+						Bind("General", "Reset Speed", "Shift+Equals"),
 						Bind("General", "Reboot Core", "Ctrl+R"),
 						Bind("General", "Toggle Sound"),
 						Bind("General", "Exit Program"),
@@ -144,6 +145,7 @@ namespace BizHawk.Client.Common
 						Bind("General", "Screen Client to Clipboard", "Ctrl+Shift+C"),
 						Bind("General", "Toggle Skip Lag Frame"),
 						Bind("General", "Toggle Key Priority"),
+						Bind("General", "Frame Inch"),
 
 						Bind("Save States", "Save State 0", "Shift+F10"),
 						Bind("Save States", "Save State 1", "Shift+F1"),
@@ -186,11 +188,6 @@ namespace BizHawk.Client.Common
 						Bind("Movie", "Stop Movie"),
 						Bind("Movie", "Play from beginning"),
 						Bind("Movie", "Save Movie"),
-						Bind("Movie", "Toggle MultiTrack"),
-						Bind("Movie", "MT Select All"),
-						Bind("Movie", "MT Select None"),
-						Bind("Movie", "MT Increment Player"),
-						Bind("Movie", "MT Decrement Player"),
 
 						Bind("Tools", "RAM Watch"),
 						Bind("Tools", "RAM Search"),
@@ -243,6 +240,7 @@ namespace BizHawk.Client.Common
 
 						Bind("GB", "GB Toggle BG"),
 						Bind("GB", "GB Toggle Obj"),
+						Bind("GB", "GB Toggle Window"),
 
 						Bind("Analog", "Y Up Small", toolTip: "For Virtual Pad"),
 						Bind("Analog", "Y Up Large", toolTip: "For Virtual Pad"),

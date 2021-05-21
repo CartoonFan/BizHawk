@@ -1,9 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Drawing.Imaging;
-using System.Windows.Forms;
 
 using BizHawk.Bizware.BizwareGL;
+using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
@@ -21,7 +21,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 		}
 
-		public void SetDefaultVideoCodecToken()
+		public void SetDefaultVideoCodecToken(Config config)
 		{
 		}
 
@@ -72,7 +72,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public IDisposable AcquireVideoCodecToken(IWin32Window hwnd)
+		public IDisposable AcquireVideoCodecToken(Config config)
 		{
 			return new CodecToken();
 		}

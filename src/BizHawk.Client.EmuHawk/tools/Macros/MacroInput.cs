@@ -15,7 +15,7 @@ namespace BizHawk.Client.EmuHawk
 		[RequiredService]
 		private IEmulator Emulator { get; set; }
 
-		private static readonly FilesystemFilterSet MacrosFSFilterSet = new FilesystemFilterSet(new FilesystemFilter("Movie Macros", new[] { "bk2m" }));
+		public static readonly FilesystemFilterSet MacrosFSFilterSet = new FilesystemFilterSet(new FilesystemFilter("Movie Macros", new[] { "bk2m" }));
 
 		private readonly List<MovieZone> _zones = new List<MovieZone>();
 		private readonly List<int> _unsavedZones = new List<int>();
@@ -23,14 +23,18 @@ namespace BizHawk.Client.EmuHawk
 
 		private IMovie CurrentMovie => MovieSession.Movie;
 
-		// Still need to make sure the user can't load and use macros that 
+		// Still need to make sure the user can't load and use macros that
 		// have options only available for TasMovie
 
 		private bool _initializing;
+
+		protected override string WindowTitleStatic => "Macro Input";
+
 		public MacroInputTool()
 		{
 			_initializing = true;
 			InitializeComponent();
+			Icon = Properties.Resources.TAStudioIcon;
 		}
 
 		private void MacroInputTool_Load(object sender, EventArgs e)
@@ -39,7 +43,7 @@ namespace BizHawk.Client.EmuHawk
 			// which resets tools before the movie session becomes active)
 			if (!CurrentMovie.IsActive() && !Tools.IsLoaded<TAStudio>())
 			{
-				MessageBox.Show("In order to use this tool you must be recording a movie.");
+				DialogController.ShowMessageBox("In order to use this tool you must be recording a movie.");
 				Close();
 				DialogResult = DialogResult.Cancel;
 				return;
@@ -47,7 +51,7 @@ namespace BizHawk.Client.EmuHawk
 
 			ReplaceBox.Enabled = OverlayBox.Enabled = PlaceNum.Enabled = CurrentMovie is ITasMovie;
 
-			var main = new MovieZone(CurrentMovie, Emulator, Tools, MovieSession, 0, CurrentMovie.InputLogLength)
+			var main = new MovieZone(Emulator, Tools, MovieSession, 0, CurrentMovie.InputLogLength)
 			{
 				Name = "Entire Movie"
 			};
@@ -74,7 +78,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			if (_initializing)
 			{
@@ -94,13 +98,13 @@ namespace BizHawk.Client.EmuHawk
 				return true;
 			}
 
-			DialogResult result = MessageBox.Show("You have unsaved macro(s). Do you wish to save them?", "Save?", MessageBoxButtons.YesNoCancel);
-			if (result == DialogResult.Cancel)
+			var result = DialogController.ShowMessageBox3("You have unsaved macro(s). Do you wish to save them?", "Save?");
+			if (result == null)
 			{
 				return false;
 			}
 
-			if (result == DialogResult.No)
+			if (result == false)
 			{
 				return true;
 			}
@@ -113,20 +117,15 @@ namespace BizHawk.Client.EmuHawk
 			return true;
 		}
 
-		private void ExitMenuItem_Click(object sender, EventArgs e)
-		{
-			Close();
-		}
-
 		private void SetZoneButton_Click(object sender, EventArgs e)
 		{
 			if (StartNum.Value >= CurrentMovie.InputLogLength || EndNum.Value >= CurrentMovie.InputLogLength)
 			{
-				MessageBox.Show("Start and end frames must be inside the movie.");
+				DialogController.ShowMessageBox("Start and end frames must be inside the movie.");
 				return;
 			}
 
-			var newZone = new MovieZone(CurrentMovie, Emulator, Tools, MovieSession, (int) StartNum.Value, (int) (EndNum.Value - StartNum.Value + 1))
+			var newZone = new MovieZone(Emulator, Tools, MovieSession, (int) StartNum.Value, (int) (EndNum.Value - StartNum.Value + 1))
 			{
 				Name = $"Zone {_zones.Count}"
 			};
@@ -211,14 +210,14 @@ namespace BizHawk.Client.EmuHawk
 				SelectedZone.Start = Emulator.Frame;
 			}
 
-			SelectedZone.PlaceZone(CurrentMovie);
+			SelectedZone.PlaceZone(CurrentMovie, Config);
 		}
 
 		private void SaveAsToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			if (SelectedZone == null)
 			{
-				MessageBox.Show("Please select a zone first.");
+				DialogController.ShowMessageBox("Please select a zone first.");
 				return;
 			}
 
@@ -246,42 +245,42 @@ namespace BizHawk.Client.EmuHawk
 		private void RecentToolStripMenuItem_DropDownOpened(object sender, EventArgs e)
 		{
 			RecentToolStripMenuItem.DropDownItems.Clear();
-			RecentToolStripMenuItem.DropDownItems.AddRange(Config.RecentMacros.RecentMenu(DummyLoadMacro, "Macro"));
+			RecentToolStripMenuItem.DropDownItems.AddRange(Config.RecentMacros.RecentMenu(MainForm, DummyLoadMacro, "Macro"));
 		}
 
 		private void DummyLoadMacro(string path)
 		{
-			MovieZone loadZone = new MovieZone(path, Emulator, Tools);
+			MovieZone loadZone = new MovieZone(path, MainForm, Emulator, MovieSession, Tools);
 			_zones.Add(loadZone);
 			ZonesList.Items.Add($"{loadZone.Name} - length: {loadZone.Length}");
 		}
 
-		private string SuggestedFolder()
+		public static string SuggestedFolder(Config config, IGameInfo game = null)
 		{
-			return Config.PathEntries.AbsolutePathFor(Path.Combine(
-				Config.PathEntries["Global", "Macros"].Path,
-				Game.FilesystemSafeName()), null);
+			return config.PathEntries.AbsolutePathFor(Path.Combine(
+				config.PathEntries["Global", "Macros"].Path,
+				game?.FilesystemSafeName()), null);
 		}
 
-		public bool SaveMacroAs(MovieZone macro)
+		private bool SaveMacroAs(MovieZone macro)
 		{
+			string suggestedFolder = SuggestedFolder(Config, Game);
 			using var dialog = new SaveFileDialog
 			{
-				InitialDirectory = SuggestedFolder(),
+				InitialDirectory = suggestedFolder,
 				FileName = macro.Name,
 				Filter = MacrosFSFilterSet.ToString()
 			};
 
 			// Create directory?
 			bool create = false;
-			if (!Directory.Exists(SuggestedFolder()))
+			if (!Directory.Exists(suggestedFolder))
 			{
-				Directory.CreateDirectory(SuggestedFolder());
+				Directory.CreateDirectory(suggestedFolder);
 				create = true;
 			}
 
-			DialogResult result = dialog.ShowHawkDialog();
-			if (result != DialogResult.OK)
+			if (this.ShowDialogWithTempMute(dialog) != DialogResult.OK)
 			{
 				if (create)
 				{
@@ -297,22 +296,18 @@ namespace BizHawk.Client.EmuHawk
 			return true;
 		}
 
-		public MovieZone LoadMacro(IEmulator emulator = null, ToolManager tools = null)
+		private MovieZone LoadMacro(IEmulator emulator = null, ToolManager tools = null)
 		{
 			using var dialog = new OpenFileDialog
 			{
-				InitialDirectory = SuggestedFolder(),
+				InitialDirectory = SuggestedFolder(Config),
 				Filter = MacrosFSFilterSet.ToString()
 			};
-			
-			DialogResult result = dialog.ShowHawkDialog();
-			if (result != DialogResult.OK)
-			{
-				return null;
-			}
+
+			if (this.ShowDialogWithTempMute(dialog) != DialogResult.OK) return null;
 
 			Config.RecentMacros.Add(dialog.FileName);
-			return new MovieZone(dialog.FileName, emulator ?? Emulator, tools ?? Tools);
+			return new MovieZone(dialog.FileName, MainForm, emulator ?? Emulator, MovieSession, tools ?? Tools);
 		}
 	}
 }

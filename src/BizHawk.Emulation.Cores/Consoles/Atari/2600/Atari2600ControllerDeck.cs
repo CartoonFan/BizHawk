@@ -3,27 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 
 using BizHawk.Common;
-using BizHawk.Common.ReflectionExtensions;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Atari.Atari2600
 {
 	public class Atari2600ControllerDeck
 	{
-		private static readonly Type[] Implementors =
-		{
-			typeof(UnpluggedController), // Order must match Atari2600ControllerTypes enum values
-			typeof(StandardController),
-			typeof(PaddleController),
-			typeof(BoostGripController),
-			typeof(DrivingController),
-			typeof(KeyboardController)
-		};
 
 		public Atari2600ControllerDeck(Atari2600ControllerTypes controller1, Atari2600ControllerTypes controller2)
 		{
-			Port1 = (IPort)Activator.CreateInstance(Implementors[(int)controller1], 1);
-			Port2 = (IPort)Activator.CreateInstance(Implementors[(int)controller2], 2);
+			Port1 = ControllerCtors[controller1](1);
+			Port2 = ControllerCtors[controller1](2);
 
 			Definition = new ControllerDefinition
 			{
@@ -37,11 +27,8 @@ namespace BizHawk.Emulation.Cores.Atari.Atari2600
 					.ToList()
 			};
 
-			Definition.AxisControls.AddRange(Port1.Definition.AxisControls);
-			Definition.AxisControls.AddRange(Port2.Definition.AxisControls);
-
-			Definition.AxisRanges.AddRange(Port1.Definition.AxisRanges);
-			Definition.AxisRanges.AddRange(Port2.Definition.AxisRanges);
+			foreach (var kvp in Port1.Definition.Axes) Definition.Axes.Add(kvp);
+			foreach (var kvp in Port2.Definition.Axes) Definition.Axes.Add(kvp);
 		}
 
 		public byte ReadPort1(IController c)
@@ -80,25 +67,17 @@ namespace BizHawk.Emulation.Cores.Atari.Atari2600
 		private readonly IPort Port1;
 		private readonly IPort Port2;
 
-		private static Dictionary<string, Type> _controllerTypes;
+		private static IReadOnlyDictionary<Atari2600ControllerTypes, Func<int, IPort>> _controllerCtors;
 
-		public static Dictionary<string, Type> ValidControllerTypes
-		{
-			get
+		public static IReadOnlyDictionary<Atari2600ControllerTypes, Func<int, IPort>> ControllerCtors => _controllerCtors
+			??= new Dictionary<Atari2600ControllerTypes, Func<int, IPort>>
 			{
-				if (_controllerTypes == null)
-				{
-					_controllerTypes = typeof(Atari2600ControllerDeck).Assembly
-						.GetTypes()
-						.Where(t => typeof(IPort).IsAssignableFrom(t))
-						.Where(t => !t.IsAbstract && !t.IsInterface)
-						.ToDictionary(tkey => tkey.DisplayName());
-				}
-
-				return _controllerTypes;
-			}
-		}
-
-		public static string DefaultControllerName => typeof(StandardController).DisplayName();
+				[Atari2600ControllerTypes.Unplugged] = portNum => new UnpluggedController(portNum),
+				[Atari2600ControllerTypes.Joystick] = portNum => new StandardController(portNum),
+				[Atari2600ControllerTypes.Paddle] = portNum => new PaddleController(portNum),
+				[Atari2600ControllerTypes.BoostGrip] = portNum => new BoostGripController(portNum),
+				[Atari2600ControllerTypes.Driving] = portNum => new DrivingController(portNum),
+				[Atari2600ControllerTypes.Keyboard] = portNum => new KeyboardController(portNum)
+			};
 	}
 }

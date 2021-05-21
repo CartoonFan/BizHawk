@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Windows.Forms;
 
 // todo - display details on the current resolution status
@@ -23,12 +24,12 @@ namespace BizHawk.Client.EmuHawk
 			InitializeComponent();
 
 			// prep imagelist for listview with 4 item states for (ideal, acceptable, unacceptable, bad)
-			imageList1.Images.AddRange(new[] { Properties.Resources.GreenCheck, Properties.Resources.Freeze, Properties.Resources.thumbsdown, Properties.Resources.ExclamationRed });
+			imageList1.Images.AddRange(new Image[] { Properties.Resources.GreenCheck, Properties.Resources.Freeze, Properties.Resources.ThumbsDown, Properties.Resources.ExclamationRed });
 		}
 
 		private void LvOptions_KeyDown(object sender, KeyEventArgs e)
 		{
-			if (e.KeyCode == Keys.C && e.Control && !e.Alt && !e.Shift)
+			if (e.IsCtrl(Keys.C))
 			{
 				PerformListCopy();
 			}

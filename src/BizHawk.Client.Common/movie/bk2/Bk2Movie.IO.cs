@@ -6,7 +6,7 @@ using BizHawk.Common.IOExtensions;
 
 namespace BizHawk.Client.Common
 {
-	internal partial class Bk2Movie
+	public partial class Bk2Movie
 	{
 		public void Save()
 		{
@@ -42,125 +42,27 @@ namespace BizHawk.Client.Common
 			}
 
 			ClearBeforeLoad();
-
-			bl.GetLump(BinaryStateLump.Movieheader, true, delegate(TextReader tr)
-			{
-				string line;
-				while ((line = tr.ReadLine()) != null)
-				{
-					if (!string.IsNullOrWhiteSpace(line))
-					{
-						var pair = line.Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries);
-
-						if (pair.Length > 1)
-						{
-							if (!Header.ContainsKey(pair[0]))
-							{
-								Header.Add(pair[0], pair[1]);
-							}
-						}
-					}
-				}
-			});
-
-			bl.GetLump(BinaryStateLump.Comments, false, delegate(TextReader tr)
-			{
-				string line;
-				while ((line = tr.ReadLine()) != null)
-				{
-					if (!string.IsNullOrWhiteSpace(line))
-					{
-						Comments.Add(line);
-					}
-				}
-			});
-
-			bl.GetLump(BinaryStateLump.Subtitles, false, delegate(TextReader tr)
-			{
-				string line;
-				while ((line = tr.ReadLine()) != null)
-				{
-					if (!string.IsNullOrWhiteSpace(line))
-					{
-						Subtitles.AddFromString(line);
-					}
-				}
-
-				Subtitles.Sort();
-			});
-
-			bl.GetLump(BinaryStateLump.SyncSettings, false, delegate(TextReader tr)
-			{
-				string line;
-				while ((line = tr.ReadLine()) != null)
-				{
-					if (!string.IsNullOrWhiteSpace(line))
-					{
-						_syncSettingsJson = line;
-					}
-				}
-			});
-
-			bl.GetLump(BinaryStateLump.Input, true, delegate(TextReader tr)
-			{
-				IsCountingRerecords = false;
-				ExtractInputLog(tr, out _);
-				IsCountingRerecords = true;
-			});
-
-			if (StartsFromSavestate)
-			{
-				bl.GetCoreState(
-					delegate(BinaryReader br, long length)
-					{
-						BinarySavestate = br.ReadBytes((int)length);
-					},
-					delegate(TextReader tr)
-					{
-						TextSavestate = tr.ReadToEnd();
-					});
-				bl.GetLump(BinaryStateLump.Framebuffer, false,
-					delegate(BinaryReader br, long length)
-					{
-						SavestateFramebuffer = new int[length / sizeof(int)];
-						for (int i = 0; i < SavestateFramebuffer.Length; i++)
-						{
-							SavestateFramebuffer[i] = br.ReadInt32();
-						}
-					});
-			}
-			else if (StartsFromSaveRam)
-			{
-				bl.GetLump(BinaryStateLump.MovieSaveRam, false,
-					delegate(BinaryReader br, long length)
-					{
-						SaveRam = br.ReadBytes((int)length);
-					});
-			}
+			LoadFields(bl, preload);
 
 			Changes = false;
 			return true;
 		}
 
-		public bool PreLoadHeaderAndLength(HawkFile hawkFile)
-		{
-			var file = new FileInfo(Filename);
-			if (!file.Exists)
-			{
-				return false;
-			}
-
-			Filename = file.FullName;
-			return Load(true);
-		}
+		public bool PreLoadHeaderAndLength() => Load(true);
 
 		protected virtual void Write(string fn, bool isBackup = false)
 		{
-			SetCycleValues(); // We are pretending these only need to be set on save
+			SetCycleValues();
+			// EmulatorVersion used to store the unchanging original emulator version.
+			if (!Header.ContainsKey(HeaderKeys.OriginalEmulatorVersion))
+			{
+				Header[HeaderKeys.OriginalEmulatorVersion] = Header[HeaderKeys.EmulatorVersion];
+			}
+			Header[HeaderKeys.EmulatorVersion] = VersionInfo.GetEmuVersion();
 			CreateDirectoryIfNotExists(fn);
 
 			using var bs = new ZipStateSaver(fn, Session.Settings.MovieCompressionLevel);
-			AddLumps(bs);
+			AddLumps(bs, isBackup);
 
 			if (!isBackup)
 			{
@@ -170,21 +72,30 @@ namespace BizHawk.Client.Common
 
 		private void SetCycleValues()
 		{
-			if (Emulator is Emulation.Cores.Nintendo.SubNESHawk.SubNESHawk subNes)
+			// The saved cycle value will only be valid if the end of the movie has been emulated.
+			if (this.IsAtEnd())
 			{
-				Header[HeaderKeys.VBlankCount] = subNes.VblankCount.ToString();
+				if (Emulator is Emulation.Cores.Nintendo.SubNESHawk.SubNESHawk subNes)
+				{
+					Header[HeaderKeys.VBlankCount] = subNes.VblankCount.ToString();
+				}
+				else if (Emulator is Emulation.Cores.Nintendo.Gameboy.Gameboy gameboy)
+				{
+					Header[HeaderKeys.CycleCount] = gameboy.CycleCount.ToString();
+				}
+				else if (Emulator is Emulation.Cores.Nintendo.SubGBHawk.SubGBHawk subGb)
+				{
+					Header[HeaderKeys.CycleCount] = subGb.CycleCount.ToString();
+				}
 			}
-			else if (Emulator is Emulation.Cores.Nintendo.Gameboy.Gameboy gameboy)
+			else
 			{
-				Header[HeaderKeys.CycleCount] = gameboy.CycleCount.ToString();
-			}
-			else if (Emulator is Emulation.Cores.Nintendo.SubGBHawk.SubGBHawk subGb)
-			{
-				Header[HeaderKeys.CycleCount] = subGb.CycleCount.ToString();
+				Header.Remove(HeaderKeys.CycleCount);
+				Header.Remove(HeaderKeys.VBlankCount);
 			}
 		}
 
-		private void CreateDirectoryIfNotExists(string fn)
+		private static void CreateDirectoryIfNotExists(string fn)
 		{
 			var file = new FileInfo(fn);
 			if (file.Directory != null && !file.Directory.Exists)
@@ -228,7 +139,12 @@ namespace BizHawk.Client.Common
 			}
 		}
 
-		protected void ClearBeforeLoad()
+		protected virtual void ClearBeforeLoad()
+		{
+			ClearBk2Fields();
+		}
+
+		protected void ClearBk2Fields()
 		{
 			Header.Clear();
 			Log.Clear();
@@ -237,6 +153,114 @@ namespace BizHawk.Client.Common
 			_syncSettingsJson = "";
 			TextSavestate = null;
 			BinarySavestate = null;
+		}
+
+		protected virtual void LoadFields(ZipStateLoader bl, bool preload)
+		{
+			LoadBk2Fields(bl, preload);
+		}
+
+		protected void LoadBk2Fields(ZipStateLoader bl, bool preload)
+		{
+			bl.GetLump(BinaryStateLump.Movieheader, true, delegate(TextReader tr)
+			{
+				string line;
+				while ((line = tr.ReadLine()) != null)
+				{
+					if (!string.IsNullOrWhiteSpace(line))
+					{
+						var pair = line.Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries);
+
+						if (pair.Length > 1)
+						{
+							if (!Header.ContainsKey(pair[0]))
+							{
+								Header.Add(pair[0], pair[1]);
+							}
+						}
+					}
+				}
+			});
+
+			bl.GetLump(BinaryStateLump.Input, true, delegate(TextReader tr)
+			{
+				IsCountingRerecords = false;
+				ExtractInputLog(tr, out _);
+				IsCountingRerecords = true;
+			});
+
+			if (preload)
+			{
+				return;
+			}
+
+			bl.GetLump(BinaryStateLump.Comments, false, delegate(TextReader tr)
+			{
+				string line;
+				while ((line = tr.ReadLine()) != null)
+				{
+					if (!string.IsNullOrWhiteSpace(line))
+					{
+						Comments.Add(line);
+					}
+				}
+			});
+
+			bl.GetLump(BinaryStateLump.Subtitles, false, delegate(TextReader tr)
+			{
+				string line;
+				while ((line = tr.ReadLine()) != null)
+				{
+					if (!string.IsNullOrWhiteSpace(line))
+					{
+						Subtitles.AddFromString(line);
+					}
+				}
+
+				Subtitles.Sort();
+			});
+
+			bl.GetLump(BinaryStateLump.SyncSettings, false, delegate(TextReader tr)
+			{
+				string line;
+				while ((line = tr.ReadLine()) != null)
+				{
+					if (!string.IsNullOrWhiteSpace(line))
+					{
+						_syncSettingsJson = line;
+					}
+				}
+			});
+
+			if (StartsFromSavestate)
+			{
+				bl.GetCoreState(
+					delegate(BinaryReader br, long length)
+					{
+						BinarySavestate = br.ReadBytes((int)length);
+					},
+					delegate(TextReader tr)
+					{
+						TextSavestate = tr.ReadToEnd();
+					});
+				bl.GetLump(BinaryStateLump.Framebuffer, false,
+					delegate(BinaryReader br, long length)
+					{
+						SavestateFramebuffer = new int[length / sizeof(int)];
+						for (int i = 0; i < SavestateFramebuffer.Length; i++)
+						{
+							SavestateFramebuffer[i] = br.ReadInt32();
+						}
+					});
+			}
+			else if (StartsFromSaveRam)
+			{
+				bl.GetLump(BinaryStateLump.MovieSaveRam, false,
+					delegate(BinaryReader br, long length)
+					{
+						SaveRam = br.ReadBytes((int)length);
+					});
+			}
 		}
 	}
 }

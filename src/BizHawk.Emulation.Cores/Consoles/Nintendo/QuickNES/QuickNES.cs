@@ -13,27 +13,21 @@ using BizHawk.Common.BufferExtensions;
 
 namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 {
-	[Core(
-		CoreNames.QuickNes,
-		"",
-		isPorted: true,
-		isReleased: true,
-		portedVersion: "0.7.0",
-		portedUrl: "https://github.com/kode54/QuickNES",
-		singleInstance: false)]
+	[PortedCore(CoreNames.QuickNes, "", "0.7.0", "https://github.com/kode54/QuickNES")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class QuickNES : IEmulator, IVideoProvider, ISoundProvider, ISaveRam, IInputPollable, IBoardInfo, IVideoLogicalOffsets,
 		IStatable, IDebuggable, ISettable<QuickNES.QuickNESSettings, QuickNES.QuickNESSyncSettings>, INESPPUViewable
 	{
 		static QuickNES()
 		{
-			Resolver = new DynamicLibraryImportResolver($"libquicknes{(OSTailoredCode.IsUnixHost ? ".dll.so.0.7.0" : ".dll")}");
-			QN = BizInvoker.GetInvoker<LibQuickNES>(Resolver, CallingConventionAdapters.Native);
+			var resolver = new DynamicLibraryImportResolver(
+				$"libquicknes{(OSTailoredCode.IsUnixHost ? ".dll.so.0.7.0" : ".dll")}", hasLimitedLifetime: false);
+			QN = BizInvoker.GetInvoker<LibQuickNES>(resolver, CallingConventionAdapters.Native);
 			QN.qn_setup_mappers();
 		}
 
-		[CoreConstructor("NES")]
-		public QuickNES(byte[] file, object settings, object syncSettings)
+		[CoreConstructor("NES", Priority = CorePriority.Low)]
+		public QuickNES(byte[] file, QuickNESSettings settings, QuickNESSyncSettings syncSettings)
 		{
 			FP = OSTailoredCode.IsUnixHost
 				? (IFPCtrl) new Unix_FPCtrl()
@@ -80,8 +74,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 			}
 		}
 
-		static readonly LibQuickNES QN;
-		static readonly DynamicLibraryImportResolver Resolver;
+		private static readonly LibQuickNES QN;
 
 		public IEmulatorServiceProvider ServiceProvider { get; }
 
@@ -121,11 +114,11 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 			public void Dispose() {}
 		}
 
-		IFPCtrl FP;
+		private readonly IFPCtrl FP;
 
 		public ControllerDefinition ControllerDefinition { get; private set; }
 
-		void SetControllerDefinition()
+		private void SetControllerDefinition()
 		{
 			var def = new ControllerDefinition();
 			def.Name = "NES Controller";
@@ -154,17 +147,17 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 			return PadNames.Zip(PadMasks, (s, i) => new PadEnt(prefix + s, i)).ToArray();
 		}
 
-		private static string[] PadNames = new[]
-			{
-				"Up", "Down", "Left", "Right", "Start", "Select", "B", "A"
-			};
-		private static int[] PadMasks = new[]
-			{
-				16, 32, 64, 128, 8, 4, 2, 1
-			};
+		private static readonly string[] PadNames =
+		{
+			"Up", "Down", "Left", "Right", "Start", "Select", "B", "A"
+		};
+		private static readonly int[] PadMasks =
+		{
+			16, 32, 64, 128, 8, 4, 2, 1
+		};
 
-		private static PadEnt[] PadP1 = GetPadList(1);
-		private static PadEnt[] PadP2 = GetPadList(2);
+		private static readonly PadEnt[] PadP1 = GetPadList(1);
+		private static readonly PadEnt[] PadP2 = GetPadList(2);
 
 		private int GetPad(IController controller, IEnumerable<PadEnt> buttons)
 		{
@@ -177,7 +170,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 			return ret;
 		}
 
-		void SetPads(IController controller, out int j1, out int j2)
+		private void SetPads(IController controller, out int j1, out int j2)
 		{
 			if (_syncSettings.LeftPortConnected)
 				j1 = GetPad(controller, PadP1) | unchecked((int)0xffffff00);
@@ -203,7 +196,6 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 
 				QN.qn_set_tracecb(Context, Tracer.Enabled ? _traceCb : null);
 
-				Frame++;
 				LibQuickNES.ThrowStringError(QN.qn_emulate_frame(Context, j1, j2));
 				IsLagFrame = QN.qn_get_joypad_read_count(Context) == 0;
 				if (IsLagFrame)
@@ -217,11 +209,13 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 				_callBack1?.Invoke();
 				_callBack2?.Invoke();
 
+				Frame++;
+
 				return true;
 			}
 		}
 
-		IntPtr Context;
+		private IntPtr Context;
 		public int Frame { get; private set; }
 
 		public string SystemId => "NES";
@@ -238,7 +232,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 		public RomStatus? BootGodStatus { get; private set; }
 		public string BootGodName { get; private set; }
 
-		void ComputeBootGod()
+		private void ComputeBootGod()
 		{
 			// inefficient, sloppy, etc etc
 			var chrrom = _memoryDomains["CHR VROM"];
@@ -296,7 +290,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 			}
 		}
 
-		void CheckDisposed()
+		private void CheckDisposed()
 		{
 			if (Context == IntPtr.Zero)
 				throw new ObjectDisposedException(GetType().Name);
@@ -304,7 +298,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 
 		// Fix some incorrect ines header entries that QuickNES uses to load games.
 		// we need to do this from the raw file since QuickNES hasn't had time to process it yet.
-		byte[] FixInesHeader(byte[] file)
+		private byte[] FixInesHeader(byte[] file)
 		{
 			string sha1 = BufferExtensions.HashSHA1(file);
 			bool didSomething = false;
@@ -374,6 +368,8 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES
 			"DA8C226A7022A702492921E5CC8215FD02223C41", // Boulder Dash (U) [b5]
 			"293B1E284ADA7677B7518FE4DC18E04BEBE14367", // Boulder Dash (U) [b6]
 			"8B6AF34A4C705B17532BD4C80A121A4896EAA267", // Bugs Bunny Fun House (U) (Prototype) [b1]
+			"D3D6C21E5E11AD325D66C49A6325DFE0B62D5C3E", // Burai Fighter (J)
+			"EECC4BCC7697BFFA04C6425D2399E7F451175AD6", // Burai Fighter (U)
 			"D2332E93093C5ACD2AF8E3F1380459DB09776329", // Business Wars (J)
 			"998AED29B60F74A2F191F8A3480F8F60F55DBA2F", // Chibi Maruko-Chan - Uki Uki Shopping (J) [hM04]
 			"F196DC527F16C172383B02FEFCEE66F3C490CF97", // Chibi Maruko-Chan - Uki Uki Shopping (J) [hM04][b2]

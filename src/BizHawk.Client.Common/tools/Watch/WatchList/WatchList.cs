@@ -5,9 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-using BizHawk.Common.StringExtensions;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.Common
@@ -174,18 +172,14 @@ namespace BizHawk.Client.Common
 
 		/// <summary>
 		/// Add an existing collection of <see cref="Watch"/> into the current one
-		/// <see cref="Watch"/> equality will be checked to avoid doubles
 		/// </summary>
 		/// <param name="watches"><see cref="IEnumerable{Watch}"/> of watch to merge</param>
 		public void AddRange(IEnumerable<Watch> watches)
 		{
-			Parallel.ForEach(watches, watch =>
+			foreach(var watch in watches)
 			{
-				if (!_watchList.Contains(watch))
-				{
-					_watchList.Add(watch);
-				}
-			});
+				_watchList.Add(watch);
+			}
 			Changes = true;
 		}
 
@@ -194,7 +188,7 @@ namespace BizHawk.Client.Common
 		/// </summary>
 		public void ClearChangeCounts()
 		{
-			Parallel.ForEach(_watchList, watch => watch.ClearChangeCount());
+			foreach(var watch in _watchList) watch.ClearChangeCount();
 		}
 
 		/// <summary>
@@ -237,7 +231,7 @@ namespace BizHawk.Client.Common
 		public void RefreshDomains(IMemoryDomains core, PreviousType previousType)
 		{
 			_memoryDomains = core;
-			Parallel.ForEach(_watchList, watch =>
+			foreach(var watch in _watchList)
 			{
 				if (watch.IsSeparator)
 				{
@@ -248,7 +242,7 @@ namespace BizHawk.Client.Common
 				watch.ResetPrevious();
 				watch.Update(previousType);
 				watch.ClearChangeCount();
-			});
+			}
 		}
 
 		/// <summary>
@@ -256,10 +250,10 @@ namespace BizHawk.Client.Common
 		/// </summary>
 		public void UpdateValues(PreviousType previousType)
 		{
-			Parallel.ForEach(_watchList, watch =>
+			foreach(var watch in _watchList)
 			{
 				watch.Update(previousType);
-			});
+			}
 		}
 
 		/// <summary>
@@ -460,7 +454,7 @@ namespace BizHawk.Client.Common
 					startIndex = line.IndexOf('\t') + 1;
 					line = line.Substring(startIndex, line.Length - startIndex);   // Domain
 					temp = line.Substring(0, line.IndexOf('\t'));
-					memDomain = _memoryDomains[temp] ?? _memoryDomains.MainMemory;
+					memDomain = size == WatchSize.Separator ? null : _memoryDomains[temp] ?? _memoryDomains.MainMemory;
 				}
 
 				startIndex = line.IndexOf('\t') + 1;

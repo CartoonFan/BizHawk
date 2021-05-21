@@ -1,26 +1,32 @@
 ﻿using System;
 using System.Drawing;
-using System.Windows.Forms;
-
-using BizHawk.Emulation.Cores.PCEngine;
 using System.Drawing.Imaging;
+using System.Windows.Forms;
 
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
+using BizHawk.Emulation.Cores.PCEngine;
 
 namespace BizHawk.Client.EmuHawk
 {
+	[SpecializedTool("Tile Viewer")]
 	public partial class PceTileViewer : ToolFormBase, IToolFormAutoConfig
 	{
 		[RequiredService]
 		public IPceGpuView Viewer { get; private set; }
 
+		[RequiredService]
+		public IEmulator Emulator { get; set; }
+
 		private int _bgPalNum;
 		private int _spPalNum;
+
+		protected override string WindowTitleStatic => "Tile Viewer";
 
 		public PceTileViewer()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.PceIcon;
 			bmpViewBG.ChangeBitmapSize(512, 256);
 			bmpViewSP.ChangeBitmapSize(512, 256);
 			bmpViewBGPal.ChangeBitmapSize(256, 256);
@@ -40,19 +46,19 @@ namespace BizHawk.Client.EmuHawk
 			bmpViewSPPal.Refresh();
 		}
 
-		static unsafe void Draw16x16(byte* src, int* dest, int pitch, int* pal)
+		private static unsafe void Draw16x16(byte* src, int* dest, int pitch, int* pal)
 		{
 			int inc = pitch - 16;
 			dest -= inc;
 			for (int i = 0; i < 256; i++)
 			{
 				if ((i & 15) == 0)
-					dest += inc; 
+					dest += inc;
 				*dest++ = pal[*src++];
 			}
 		}
 
-		static unsafe void Draw8x8(byte* src, int* dest, int pitch, int* pal)
+		private static unsafe void Draw8x8(byte* src, int* dest, int pitch, int* pal)
 		{
 			int inc = pitch - 8;
 			dest -= inc;
@@ -64,7 +70,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		unsafe void DrawSprites()
+		private unsafe void DrawSprites()
 		{
 			Viewer.GetGpuData(checkBoxVDC2.Checked ? 1 : 0, view =>
 			{
@@ -86,7 +92,7 @@ namespace BizHawk.Client.EmuHawk
 			});
 		}
 
-		unsafe void DrawBacks()
+		private unsafe void DrawBacks()
 		{
 			Viewer.GetGpuData(checkBoxVDC2.Checked ? 1 : 0, view =>
 			{
@@ -108,7 +114,7 @@ namespace BizHawk.Client.EmuHawk
 			});
 		}
 
-		unsafe void DrawPalettes()
+		private unsafe void DrawPalettes()
 		{
 			Viewer.GetGpuData(checkBoxVDC2.Checked ? 1 : 0, view =>
 			{
@@ -118,7 +124,7 @@ namespace BizHawk.Client.EmuHawk
 			});
 		}
 
-		static unsafe void DrawPalette(Bitmap bmp, int* pal)
+		private static unsafe void DrawPalette(Bitmap bmp, int* pal)
 		{
 			var lockData = bmp.LockBits(new Rectangle(0, 0, 256, 256), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
 
@@ -139,7 +145,7 @@ namespace BizHawk.Client.EmuHawk
 			bmp.UnlockBits(lockData);
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			if (Viewer.IsSgx)
 			{
@@ -196,23 +202,19 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void CloseMenuItem_Click(object sender, EventArgs e)
+		private void SaveAsFile(Bitmap bmp, string suffix)
 		{
-			Close();
+			bmp.SaveAsFile(Game, suffix, Emulator.SystemId, Config.PathEntries, this);
 		}
 
 		private void SaveBackgroundScreenshotMenuItem_Click(object sender, EventArgs e)
 		{
-			bmpViewBG.SaveFile();
+			SaveAsFile(bmpViewBG.Bmp, "BG");
 		}
 
 		private void SaveSpriteScreenshotMenuItem_Click(object sender, EventArgs e)
 		{
-			bmpViewSP.SaveFile();
-		}
-
-		private void PceTileViewer_Load(object sender, EventArgs e)
-		{
+			SaveAsFile(bmpViewBG.Bmp, "Sprites");
 		}
 	}
 }

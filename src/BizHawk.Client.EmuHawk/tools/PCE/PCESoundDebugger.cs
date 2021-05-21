@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.IO.Compression;
 using System.Collections.Generic;
 using System.Windows.Forms;
 
@@ -8,18 +9,20 @@ using BizHawk.Common.BufferExtensions;
 using BizHawk.Emulation.Cores.PCEngine;
 using BizHawk.Emulation.Common;
 
-using ICSharpCode.SharpZipLib.Zip;
-
 namespace BizHawk.Client.EmuHawk
 {
+	[SpecializedTool("Sound Debugger")]
 	public partial class PCESoundDebugger : ToolFormBase, IToolFormAutoConfig
 	{
 		[RequiredService]
 		private PCEngine PCE { get; set; }
 
+		protected override string WindowTitleStatic => "Sound Debugger";
+
 		public PCESoundDebugger()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.BugIcon;
 
 			SetStyle(ControlStyles.AllPaintingInWmPaint, true);
 			SetStyle(ControlStyles.UserPaint, true);
@@ -60,24 +63,31 @@ namespace BizHawk.Client.EmuHawk
 					lvChannels.Items[i].SubItems[1].Text = "-";
 					lvChannels.Items[i].SubItems[2].Text = "-";
 					lvChannels.Items[i].SubItems[3].Text = "(disabled)";
-					goto DEAD;
+					_lastSamples[i] = null;
+					continue;
 				}
 				if (ch.DDA)
 				{
 					lvChannels.Items[i].SubItems[1].Text = "-";
 					lvChannels.Items[i].SubItems[2].Text = "-";
 					lvChannels.Items[i].SubItems[3].Text = "(DDA)";
-					goto DEAD;
+					_lastSamples[i] = null;
+					continue;
 				}
 				lvChannels.Items[i].SubItems[1].Text = ch.Volume.ToString();
 				lvChannels.Items[i].SubItems[2].Text = ch.Frequency.ToString();
 				if (ch.NoiseChannel)
 				{
 					lvChannels.Items[i].SubItems[3].Text = "(noise)";
-					goto DEAD;
+					_lastSamples[i] = null;
+					continue;
 				}
 
-				if (ch.Volume == 0) goto DEAD;
+				if (ch.Volume == 0)
+				{
+					_lastSamples[i] = null;
+					continue;
+				}
 
 				lvChannels.Items[i].SubItems[3].Text = "-";
 
@@ -132,11 +142,6 @@ namespace BizHawk.Client.EmuHawk
 				}
 
 				lvChannels.Items[i].SubItems[3].Text = _psgEntryTable[md5].Name;
-
-				continue;
-
-			DEAD:
-				_lastSamples[i] = null;
 			}
 
 			if (sync)
@@ -159,14 +164,10 @@ namespace BizHawk.Client.EmuHawk
 		private readonly List<PsgEntry> _psgEntries = new List<PsgEntry>();
 		private readonly Dictionary<string, PsgEntry> _psgEntryTable = new Dictionary<string, PsgEntry>();
 
-		public void Restart()
-		{
-		}
-
 		// 32*16 samples, 16bit, mono, 8khz (but we'll change the sample rate)
 		private static readonly byte[] EmptyWav = {
-			0x52, 0x49, 0x46, 0x46, 0x24, 0x04, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6D, 0x74, 0x20, 
-			0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0xE0, 0x2E, 0x00, 0x00, 0xC0, 0x5D, 0x00, 0x00, 
+			0x52, 0x49, 0x46, 0x46, 0x24, 0x04, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6D, 0x74, 0x20,
+			0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0xE0, 0x2E, 0x00, 0x00, 0xC0, 0x5D, 0x00, 0x00,
 			0x02, 0x00, 0x10, 0x00, 0x64, 0x61, 0x74, 0x61, 0x00, 0x04, 0x00, 0x00
 		};
 
@@ -176,16 +177,10 @@ namespace BizHawk.Client.EmuHawk
 			string tmpFilename = $"{Path.GetTempFileName()}.zip";
 			using (var stream = new FileStream(tmpFilename, FileMode.Create, FileAccess.Write, FileShare.Read))
 			{
-				var zip = new ZipOutputStream(stream)
-				{
-					IsStreamOwner = false,
-					UseZip64 = UseZip64.Off
-				};
+				using var zip = new ZipArchive(stream, ZipArchiveMode.Create);
 
 				foreach (var entry in _psgEntries)
 				{
-					var ze = new ZipEntry($"{entry.Name}.wav") { CompressionMethod = CompressionMethod.Deflated };
-					zip.PutNextEntry(ze);
 					var ms = new MemoryStream();
 					var bw = new BinaryWriter(ms);
 					bw.Write(EmptyWav, 0, EmptyWav.Length);
@@ -204,13 +199,11 @@ namespace BizHawk.Client.EmuHawk
 
 					bw.Flush();
 					var buf = ms.GetBuffer();
-					zip.Write(buf, 0, (int)ms.Length);
-					zip.Flush();
-					zip.CloseEntry();
-				}
 
-				zip.Close();
-				stream.Flush();
+					var ze = zip.CreateEntry($"{entry.Name}.wav", CompressionLevel.Fastest);
+					using var zipstream = ze.Open();
+					zipstream.Write(buf, 0, (int)ms.Length);
+				}
 			}
 			System.Diagnostics.Process.Start(tmpFilename);
 		}

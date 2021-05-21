@@ -8,16 +8,13 @@ using NLua;
 namespace BizHawk.Client.Common
 {
 	[Description("A library for interacting with the currently loaded emulator core")]
-	public sealed class EmulationLuaLibrary : DelegatingLuaLibrary
+	public sealed class EmulationLuaLibrary : LuaLibraryBase
 	{
 		public Action FrameAdvanceCallback { get; set; }
 		public Action YieldCallback { get; set; }
 
-		public EmulationLuaLibrary(Lua lua)
-			: base(lua) { }
-
-		public EmulationLuaLibrary(Lua lua, Action<string> logOutputCallback)
-			: base(lua, logOutputCallback) { }
+		public EmulationLuaLibrary(IPlatformLuaLibEnv luaLibsImpl, ApiContainer apiContainer, Action<string> logOutputCallback)
+			: base(luaLibsImpl, apiContainer, logOutputCallback) {}
 
 		public override string Name => "emu";
 
@@ -47,12 +44,7 @@ namespace BizHawk.Client.Common
 
 		[LuaMethodExample("local nlemuget = emu.getregisters( );")]
 		[LuaMethod("getregisters", "returns the complete set of available flags and registers for a given core")]
-		public LuaTable GetRegisters()
-		{
-			return APIs.Emulation
-				.GetRegisters()
-				.ToLuaTable(Lua);
-		}
+		public LuaTable GetRegisters() => _th.DictToTable(APIs.Emulation.GetRegisters());
 
 		[LuaMethodExample("emu.setregister( emu.getregisters( )[ 0 ], -1000 );")]
 		[LuaMethod("setregister", "sets the given register name to the given value")]
@@ -109,10 +101,12 @@ namespace BizHawk.Client.Common
 		[LuaMethod("getboardname", "returns (if available) the board name of the loaded ROM")]
 		public string GetBoardName() => APIs.Emulation.GetBoardName();
 
+		[LuaDeprecatedMethod]
 		[LuaMethod("getluacore", "returns the name of the Lua core currently in use")]
 		public string GetLuaBackend()
 		{
-			return Lua.WhichLua;
+			Log("Deprecated function emu.getluacore() used, replace the call with client.get_lua_engine().");
+			return _luaLibsImpl.EngineName;
 		}
 	}
 }

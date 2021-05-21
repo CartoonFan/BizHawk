@@ -39,22 +39,22 @@ namespace BizHawk.Emulation.DiscSystem
 			/// <summary>
 			/// The [Session] sections
 			/// </summary>
-			public List<CCDSession> Sessions = new List<CCDSession>();
+			public readonly IList<CCDSession> Sessions = new List<CCDSession>();
 
 			/// <summary>
 			/// The [Entry] sctions
 			/// </summary>
-			public List<CCDTocEntry> TOCEntries = new List<CCDTocEntry>();
+			public readonly IList<CCDTocEntry> TOCEntries = new List<CCDTocEntry>();
 
 			/// <summary>
 			/// The [TRACK] sections
 			/// </summary>
-			public List<CCDTrack> Tracks = new List<CCDTrack>();
+			public readonly IList<CCDTrack> Tracks = new List<CCDTrack>();
 
 			/// <summary>
 			/// The [TRACK] sections, indexed by number
 			/// </summary>
-			public Dictionary<int, CCDTrack> TracksByNumber = new Dictionary<int, CCDTrack>();
+			public readonly IDictionary<int, CCDTrack> TracksByNumber = new Dictionary<int, CCDTrack>();
 		}
 
 		/// <summary>
@@ -126,7 +126,7 @@ namespace BizHawk.Emulation.DiscSystem
 			/// <summary>
 			/// The indexes specified for the track (these are 0-indexed)
 			/// </summary>
-			public Dictionary<int, int> Indexes = new Dictionary<int, int>();
+			public readonly IDictionary<int, int> Indexes = new Dictionary<int, int>();
 		}
 
 		/// <summary>
@@ -203,10 +203,18 @@ namespace BizHawk.Emulation.DiscSystem
 					var parts = line.Split('=');
 					if (parts.Length != 2)
 						throw new CCDParseException("Malformed or unexpected CCD format: parsing item into two parts");
+					if (parts[0].ToUpper() == "FLAGS")
+					{
+						// flags are a space-separated collection of symbolic constants:
+						// https://www.gnu.org/software/ccd2cue/manual/html_node/FLAGS-_0028Compact-Disc-fields_0029.html#FLAGS-_0028Compact-Disc-fields_0029
+						// But we don't seem to do anything with them?  Skip because the subsequent code will fail to parse them
+						continue;
+					}
 					int val;
 					if (parts[1].StartsWith("0x") || parts[1].StartsWith("0X"))
 						val = int.Parse(parts[1].Substring(2), NumberStyles.HexNumber);
-					else val = int.Parse(parts[1]);
+					else
+						val = int.Parse(parts[1]);
 					currSection[parts[0].ToUpper()] = val;
 				}
 			} //loop until lines exhausted
@@ -293,7 +301,7 @@ namespace BizHawk.Emulation.DiscSystem
 						throw new CCDParseException("Warning: inconsistency in CCD PLBA vs computed P MSF");
 
 					if(entry.Session != 1)
-						throw new CCDParseException("Malformed CCD format: not yet supporting multi-session files"); 
+						throw new CCDParseException("Malformed CCD format: not yet supporting multi-session files");
 				}
 				else if (section.Name.StartsWith("TRACK"))
 				{
@@ -489,9 +497,9 @@ namespace BizHawk.Emulation.DiscSystem
 				var ecmPath = Path.ChangeExtension(imgPath, ".img.ecm");
 				if (File.Exists(ecmPath))
 				{
-					if (Disc.Blob_ECM.IsECM(ecmPath))
+					if (Blob_ECM.IsECM(ecmPath))
 					{
-						var ecm = new Disc.Blob_ECM();
+						var ecm = new Blob_ECM();
 						ecm.Load(ecmPath);
 						imgBlob = ecm;
 						imgLen = ecm.Length;
@@ -501,7 +509,7 @@ namespace BizHawk.Emulation.DiscSystem
 			if (imgBlob == null)
 			{
 				if (!File.Exists(loadResults.ImgPath)) throw new CCDParseException("Malformed CCD format: nonexistent IMG file!");
-				var imgFile = new Disc.Blob_RawFile() { PhysicalPath = loadResults.ImgPath };
+				var imgFile = new Blob_RawFile() { PhysicalPath = loadResults.ImgPath };
 				imgLen = imgFile.Length;
 				imgBlob = imgFile;
 			}
@@ -509,7 +517,7 @@ namespace BizHawk.Emulation.DiscSystem
 
 			//mount the SUB file
 			if (!File.Exists(loadResults.SubPath)) throw new CCDParseException("Malformed CCD format: nonexistent SUB file!");
-			var subFile = new Disc.Blob_RawFile() { PhysicalPath = loadResults.SubPath };
+			var subFile = new Blob_RawFile() { PhysicalPath = loadResults.SubPath };
 			subBlob = subFile;
 			disc.DisposableResources.Add(subBlob);
 			subLen = subFile.Length;
@@ -532,11 +540,11 @@ namespace BizHawk.Emulation.DiscSystem
 				BCD2 tno, ino;
 
 				//this should actually be zero. im not sure if this is stored as BCD2 or not
-				tno = BCD2.FromDecimal(entry.TrackNo); 
+				tno = BCD2.FromDecimal(entry.TrackNo);
 				
 				//these are special values.. I think, taken from this:
 				//http://www.staff.uni-mainz.de/tacke/scsi/SCSI2-14.html
-				//the CCD will contain Points as decimal values except for these specially converted decimal values which should stay as BCD. 
+				//the CCD will contain Points as decimal values except for these specially converted decimal values which should stay as BCD.
 				//Why couldn't they all be BCD? I don't know. I guess because BCD is inconvenient, but only A0 and friends have special meaning. It's confusing.
 				ino = BCD2.FromDecimal(entry.Point);
 				if (entry.Point == 0xA0) ino.BCDValue = 0xA0;
@@ -562,7 +570,7 @@ namespace BizHawk.Emulation.DiscSystem
 			}
 
 			//analyze the RAWTocEntries to figure out what type of track track 1 is
-			var tocSynth = new Synthesize_DiscTOC_From_RawTOCEntries_Job() { Entries = disc.RawTOCEntries };
+			var tocSynth = new Synthesize_DiscTOC_From_RawTOCEntries_Job(disc.RawTOCEntries);
 			tocSynth.Run();
 			
 			//Add sectors for the mandatory track 1 pregap, which isn't stored in the CCD file

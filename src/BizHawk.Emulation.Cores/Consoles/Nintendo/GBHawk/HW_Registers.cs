@@ -37,6 +37,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 				// Interrupt flags
 				case 0xFF0F:
+					//Console.WriteLine("FF0F " + cpu.TotalExecutedCycles);
 					ret = REG_FF0F_OLD;
 					break;
 
@@ -178,7 +179,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 				case 0xFF70:
 					if (GBC_compat)
 					{
-						ret = (byte)RAM_Bank;
+						ret = (byte)(0xF8 | RAM_Bank_ret);
 					}
 					else
 					{
@@ -212,12 +213,24 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					break;
 
 				case 0xFF76:
-					if (is_GBC) { ret = undoc_76; }
+					var ret1 = audio.SQ1_output >= Audio.DAC_OFST
+						? (byte) (audio.SQ1_output - Audio.DAC_OFST)
+						: (byte) 0;
+					var ret2 = audio.SQ2_output >= Audio.DAC_OFST
+						? (byte) (audio.SQ2_output - Audio.DAC_OFST)
+						: (byte) 0;
+					if (is_GBC) { ret = (byte)(ret1 | (ret2 << 4)); }
 					else { ret = 0xFF; }
 					break;
 
 				case 0xFF77:
-					if (is_GBC) { ret = undoc_77; }
+					var retN = audio.NOISE_output >= Audio.DAC_OFST
+						? (byte) (audio.NOISE_output - Audio.DAC_OFST)
+						: (byte) 0;
+					var retW = audio.WAVE_output >= Audio.DAC_OFST
+						? (byte) (audio.WAVE_output - Audio.DAC_OFST)
+						: (byte) 0;
+					if (is_GBC) { ret = (byte)(retN | (retW << 4)); }
 					else { ret = 0xFF; }
 					break;
 
@@ -375,9 +388,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					if ((value != 0xC0) && (value != 0x80) && (GB_bios_register == 0))// && (value != 0xFF) && (value != 0x04))
 					{
 						GBC_compat = false;
-
-						// cpu operation is a function of hardware only
-						//cpu.is_GBC = GBC_compat;
 					}
 					Console.Write("GBC Compatibility? ");
 					Console.WriteLine(value);
@@ -405,6 +415,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					if (GB_bios_register == 0)
 					{
 						GB_bios_register = value;
+						if (!GBC_compat) { ppu.pal_change_blocked = true; RAM_Bank = 1; RAM_Bank_ret = 0; }
 					}			
 					break;
 
@@ -450,6 +461,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					if (GBC_compat)
 					{
 						RAM_Bank = value & 7;
+						RAM_Bank_ret = RAM_Bank;
 						if (RAM_Bank == 0) { RAM_Bank = 1; }
 					}
 					break;
@@ -500,7 +512,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					break;
 
 				default:
-					Console.WriteLine(addr + " " + value);
+					//Console.WriteLine(addr + " " + value);
 					break;
 			}
 		}

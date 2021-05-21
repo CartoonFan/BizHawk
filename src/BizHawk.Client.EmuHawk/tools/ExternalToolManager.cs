@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -12,42 +11,41 @@ using BizHawk.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
-	/// <summary>
-	/// This static class handle all ExternalTools
-	/// </summary>
-	public static class ExternalToolManager
+	public sealed class ExternalToolManager
 	{
-		private static readonly FileSystemWatcher DirectoryMonitor;
-		private static readonly List<ToolStripMenuItem> MenuItems = new List<ToolStripMenuItem>();
+		private readonly Func<(CoreSystem System, string Hash)> _getLoadedRomInfoCallback;
 
-		/// <summary>
-		/// Initialization
-		/// </summary>
-		static ExternalToolManager()
+		private FileSystemWatcher DirectoryMonitor;
+
+		private readonly List<ToolStripMenuItem> MenuItems = new List<ToolStripMenuItem>();
+
+		public ExternalToolManager(PathEntryCollection paths, Func<(CoreSystem System, string Hash)> getLoadedRomInfoCallback)
 		{
-			if(!Directory.Exists(GlobalWin.Config.PathEntries["Global", "External Tools"].Path))
-			{
-				Directory.CreateDirectory(GlobalWin.Config.PathEntries["Global", "External Tools"].Path);
-			}
+			_getLoadedRomInfoCallback = getLoadedRomInfoCallback;
+			Restart(paths);
+		}
 
-			DirectoryMonitor = new FileSystemWatcher(GlobalWin.Config.PathEntries["Global", "External Tools"].Path, "*.dll")
+		public void Restart(PathEntryCollection paths)
+		{
+			if (DirectoryMonitor != null)
 			{
-				IncludeSubdirectories = false
-				, NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName
-				, Filter = "*.dll"
+				DirectoryMonitor.Created -= DirectoryMonitor_Created;
+				DirectoryMonitor.Dispose();
+			}
+			var extToolsDir = paths["Global", "External Tools"].Path;
+			if (!Directory.Exists(extToolsDir)) Directory.CreateDirectory(extToolsDir);
+			DirectoryMonitor = new FileSystemWatcher(extToolsDir, "*.dll")
+			{
+				IncludeSubdirectories = false,
+				NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName,
+				Filter = "*.dll"
 			};
 			DirectoryMonitor.Created += DirectoryMonitor_Created;
 			DirectoryMonitor.EnableRaisingEvents = true;
-
-			ClientApi.RomLoaded += delegate { BuildToolStrip(); };
-
 			BuildToolStrip();
 		}
 
-		/// <summary>
-		/// Build the ToolStrip menu
-		/// </summary>
-		private static void BuildToolStrip()
+		internal void BuildToolStrip()
 		{
 			MenuItems.Clear();
 			if (Directory.Exists(DirectoryMonitor.Path))
@@ -66,7 +64,7 @@ namespace BizHawk.Client.EmuHawk
 		/// a <see cref="ToolStripMenuItem"/> with its <see cref="ToolStripItem.Tag"/> containing a <c>(string, string)</c>;
 		/// the first is the assembly path (<paramref name="fileName"/>) and the second is the <see cref="Type.FullName"/> of the entry point form's type
 		/// </returns>
-		private static ToolStripMenuItem GenerateToolTipFromFileName(string fileName)
+		private ToolStripMenuItem GenerateToolTipFromFileName(string fileName)
 		{
 			if (fileName == null) throw new Exception();
 			var item = new ToolStripMenuItem(Path.GetFileName(fileName)) { Enabled = false };
@@ -76,9 +74,7 @@ namespace BizHawk.Client.EmuHawk
 				var externalToolFile = Assembly.LoadFrom(fileName);
 				var entryPoint = externalToolFile.GetTypes()
 					.SingleOrDefault(t => typeof(IExternalToolForm).IsAssignableFrom(t) && t.GetCustomAttributes().OfType<ExternalToolAttribute>().Any());
-#pragma warning disable CS0618
-				if (entryPoint == null) throw new ExternalToolAttribute.MissingException(externalToolFile.GetCustomAttributes().OfType<BizHawkExternalToolAttribute>().Any());
-#pragma warning restore CS0618
+				if (entryPoint == null) throw new ExternalToolAttribute.MissingException();
 
 				var allAttrs = entryPoint.GetCustomAttributes().ToList();
 				var applicabilityAttrs = allAttrs.OfType<ExternalToolApplicabilityAttributeBase>().ToList();
@@ -99,7 +95,7 @@ namespace BizHawk.Client.EmuHawk
 				item.Tag = (externalToolFile.Location, entryPoint.FullName); // Tag set => no errors (show custom icon even when disabled)
 				if (applicabilityAttrs.Count == 1)
 				{
-					var system = GlobalWin.ClientApi.SystemIdConverter.Convert(GlobalWin.Emulator.SystemId);
+					var (system, loadedRomHash) = _getLoadedRomInfoCallback();
 					if (applicabilityAttrs[0].NotApplicableTo(system))
 					{
 						item.ToolTipText = system == CoreSystem.Null
@@ -107,7 +103,7 @@ namespace BizHawk.Client.EmuHawk
 							: "This tool doesn't work with this system";
 						return item;
 					}
-					if (applicabilityAttrs[0].NotApplicableTo(GlobalWin.Game.Hash, system))
+					if (applicabilityAttrs[0].NotApplicableTo(loadedRomHash, system))
 					{
 						item.ToolTipText = "This tool doesn't work with this game";
 						return item;
@@ -123,17 +119,15 @@ namespace BizHawk.Client.EmuHawk
 #if DEBUG
 				if (e is ReflectionTypeLoadException rtle)
 				{
-					foreach (var e1 in rtle.LoaderExceptions) Debug.WriteLine(e1.Message);
+					foreach (var e1 in rtle.LoaderExceptions) System.Diagnostics.Debug.WriteLine(e1.Message);
 				}
 #endif
 				item.ToolTipText = e switch
 				{
-					BadImageFormatException _ => "This assembly can't be loaded, probably because it's corrupt or targets an incompatible .NET runtime.",
-					ExternalToolApplicabilityAttributeBase.DuplicateException _ => "The IExternalToolForm has conflicting applicability attributes.",
-					ExternalToolAttribute.MissingException e1 => e1.OldAttributeFound
-						? "The assembly doesn't contain a class implementing IExternalToolForm and annotated with [ExternalTool].\nHowever, the assembly itself is annotated with [BizHawkExternalTool], which is now deprecated. Has the tool been updated since BizHawk 2.4?"
-						: "The assembly doesn't contain a class implementing IExternalToolForm and annotated with [ExternalTool].",
-					ReflectionTypeLoadException _ => "Something went wrong while trying to load the assembly.",
+					BadImageFormatException => "This assembly can't be loaded, probably because it's corrupt or targets an incompatible .NET runtime.",
+					ExternalToolApplicabilityAttributeBase.DuplicateException => "The IExternalToolForm has conflicting applicability attributes.",
+					ExternalToolAttribute.MissingException => "The assembly doesn't contain a class implementing IExternalToolForm and annotated with [ExternalTool].",
+					ReflectionTypeLoadException => "Something went wrong while trying to load the assembly.",
 					_ => $"An exception of type {e.GetType().FullName} was thrown while trying to load the assembly and look for an IExternalToolForm:\n{e.Message}"
 				};
 			}
@@ -147,7 +141,7 @@ namespace BizHawk.Client.EmuHawk
 		/// </summary>
 		/// <param name="sender">Object that raised the event</param>
 		/// <param name="e">Event arguments</param>
-		private static void DirectoryMonitor_Created(object sender, FileSystemEventArgs e)
+		private void DirectoryMonitor_Created(object sender, FileSystemEventArgs e)
 		{
 			MenuItems.Add(GenerateToolTipFromFileName(e.FullPath));
 		}
@@ -156,6 +150,6 @@ namespace BizHawk.Client.EmuHawk
 		/// Gets a prebuild <see cref="ToolStripMenuItem"/>
 		/// This list auto-updated by the <see cref="ExternalToolManager"/> itself
 		/// </summary>
-		public static IEnumerable<ToolStripMenuItem> ToolStripMenu => MenuItems;
+		public IEnumerable<ToolStripMenuItem> ToolStripMenu => MenuItems;
 	}
 }

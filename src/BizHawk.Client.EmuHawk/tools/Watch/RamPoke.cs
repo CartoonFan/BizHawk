@@ -8,35 +8,37 @@ using BizHawk.Client.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
+	// TODO: don't use textboxes as labels
 	public partial class RamPoke : Form
 	{
-		// TODO: don't use textboxes as labels
-		private List<Watch> _watchList = new List<Watch>();
+		private readonly List<Watch> _watchList;
+		private readonly CheatCollection _cheats;
+
+		public IDialogController DialogController { get; }
 
 		public Point InitialLocation { get; set; } = new Point(0, 0);
 
-		public RamPoke()
+		public RamPoke(IDialogController dialogController, IEnumerable<Watch> watches, CheatCollection cheats)
 		{
+			_watchList = watches
+				.Where(w => !w.IsSeparator) // Weed out separators just in case
+				.ToList();
+			_cheats = cheats;
+			DialogController = dialogController;
 			InitializeComponent();
+			Icon = Properties.Resources.PokeIcon;
 		}
 
 		public IToolForm ParentTool { get; set; }
 
-		public void SetWatch(IEnumerable<Watch> watches)
-		{
-			_watchList = watches.ToList();
-		}
-
 		private void UnSupportedConfiguration()
 		{
-			MessageBox.Show("RAM Poke does not support mixed types", "Unsupported Options", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			DialogController.ShowMessageBox("RAM Poke does not support mixed types", "Unsupported Options", EMsgBoxIcon.Error);
 			Close();
 		}
 
 		private void RamPoke_Load(object sender, EventArgs e)
 		{
-			_watchList = _watchList.Where(x => !x.IsSeparator).ToList(); // Weed out separators just in case
-
 			if (_watchList.Count == 0)
 			{
 				ValueBox.Enabled = false;
@@ -69,7 +71,7 @@ namespace BizHawk.Client.EmuHawk
 			ValueBox.ByteSize = _watchList[0].Size;
 			ValueBox.Type = _watchList[0].Type;
 
-			ValueHexLabel.Text = _watchList[0].Type == DisplayType.Hex ? "0x" : "";
+			ValueHexLabel.Text = _watchList[0].Type == WatchDisplayType.Hex ? "0x" : "";
 			ValueBox.Text = _watchList[0].ValueString.Replace(" ", "");
 			DomainLabel.Text = _watchList[0].Domain.Name;
 			SizeLabel.Text = _watchList[0].Size.ToString();
@@ -97,11 +99,8 @@ namespace BizHawk.Client.EmuHawk
 				var result = watch.Poke(ValueBox.Text);
 				if (result)
 				{
-					var cheat = GlobalWin.CheatList.FirstOrDefault(c => c.Address == watch.Address && c.Domain == watch.Domain);
-					if (!(cheat is null))
-					{
-						cheat.PokeValue(watch.Value); 
-					}
+					var cheat = _cheats.FirstOrDefault(c => c.Address == watch.Address && c.Domain == watch.Domain);
+					cheat?.PokeValue(watch.Value);
 				}
 				else
 				{

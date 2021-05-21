@@ -32,13 +32,24 @@ namespace BizHawk.Client.EmuHawk
 		// g' = 8.25g
 		// b' = 8.25b
 
-
-		private GPUMemoryAreas _memory;
-
 		private bool _cgb; // set once at start
 		private int _lcdc; // set at each callback
 
-		private IntPtr _tilesPal; // current palette to use on tiles
+		/// <summary>
+		/// Whether the tiles are being drawn with the sprite or bg palettes
+		/// </summary>
+		private bool _tilesPalIsSprite;
+		/// <summary>
+		/// How far (in bytes, I guess?) we should offset into the tiles palette
+		/// </summary>
+		private int _tilesPalOffset;
+
+		private IntPtr ComputeTilesPalFromMemory(IGPUMemoryAreas m)
+		{
+			var ret = _tilesPalIsSprite ? m.Sppal : m.Bgpal;
+			ret += _tilesPalOffset;
+			return ret;
+		}
 
 		private Color _spriteback;
 		
@@ -54,9 +65,12 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
+		protected override string WindowTitleStatic => "GPU Viewer";
+
 		public GbGpuView()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.GambatteIcon;
 			bmpViewBG.ChangeBitmapSize(256, 256);
 			bmpViewWin.ChangeBitmapSize(256, 256);
 			bmpViewTiles1.ChangeBitmapSize(128, 192);
@@ -64,6 +78,7 @@ namespace BizHawk.Client.EmuHawk
 			bmpViewBGPal.ChangeBitmapSize(8, 4);
 			bmpViewSPPal.ChangeBitmapSize(8, 4);
 			bmpViewOAM.ChangeBitmapSize(320, 16);
+			bmpViewOBJ.ChangeBitmapSize(256, 256);
 			bmpViewDetails.ChangeBitmapSize(8, 16);
 			bmpViewMemory.ChangeBitmapSize(8, 16);
 
@@ -78,13 +93,10 @@ namespace BizHawk.Client.EmuHawk
 			Spriteback = Color.Lime; // will be overridden from config after construct
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			_cgb = Gb.IsCGBMode();
 			_lcdc = 0;
-			_memory = Gb.GetGPU();
-
-			_tilesPal = _memory.Bgpal;
 
 			label4.Enabled = _cgb;
 			bmpViewBG.Clear();
@@ -94,6 +106,7 @@ namespace BizHawk.Client.EmuHawk
 			bmpViewBGPal.Clear();
 			bmpViewSPPal.Clear();
 			bmpViewOAM.Clear();
+			bmpViewOBJ.Clear();
 			bmpViewDetails.Clear();
 			bmpViewMemory.Clear();
 			_cbScanlineEmu = -4; // force refresh
@@ -107,7 +120,7 @@ namespace BizHawk.Client.EmuHawk
 		/// <param name="dest">top left origin on 32bit bitmap</param>
 		/// <param name="pitch">pitch of bitmap in 4 byte units</param>
 		/// <param name="pal">4 palette colors</param>
-		static unsafe void DrawTile(byte* tile, int* dest, int pitch, int* pal)
+		private static unsafe void DrawTile(byte* tile, int* dest, int pitch, int* pal)
 		{
 			for (int y = 0; y < 8; y++)
 			{
@@ -136,7 +149,7 @@ namespace BizHawk.Client.EmuHawk
 		/// <param name="pal">4 palette colors</param>
 		/// <param name="hFlip">true to flip horizontally</param>
 		/// <param name="vFlip">true to flip vertically</param>
-		static unsafe void DrawTileHv(byte* tile, int* dest, int pitch, int* pal, bool hFlip, bool vFlip)
+		private static unsafe void DrawTileHv(byte* tile, int* dest, int pitch, int* pal, bool hFlip, bool vFlip)
 		{
 			if (vFlip)
 				dest += pitch * 7;
@@ -177,7 +190,7 @@ namespace BizHawk.Client.EmuHawk
 		/// <param name="tiles">base tiledata location. second bank tiledata assumed to be @+8k</param>
 		/// <param name="wrap">true if tileindexes are s8 (not u8)</param>
 		/// <param name="_pal">8 palettes (4 colors each)</param>
-		static unsafe void DrawBgCgb(Bitmap b, IntPtr _map, IntPtr tiles, bool wrap, IntPtr _pal)
+		private static unsafe void DrawBgCgb(Bitmap b, IntPtr _map, IntPtr tiles, bool wrap, IntPtr _pal)
 		{
 			var lockData = b.LockBits(new Rectangle(0, 0, 256, 256), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
 			byte* map = (byte*)_map;
@@ -327,12 +340,73 @@ namespace BizHawk.Client.EmuHawk
 		}
 
 		/// <summary>
+		/// draw objects from oam data
+		/// </summary>
+		/// <param name="b">bitmap to draw to.  should be 320x8 (!tall), 320x16 (tall)</param>
+		/// <param name="_oam">oam data, 4 * 40 bytes</param>
+		/// <param name="_tiles">base tiledata location. cgb: second bank tiledata assumed to be @+8k</param>
+		/// <param name="_pal">2 (dmg) or 8 (cgb) palettes</param>
+		/// <param name="tall">true for 8x16 sprites; else 8x8</param>
+		/// <param name="cgb">true for cgb (more palettes, second bank tiles)</param>
+		private static unsafe void DrawObj(Bitmap b, IntPtr _oam, IntPtr _tiles, IntPtr _pal, bool tall, bool cgb)
+		{
+			var lockData = b.LockBits(new Rectangle(0, 0, 256, 256), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+			int* dest = (int*)lockData.Scan0;
+			int pitch = lockData.Stride / sizeof(int);
+			int* pal = (int*)_pal;
+			byte* oam = (byte*)_oam;
+
+			for (int s = 0; s < 40; s++)
+			{
+				int yPos = *oam++;
+				int xPos = *oam++;
+				dest += xPos + yPos * pitch;
+				int tileIndex = *oam++;
+				int flags = *oam++;
+				bool vFlip = flags.Bit(6);
+				bool hFlip = flags.Bit(5);
+				if (tall)
+				{
+					// i assume 8x16 vFlip flips the whole thing, not just each tile?
+					if (vFlip)
+					{
+						tileIndex |= 1;
+					}
+					else
+					{
+						tileIndex &= 0xfe;
+					}
+				}
+
+				byte* tile = (byte*)(_tiles + tileIndex * 16);
+				int* thisPal = pal + 4 * (cgb ? flags & 7 : flags >> 4 & 1);
+				if (cgb && flags.Bit(3))
+					tile += 8192;
+
+				// only draw tiles that are completely in bounds so to avoid out of bounds accesses
+				if ((xPos <= 248) && (yPos <= 240))
+				{
+					DrawTileHv(tile, dest, pitch, thisPal, hFlip, vFlip);
+
+					if (tall)
+					{
+						DrawTileHv(tile + 16, dest + pitch * 8, pitch, thisPal, hFlip, vFlip);
+					}
+				}
+
+				dest -= xPos + yPos * pitch;
+			}
+
+			b.UnlockBits(lockData);
+		}
+
+		/// <summary>
 		/// draw a palette directly
 		/// </summary>
 		/// <param name="b">bitmap to draw to.  should be numpals x 4</param>
 		/// <param name="_pal">start of palettes</param>
 		/// <param name="numpals">number of palettes (not colors)</param>
-		static unsafe void DrawPal(Bitmap b, IntPtr _pal, int numpals)
+		private static unsafe void DrawPal(Bitmap b, IntPtr _pal, int numpals)
 		{
 			var lockData = b.LockBits(new Rectangle(0, 0, numpals, 4), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
 			int* dest = (int*)lockData.Scan0;
@@ -352,19 +426,21 @@ namespace BizHawk.Client.EmuHawk
 			b.UnlockBits(lockData);
 		}
 
-		void ScanlineCallback(byte lcdc)
+		private void ScanlineCallback(byte lcdc)
 		{
-			using (_memory.EnterExit())
+			using (var memory = Gb.LockGPU())
 			{
-				var bgPal = _memory.Bgpal;
-				var spPal = _memory.Sppal;
-				var oam = _memory.Oam;
-				var vram = _memory.Vram;
+				var bgPal = memory.Bgpal;
+				var spPal = memory.Sppal;
+				var oam = memory.Oam;
+				var vram = memory.Vram;
+				var tilesPal = ComputeTilesPalFromMemory(memory);
 
 				_lcdc = lcdc;
 				// set alpha on all pixels
 #if false
-				// TODO: RE: Spriteback, you can't muck with Sameboy in this way due to how SGB reads stuff...?
+				// TODO: This probably shouldn't be done on any cores at all.  Let the tool make a separate copy of palettes if it needs alpha,
+				// or compel the cores to send data with alpha already set.  What was this actually solving?
 				unsafe
 				{
 					int* p = (int*)_bgpal;
@@ -418,11 +494,11 @@ namespace BizHawk.Client.EmuHawk
 				// tile display
 				// TODO: user selects palette to use, instead of fixed palette 0
 				// or possibly "smart" where, if a tile is in use, it's drawn with one of the palettes actually being used with it?
-				DrawTiles(bmpViewTiles1.Bmp, vram, _tilesPal);
+				DrawTiles(bmpViewTiles1.Bmp, vram, tilesPal);
 				bmpViewTiles1.Refresh();
 				if (_cgb)
 				{
-					DrawTiles(bmpViewTiles2.Bmp, vram + 0x2000, _tilesPal);
+					DrawTiles(bmpViewTiles2.Bmp, vram + 0x2000, tilesPal);
 					bmpViewTiles2.Refresh();
 				}
 
@@ -452,7 +528,7 @@ namespace BizHawk.Client.EmuHawk
 				bmpViewBGPal.Refresh();
 				bmpViewSPPal.Refresh();
 
-				// oam
+				// oam (sprites)
 				if (lcdc.Bit(2)) // 8x16
 				{
 					bmpViewOAM.ChangeBitmapSize(320, 16);
@@ -467,6 +543,11 @@ namespace BizHawk.Client.EmuHawk
 				}
 				DrawOam(bmpViewOAM.Bmp, oam, vram, spPal, lcdc.Bit(2), _cgb);
 				bmpViewOAM.Refresh();
+
+				// oam (objects)
+				bmpViewOBJ.Clear();
+				DrawObj(bmpViewOBJ.Bmp, oam, vram, spPal, lcdc.Bit(2), _cgb);
+				bmpViewOBJ.Refresh();
 			}
 			// try to run the current mouseover, to refresh if the mouse is being held over a pane while the emulator runs
 			// this doesn't really work well; the update rate seems to be throttled
@@ -483,7 +564,7 @@ namespace BizHawk.Client.EmuHawk
 		private void radioButtonRefreshScanline_CheckedChanged(object sender, EventArgs e) { ComputeRefreshValues(); }
 		private void radioButtonRefreshManual_CheckedChanged(object sender, EventArgs e) { ComputeRefreshValues(); }
 
-		void ComputeRefreshValues()
+		private void ComputeRefreshValues()
 		{
 			if (radioButtonRefreshFrame.Checked)
 			{
@@ -595,10 +676,10 @@ namespace BizHawk.Client.EmuHawk
 
 		private unsafe void PaletteMouseover(int x, int y, bool sprite)
 		{
-			using (_memory.EnterExit())
+			using (var memory = Gb.LockGPU())
 			{
-				var bgPal = _memory.Bgpal;
-				var spPal = _memory.Sppal;
+				var bgPal = memory.Bgpal;
+				var spPal = memory.Sppal;
 
 				bmpViewDetails.ChangeBitmapSize(8, 10);
 				if (bmpViewDetails.Height != 80)
@@ -639,11 +720,12 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		unsafe void TileMouseover(int x, int y, bool secondBank)
+		private unsafe void TileMouseover(int x, int y, bool secondBank)
 		{
-			using (_memory.EnterExit())
+			using (var memory = Gb.LockGPU())
 			{
-				var vram = _memory.Vram;
+				var vram = memory.Vram;
+				var tilesPal = ComputeTilesPalFromMemory(memory);
 
 				// todo: draw with a specific palette
 				bmpViewDetails.ChangeBitmapSize(8, 8);
@@ -659,19 +741,19 @@ namespace BizHawk.Client.EmuHawk
 					: $"Tile #{tileIndex} @{tileOffset + 0x8000:x4}");
 
 				var lockData = bmpViewDetails.Bmp.LockBits(new Rectangle(0, 0, 8, 8), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-				DrawTile((byte*)vram + tileOffset + (secondBank ? 8192 : 0), (int*)lockData.Scan0, lockData.Stride / sizeof(int), (int*)_tilesPal);
+				DrawTile((byte*)vram + tileOffset + (secondBank ? 8192 : 0), (int*)lockData.Scan0, lockData.Stride / sizeof(int), (int*)tilesPal);
 				bmpViewDetails.Bmp.UnlockBits(lockData);
 				labelDetails.Text = sb.ToString();
 				bmpViewDetails.Refresh();
 			}
 		}
 
-		unsafe void TileMapMouseover(int x, int y, bool win)
+		private unsafe void TileMapMouseover(int x, int y, bool win)
 		{
-			using (_memory.EnterExit())
+			using (var memory = Gb.LockGPU())
 			{
-				var _bgpal = _memory.Bgpal;
-				var _vram = _memory.Vram;
+				var _bgpal = memory.Bgpal;
+				var _vram = memory.Vram;
 
 				bmpViewDetails.ChangeBitmapSize(8, 8);
 				if (bmpViewDetails.Height != 64)
@@ -711,13 +793,13 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		unsafe void SpriteMouseover(int x, int y)
+		private unsafe void SpriteMouseover(int x, int y)
 		{
-			using (_memory.EnterExit())
+			using (var memory = Gb.LockGPU())
 			{
-				var spPal = _memory.Sppal;
-				var oam = _memory.Oam;
-				var vram = _memory.Vram;
+				var spPal = memory.Sppal;
+				var oam = memory.Oam;
+				var vram = memory.Vram;
 
 				bool tall = _lcdc.Bit(2);
 				x /= 8;
@@ -884,16 +966,40 @@ namespace BizHawk.Client.EmuHawk
 			SpriteMouseover(e.X, e.Y);
 		}
 
+		private void bmpViewOBJ_MouseEnter(object sender, EventArgs e)
+		{
+			SaveDetails();
+			groupBoxDetails.Text = "Details - Objects";
+		}
+
+		private void bmpViewOBJ_MouseLeave(object sender, EventArgs e)
+		{
+			LoadDetails();
+		}
+
+		private void bmpViewOBJ_MouseMove(object sender, MouseEventArgs e)
+		{
+			SpriteMouseover(e.X, e.Y);
+		}
+
 		private void bmpView_MouseClick(object sender, MouseEventArgs e)
 		{
 			if (e.Button == MouseButtons.Right)
+			{
 				SetFreeze();
+			}
 			else if (e.Button == MouseButtons.Left)
 			{
 				if (sender == bmpViewBGPal)
-					_tilesPal = _memory.Bgpal + e.X / 16 * 16;
+				{
+					_tilesPalIsSprite = false;
+					_tilesPalOffset = e.X / 16 * 16;
+				}
 				else if (sender == bmpViewSPPal)
-					_tilesPal = _memory.Sppal + e.X / 16 * 16;
+				{
+					_tilesPalIsSprite = true;
+					_tilesPalOffset =  e.X / 16 * 16;
+				}
 			}
 		}
 
@@ -939,8 +1045,7 @@ namespace BizHawk.Client.EmuHawk
 				Color = Spriteback
 			};
 
-			var result = dlg.ShowHawkDialog();
-			if (result.IsOk())
+			if (this.ShowDialogWithTempMute(dlg).IsOk())
 			{
 				Spriteback = dlg.Color;
 			}

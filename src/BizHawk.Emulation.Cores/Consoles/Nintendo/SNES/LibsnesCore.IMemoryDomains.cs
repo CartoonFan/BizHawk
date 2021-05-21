@@ -11,6 +11,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 		private readonly List<MemoryDomain> _memoryDomainList = new List<MemoryDomain>();
 		private IMemoryDomains _memoryDomains;
 		private LibsnesApi.SNES_MAPPER? _mapper;
+		private LibsnesApi.SNES_REGION? _region;
 
 		// works for WRAM, garbage for anything else
 		private static int? FakeBusMap(int addr)
@@ -73,7 +74,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 				MakeMemoryDomain("SGB CARTRAM", LibsnesApi.SNES_MEMORY.SGB_CARTRAM, MemoryDomain.Endian.Little);
 			}
 
-
+			_memoryDomainList.Add(Api.GetPagesDomain());
 
 			_memoryDomains = new MemoryDomainList(_memoryDomainList);
 			((BasicServiceProvider) ServiceProvider).Register(_memoryDomains);
@@ -92,7 +93,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			byte* blockPtr = Api.QUERY_get_memory_data(id);
 
 			var md = new MemoryDomainIntPtrMonitor(name, MemoryDomain.Endian.Little, (IntPtr)blockPtr, size,
-				id != LibsnesApi.SNES_MEMORY.CARTRIDGE_ROM, // hack: for just this one memory area, it will be readonly
+				true,
 				byteSize, Api);
 
 			_memoryDomainList.Add(md);

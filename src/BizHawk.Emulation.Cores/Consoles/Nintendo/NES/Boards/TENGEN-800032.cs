@@ -6,27 +6,29 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 	//AKA mapper 64
 	internal sealed class TENGEN_800032 : NesBoardBase
 	{
-		//configuration
-		int prg_bank_mask_8k;
-		int chr_bank_mask_1k;
+		// configuration
+		private int prg_bank_mask_8k;
+		private int chr_bank_mask_1k;
 
-		//regenerable state
-		int[] prg_banks_8k = new int[4];
-		int[] chr_banks_1k = new int[8];
-		//state
-		int[] regs = new int[16];
-		int address;
-		bool chr_1k, chr_mode, prg_mode;
-		//irq
-		int irq_countdown;
-		int a12_old;
-		int irq_reload, irq_counter;
-		bool irq_pending, irq_enable;
-		bool irq_mode;
-		bool irq_reload_pending;
-		int separator_counter;
-		int irq_countdown_2 = 0;
-		bool clock_scanline_irq;
+		// regenerable state
+		private readonly int[] prg_banks_8k = new int[4];
+		private readonly int[] chr_banks_1k = new int[8];
+		
+		// state
+		private int[] regs = new int[16];
+		private int address;
+		private bool chr_1k, chr_mode, prg_mode;
+		
+		// irq
+		private int irq_countdown;
+		private int a12_old;
+		private int irq_reload, irq_counter;
+		private bool irq_pending, irq_enable;
+		private bool irq_mode;
+		private bool irq_reload_pending;
+		private int separator_counter;
+		private int irq_countdown_2 = 0;
+		private bool clock_scanline_irq;
 
 		public override void SyncState(Serializer ser)
 		{
@@ -72,7 +74,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			return true;
 		}
 
-		void Sync()
+		private void Sync()
 		{
 			SyncIRQ();
 	
@@ -191,7 +193,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 			return Rom[addr];
 		}
 
-
 		public override byte ReadPpu(int addr)
 		{
 			if (addr < 0x2000)
@@ -206,12 +207,12 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 				return base.ReadPpu(addr);
 		}
 
-		void SyncIRQ()
+		private void SyncIRQ()
 		{
 			IrqSignal = irq_pending;
 		}
 
-		void ClockIRQ()
+		private void ClockIRQ()
 		{
 			if (irq_reload_pending)
 			{
@@ -328,6 +329,5 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 
 			a12_old = a12;
 		}
-
 	}
 }

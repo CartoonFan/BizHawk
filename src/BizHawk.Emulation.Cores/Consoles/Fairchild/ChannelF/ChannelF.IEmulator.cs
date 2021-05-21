@@ -12,8 +12,8 @@ namespace BizHawk.Emulation.Cores.Consoles.ChannelF
 
 		public bool DeterministicEmulation { get; set; }
 
-		private static double cpuFreq = 1.7897725;
-		private static double refreshRate = 60;
+		private static readonly double cpuFreq = 1.7897725;
+		private static readonly double refreshRate = 60;
 
 		public int ClockPerFrame;
 		public int FrameClock = 0;
@@ -53,8 +53,10 @@ namespace BizHawk.Emulation.Cores.Consoles.ChannelF
 		}
 
 		private int _frame;
+#pragma warning disable CS0414
 		private int _lagcount;
 		private bool _islag;
+#pragma warning restore CS0414
 
 		public void ResetCounters()
 		{

@@ -1,34 +1,23 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using BizHawk.BizInvoke;
-using BizHawk.Common;
 using BizHawk.Emulation.Common;
 using NymaTypes;
 
 namespace BizHawk.Emulation.Cores.Waterbox
 {
-	unsafe partial class NymaCore : ISettable<NymaCore.NymaSettings, NymaCore.NymaSyncSettings>
+	public partial class NymaCore : ISettable<NymaCore.NymaSettings, NymaCore.NymaSyncSettings>
 	{
-		/// <summary>
-		/// Settings that we shouldn't show the user.
-		/// If the value is null, use the default value, otherwise override it.
-		/// </summary>
-		protected virtual IDictionary<string, string> SettingsOverrides { get; } = new Dictionary<string, string>();
-		/// <summary>
-		/// Add any settings here that your core is not sync sensitive to.  Don't screw up and cause nondeterminism!
-		/// </summary>
-		protected virtual ISet<string> NonSyncSettingNames { get; } = new HashSet<string>();
 		public NymaSettingsInfo SettingsInfo { get; private set; }
 		private NymaSettings _settings;
 		private NymaSyncSettings _syncSettings;
 		/// <summary>
 		/// What this core was actually started with
 		/// </summary>
-		private NymaSyncSettings _syncSettingsActual;
+		private readonly NymaSyncSettings _syncSettingsActual;
 		public NymaSettings GetSettings()
 		{
 			var ret = _settings.Clone();
@@ -42,7 +31,12 @@ namespace BizHawk.Emulation.Cores.Waterbox
 
 		public PutSettingsDirtyBits PutSettings(NymaSettings o)
 		{
-			_settings = o.Clone();
+			var n = o.Clone();
+			n.Normalize(SettingsInfo);
+			var ret = NymaSettings.Reboot(_settings, n, SettingsInfo);
+			var notifies = NymaSettings.ChangedKeys(_settings, n, SettingsInfo).ToList();
+
+			_settings = n;
 			if (SettingsInfo.LayerNames.Count > 0)
 			{
 				ulong layers = ~0ul;
@@ -53,15 +47,21 @@ namespace BizHawk.Emulation.Cores.Waterbox
 				}
 				_nyma.SetLayers(layers);
 			}
-			return PutSettingsDirtyBits.None;
+			foreach (var key in notifies)
+			{
+				_nyma.NotifySettingChanged(key);
+			}
+			return ret;
 		}
 
 		public PutSettingsDirtyBits PutSyncSettings(NymaSyncSettings o)
 		{
-			_syncSettings = o.Clone();
-			return _syncSettings.Equals(_syncSettingsActual)
-				? PutSettingsDirtyBits.None
-				: PutSettingsDirtyBits.RebootCore;
+			var n = o.Clone();
+			n.Normalize(SettingsInfo);
+			var ret = NymaSyncSettings.Reboot(_syncSettingsActual, n, SettingsInfo);
+
+			_syncSettings = n;
+			return ret;
 		}
 
 		public interface INymaDictionarySettings
@@ -81,6 +81,56 @@ namespace BizHawk.Emulation.Cores.Waterbox
 					DisabledLayers = new HashSet<string>(DisabledLayers),
 				};
 			}
+			/// <summary>
+			/// remove things that aren't used by the core
+			/// Normally won't do anything, but can be useful in case settings change
+			/// </summary>
+			public void Normalize(NymaSettingsInfo info)
+			{
+				var toRemove = new List<string>();
+				foreach (var kvp in MednafenValues)
+				{
+					if (!info.AllSettingsByKey.ContainsKey(kvp.Key))
+					{
+						toRemove.Add(kvp.Key);
+					}
+					else
+					{
+						var ovr = info.AllOverrides[kvp.Key];
+						if (ovr.Hide || !ovr.NonSync)
+							toRemove.Add(kvp.Key);
+					}
+				}
+				foreach (var key in toRemove)
+				{
+					MednafenValues.Remove(key);
+				}
+				DisabledLayers = new HashSet<string>(DisabledLayers.Where(l => info.LayerNames.Contains(l)));
+			}
+
+			public static IEnumerable<string> ChangedKeys(NymaSettings x, NymaSettings y, NymaSettingsInfo info)
+			{
+				var possible = info.AllOverrides.Where(kvp => kvp.Value.NonSync && kvp.Value.NoRestart).Select(kvp => kvp.Key);
+				return possible.Where(key =>
+				{
+					x.MednafenValues.TryGetValue(key, out var xx);
+					y.MednafenValues.TryGetValue(key, out var yy);
+					return xx != yy;
+				});
+			}
+
+			public static PutSettingsDirtyBits Reboot(NymaSettings x, NymaSettings y, NymaSettingsInfo info)
+			{
+				var restarters = info.AllOverrides.Where(kvp => kvp.Value.NonSync && !kvp.Value.NoRestart).Select(kvp => kvp.Key);
+				foreach (var key in restarters)
+				{
+					x.MednafenValues.TryGetValue(key, out var xx);
+					y.MednafenValues.TryGetValue(key, out var yy);
+					if (xx != yy)
+						return PutSettingsDirtyBits.RebootCore;
+				}
+				return PutSettingsDirtyBits.None;
+			}
 		}
 
 		public class NymaSyncSettings :  INymaDictionarySettings
@@ -95,44 +145,73 @@ namespace BizHawk.Emulation.Cores.Waterbox
 					PortDevices = new Dictionary<int, string>(PortDevices),
 				};
 			}
-
-			public override bool Equals(object obj)
+			/// <summary>
+			/// remove things that aren't used by the core
+			/// Normally won't do anything, but can be useful in case settings change
+			/// </summary>
+			public void Normalize(NymaSettingsInfo info)
 			{
-				if (!(obj is NymaSyncSettings x))
-					return false;
-				return new HashSet<KeyValuePair<int, string>>(PortDevices).SetEquals(x.PortDevices)
-					&& new HashSet<KeyValuePair<string, string>>(MednafenValues).SetEquals(x.MednafenValues);
+				var toRemove = new List<string>();
+				foreach (var kvp in MednafenValues)
+				{
+					if (!info.AllSettingsByKey.ContainsKey(kvp.Key))
+					{
+						toRemove.Add(kvp.Key);
+					}
+					else
+					{
+						var ovr = info.AllOverrides[kvp.Key];
+						if (ovr.Hide || ovr.NonSync)
+							toRemove.Add(kvp.Key);
+					}
+				}
+				foreach (var key in toRemove)
+				{
+					MednafenValues.Remove(key);
+				}
+				var toRemovePort = new List<int>();
+				foreach (var kvp in PortDevices)
+				{
+					if (info.Ports.Count <= kvp.Key || info.Ports[kvp.Key].DefaultSettingsValue == kvp.Value)
+						toRemovePort.Add(kvp.Key);
+				}
+				foreach (var key in toRemovePort)
+				{
+					PortDevices.Remove(key);
+				}
 			}
 
-			public override int GetHashCode()
+			public static PutSettingsDirtyBits Reboot(NymaSyncSettings x, NymaSyncSettings y, NymaSettingsInfo info)
 			{
-				return 0; // some other time, maybe
+				var restarters = info.AllOverrides.Where(kvp => !kvp.Value.NonSync && !kvp.Value.NoRestart).Select(kvp => kvp.Key);
+				foreach (var key in restarters)
+				{
+					x.MednafenValues.TryGetValue(key, out var xx);
+					y.MednafenValues.TryGetValue(key, out var yy);
+					if (xx != yy)
+						return PutSettingsDirtyBits.RebootCore;
+				}
+				if (!new HashSet<KeyValuePair<int, string>>(x.PortDevices).SetEquals(y.PortDevices))
+					return PutSettingsDirtyBits.RebootCore;
+				return PutSettingsDirtyBits.None;
 			}
 		}
 
 		protected string SettingsQuery(string name)
 		{
-			if (SettingsOverrides.TryGetValue(name, out var val))
-			{
-				// use override
-			}
-			else
+			if (!SettingsInfo.AllOverrides.TryGetValue(name, out var ovr))
+				throw new InvalidOperationException($"Core asked for setting {name} which was not found in the defaults");
+			string val = null;
+			if (!ovr.Hide)
 			{
 				// try to get actual value from settings
-				if (/* TODO: unhack */name == "nyma.constantfb" || NonSyncSettingNames.Contains(name))
-					_settings.MednafenValues.TryGetValue(name, out val);
-				else
-					_syncSettings.MednafenValues.TryGetValue(name, out val);
-			}
-			// in either case, might need defaults
-			if (val == null)
-			{
-				SettingsInfo.AllSettingsByKey.TryGetValue(name, out var info);
-				val = info?.DefaultValue;
+				var dict = ovr.NonSync ? _settings.MednafenValues : _syncSettingsActual.MednafenValues;
+				dict.TryGetValue(name, out val);
 			}
 			if (val == null)
 			{
-				throw new InvalidOperationException($"Core asked for setting {name} which was not found in the defaults");
+				// get default
+				val = ovr.Default ?? SettingsInfo.AllSettingsByKey[name].DefaultValue;
 			}
 			return val;
 		}
@@ -148,15 +227,6 @@ namespace BizHawk.Emulation.Cores.Waterbox
 		}
 
 		private LibNymaCore.FrontendSettingQuery _settingsQueryDelegate;
-
-		/// <summary>
-		/// If true, the settings object has at least one settable value in it
-		/// </summary>
-		public bool HasSettings => SettingsInfo.LayerNames.Count > 0|| SettingsInfo.Settings.Count > 0;
-		/// <summary>
-		/// If true, the syncSettings object has at least one settable value in it
-		/// </summary>
-		public bool HasSyncSettings => SettingsInfo.Ports.Count > 0 || SettingsInfo.SyncSettings.Count > 0;
 
 		public class NymaSettingsInfo
 		{
@@ -180,11 +250,21 @@ namespace BizHawk.Emulation.Cores.Waterbox
 			/// What devices can be plugged into each port
 			/// </summary>
 			public List<Port> Ports { get; set; } = new List<Port>();
-			public List<SettingT> Settings { get; set; } = new List<SettingT>();
-			public List<SettingT> SyncSettings { get; set; } = new List<SettingT>();
+			public List<SettingT> AllSettings { get; set; } = new List<SettingT>();
 			public Dictionary<string, SettingT> AllSettingsByKey { get; set; } = new Dictionary<string, SettingT>();
+			public Dictionary<string, SettingOverride> AllOverrides { get; set; } = new Dictionary<string, SettingOverride>();
+			/// <summary>
+			/// If true, the settings object has at least one settable value in it
+			/// </summary>
+			public bool HasSettings => LayerNames.Count > 0
+				|| AllSettings.Select(s => AllOverrides[s.SettingsKey]).Any(o => !o.Hide && o.NonSync);
+			/// <summary>
+			/// If true, the syncSettings object has at least one settable value in it
+			/// </summary>
+			public bool HasSyncSettings => Ports.Count > 0
+				|| AllSettings.Select(s => AllOverrides[s.SettingsKey]).Any(o => !o.Hide && !o.NonSync);
 		}
-		private void InitSyncSettingsInfo(List<NPortInfoT> allPorts)
+		private void InitAllSettingsInfo(List<NPortInfoT> allPorts)
 		{
 			var s = new NymaSettingsInfo();
 
@@ -203,25 +283,27 @@ namespace BizHawk.Emulation.Cores.Waterbox
 				});
 			}
 
-			foreach (var setting in GetSettingsData().Concat(ExtraSettings))
+			foreach (var kvp in ExtraOverrides.Concat(SettingOverrides))
+			{
+				s.AllOverrides[kvp.Key] = kvp.Value;
+			}
+			var originalSettings = GetSettingsData();
+			foreach (var setting in originalSettings.Concat(ExtraSettings))
 			{
 				s.AllSettingsByKey.Add(setting.SettingsKey, setting);
-				if (!SettingsOverrides.ContainsKey(setting.SettingsKey))
-				{
-					if (/* TODO: unhack */setting.SettingsKey == "nyma.constantfb" || NonSyncSettingNames.Contains(setting.SettingsKey))
-					{
-						s.Settings.Add(setting);
-					}
-					else
-					{
-						s.SyncSettings.Add(setting);
-					}
-				}
+				s.AllSettings.Add(setting);
+				if (!s.AllOverrides.ContainsKey(setting.SettingsKey))
+					s.AllOverrides.Add(setting.SettingsKey, new SettingOverride());
 			}
 			SettingsInfo = s;
 		}
 
-		private static IReadOnlyCollection<SettingT> ExtraSettings = new List<SettingT>
+		private static readonly IReadOnlyDictionary<string, SettingOverride> ExtraOverrides = new Dictionary<string, SettingOverride>
+		{
+			{ "nyma.constantfb", new() { NonSync = true, NoRestart = true } },
+		};
+
+		private static readonly IReadOnlyCollection<SettingT> ExtraSettings = new List<SettingT>
 		{
 			new SettingT
 			{
@@ -251,5 +333,27 @@ namespace BizHawk.Emulation.Cores.Waterbox
 				Type = SettingType.Bool
 			},
 		};
+
+		public class SettingOverride
+		{
+			/// <summary>
+			/// If true, hide from user.  Will always be set to its default value in those cases.
+			/// </summary>
+			public bool Hide { get; set; }
+			/// <summary>
+			/// If non-null, replace the original default value with this default value.
+			/// </summary>
+			public string Default { get; set; }
+			/// <summary>
+			/// If true, put the setting in Settings and not SyncSettings
+			/// </summary>
+			public bool NonSync { get; set; }
+			/// <summary>
+			/// If true, no restart is required to apply the setting.  Only allowed when NonSync == true
+			/// DON'T STEAL THIS FROM MEDNAFLAGS, IT'S NOT SET PROPERLY THERE
+			/// </summary>
+			public bool NoRestart { get; set; } // if true, restart is not required
+		}
+		protected virtual IDictionary<string, SettingOverride> SettingOverrides { get; } = new Dictionary<string, SettingOverride>();
 	}
 }

@@ -1,4 +1,6 @@
-﻿namespace BizHawk.Client.EmuHawk
+﻿using BizHawk.WinForms.Controls;
+
+namespace BizHawk.Client.EmuHawk
 {
 	partial class CDL
 	{
@@ -29,44 +31,37 @@
 		private void InitializeComponent()
 		{
 			this.menuStrip1 = new MenuStripEx();
-			this.FileSubMenu = new System.Windows.Forms.ToolStripMenuItem();
-			this.NewMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.OpenMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.SaveMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.SaveAsMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.AppendMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.RecentSubMenu = new System.Windows.Forms.ToolStripMenuItem();
-			this.noneToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.miAutoStart = new System.Windows.Forms.ToolStripMenuItem();
-			this.miAutoSave = new System.Windows.Forms.ToolStripMenuItem();
-			this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
-			this.ClearMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.DisassembleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-			this.ExitMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.FileSubMenu = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.NewMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.OpenMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.SaveMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.SaveAsMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.AppendMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.RecentSubMenu = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.noneToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.miAutoStart = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.miAutoSave = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.toolStripSeparator2 = new BizHawk.WinForms.Controls.ToolStripSeparatorEx();
+			this.ClearMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.DisassembleMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.toolStrip1 = new ToolStripEx();
 			this.tsbLoggingActive = new System.Windows.Forms.ToolStripButton();
-			this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
+			this.toolStripSeparator3 = new BizHawk.WinForms.Controls.ToolStripSeparatorEx();
 			this.tsbViewUpdate = new System.Windows.Forms.ToolStripButton();
 			this.tsbViewStyle = new System.Windows.Forms.ToolStripComboBox();
-			this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
+			this.toolStripSeparator4 = new BizHawk.WinForms.Controls.ToolStripSeparatorEx();
 			this.tsbExportText = new System.Windows.Forms.ToolStripButton();
 			this.lvCDL = new InputRoll();
-			this.miAutoResume = new System.Windows.Forms.ToolStripMenuItem();
+			this.miAutoResume = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.menuStrip1.SuspendLayout();
 			this.toolStrip1.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// menuStrip1
 			// 
-			this.menuStrip1.ClickThrough = true;
 			this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.FileSubMenu});
-			this.menuStrip1.Location = new System.Drawing.Point(0, 0);
-			this.menuStrip1.Name = "menuStrip1";
-			this.menuStrip1.Size = new System.Drawing.Size(992, 24);
 			this.menuStrip1.TabIndex = 2;
-			this.menuStrip1.Text = "menuStrip1";
 			// 
 			// FileSubMenu
 			// 
@@ -82,54 +77,37 @@
             this.miAutoResume,
             this.toolStripSeparator2,
             this.ClearMenuItem,
-            this.DisassembleMenuItem,
-            this.toolStripSeparator1,
-            this.ExitMenuItem});
-			this.FileSubMenu.Name = "FileSubMenu";
-			this.FileSubMenu.Size = new System.Drawing.Size(35, 20);
+            this.DisassembleMenuItem});
 			this.FileSubMenu.Text = "&File";
 			this.FileSubMenu.DropDownOpened += new System.EventHandler(this.FileSubMenu_DropDownOpened);
 			// 
 			// NewMenuItem
 			// 
-			this.NewMenuItem.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.NewFile;
-			this.NewMenuItem.Name = "NewMenuItem";
 			this.NewMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.N)));
-			this.NewMenuItem.Size = new System.Drawing.Size(193, 22);
 			this.NewMenuItem.Text = "&New";
 			this.NewMenuItem.Click += new System.EventHandler(this.NewMenuItem_Click);
 			// 
 			// OpenMenuItem
 			// 
-			this.OpenMenuItem.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.OpenFile;
-			this.OpenMenuItem.Name = "OpenMenuItem";
 			this.OpenMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.O)));
-			this.OpenMenuItem.Size = new System.Drawing.Size(193, 22);
 			this.OpenMenuItem.Text = "&Open...";
 			this.OpenMenuItem.Click += new System.EventHandler(this.OpenMenuItem_Click);
 			// 
 			// SaveMenuItem
 			// 
-			this.SaveMenuItem.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.SaveAs;
-			this.SaveMenuItem.Name = "SaveMenuItem";
 			this.SaveMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.S)));
-			this.SaveMenuItem.Size = new System.Drawing.Size(193, 22);
 			this.SaveMenuItem.Text = "&Save";
 			this.SaveMenuItem.Click += new System.EventHandler(this.SaveMenuItem_Click);
 			// 
 			// SaveAsMenuItem
 			// 
-			this.SaveAsMenuItem.Name = "SaveAsMenuItem";
 			this.SaveAsMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)(((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Shift) 
             | System.Windows.Forms.Keys.S)));
-			this.SaveAsMenuItem.Size = new System.Drawing.Size(193, 22);
 			this.SaveAsMenuItem.Text = "&Save As...";
 			this.SaveAsMenuItem.Click += new System.EventHandler(this.SaveAsMenuItem_Click);
 			// 
 			// AppendMenuItem
 			// 
-			this.AppendMenuItem.Name = "AppendMenuItem";
-			this.AppendMenuItem.Size = new System.Drawing.Size(193, 22);
 			this.AppendMenuItem.Text = "&Append File...";
 			this.AppendMenuItem.Click += new System.EventHandler(this.AppendMenuItem_Click);
 			// 
@@ -137,67 +115,35 @@
 			// 
 			this.RecentSubMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.noneToolStripMenuItem});
-			this.RecentSubMenu.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.Recent;
-			this.RecentSubMenu.Name = "RecentSubMenu";
-			this.RecentSubMenu.Size = new System.Drawing.Size(193, 22);
 			this.RecentSubMenu.Text = "Recent";
 			this.RecentSubMenu.DropDownOpened += new System.EventHandler(this.RecentSubMenu_DropDownOpened);
 			// 
 			// noneToolStripMenuItem
 			// 
-			this.noneToolStripMenuItem.Name = "noneToolStripMenuItem";
-			this.noneToolStripMenuItem.Size = new System.Drawing.Size(99, 22);
 			this.noneToolStripMenuItem.Text = "None";
 			// 
 			// miAutoStart
 			// 
-			this.miAutoStart.Name = "miAutoStart";
-			this.miAutoStart.Size = new System.Drawing.Size(193, 22);
 			this.miAutoStart.Text = "Auto-Start";
-			this.miAutoStart.Click += new System.EventHandler(this.miAutoStart_Click);
+			this.miAutoStart.Click += new System.EventHandler(this.MiAutoStart_Click);
 			// 
 			// miAutoSave
 			// 
-			this.miAutoSave.Name = "miAutoSave";
-			this.miAutoSave.Size = new System.Drawing.Size(193, 22);
 			this.miAutoSave.Text = "Auto-Save";
-			this.miAutoSave.Click += new System.EventHandler(this.miAutoSave_Click);
-			// 
-			// toolStripSeparator2
-			// 
-			this.toolStripSeparator2.Name = "toolStripSeparator2";
-			this.toolStripSeparator2.Size = new System.Drawing.Size(190, 6);
+			this.miAutoSave.Click += new System.EventHandler(this.MiAutoSave_Click);
 			// 
 			// ClearMenuItem
 			// 
-			this.ClearMenuItem.Name = "ClearMenuItem";
-			this.ClearMenuItem.Size = new System.Drawing.Size(193, 22);
 			this.ClearMenuItem.Text = "&Clear";
 			this.ClearMenuItem.Click += new System.EventHandler(this.ClearMenuItem_Click);
 			// 
 			// DisassembleMenuItem
 			// 
-			this.DisassembleMenuItem.Name = "DisassembleMenuItem";
-			this.DisassembleMenuItem.Size = new System.Drawing.Size(193, 22);
 			this.DisassembleMenuItem.Text = "&Disassemble...";
 			this.DisassembleMenuItem.Click += new System.EventHandler(this.DisassembleMenuItem_Click);
 			// 
-			// toolStripSeparator1
-			// 
-			this.toolStripSeparator1.Name = "toolStripSeparator1";
-			this.toolStripSeparator1.Size = new System.Drawing.Size(190, 6);
-			// 
-			// ExitMenuItem
-			// 
-			this.ExitMenuItem.Name = "ExitMenuItem";
-			this.ExitMenuItem.ShortcutKeyDisplayString = "Alt+F4";
-			this.ExitMenuItem.Size = new System.Drawing.Size(193, 22);
-			this.ExitMenuItem.Text = "&Close";
-			this.ExitMenuItem.Click += new System.EventHandler(this.ExitMenuItem_Click);
-			// 
 			// toolStrip1
 			// 
-			this.toolStrip1.ClickThrough = true;
 			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsbLoggingActive,
             this.toolStripSeparator3,
@@ -207,25 +153,17 @@
             this.tsbExportText});
 			this.toolStrip1.Location = new System.Drawing.Point(0, 24);
 			this.toolStrip1.Name = "toolStrip1";
-			this.toolStrip1.Size = new System.Drawing.Size(992, 25);
 			this.toolStrip1.TabIndex = 8;
-			this.toolStrip1.Text = "toolStrip1";
 			// 
 			// tsbLoggingActive
 			// 
 			this.tsbLoggingActive.CheckOnClick = true;
 			this.tsbLoggingActive.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-			this.tsbLoggingActive.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.placeholder_bitmap;
 			this.tsbLoggingActive.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbLoggingActive.Name = "tsbLoggingActive";
 			this.tsbLoggingActive.Size = new System.Drawing.Size(41, 22);
 			this.tsbLoggingActive.Text = "Active";
-			this.tsbLoggingActive.CheckedChanged += new System.EventHandler(this.tsbLoggingActive_CheckedChanged);
-			// 
-			// toolStripSeparator3
-			// 
-			this.toolStripSeparator3.Name = "toolStripSeparator3";
-			this.toolStripSeparator3.Size = new System.Drawing.Size(6, 25);
+			this.tsbLoggingActive.CheckedChanged += new System.EventHandler(this.TsbLoggingActive_CheckedChanged);
 			// 
 			// tsbViewUpdate
 			// 
@@ -233,7 +171,6 @@
 			this.tsbViewUpdate.CheckOnClick = true;
 			this.tsbViewUpdate.CheckState = System.Windows.Forms.CheckState.Checked;
 			this.tsbViewUpdate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-			this.tsbViewUpdate.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.placeholder_bitmap;
 			this.tsbViewUpdate.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbViewUpdate.Name = "tsbViewUpdate";
 			this.tsbViewUpdate.Size = new System.Drawing.Size(46, 22);
@@ -248,21 +185,15 @@
             "Show KBytes"});
 			this.tsbViewStyle.Name = "tsbViewStyle";
 			this.tsbViewStyle.Size = new System.Drawing.Size(121, 25);
-			this.tsbViewStyle.SelectedIndexChanged += new System.EventHandler(this.tsbViewStyle_SelectedIndexChanged);
-			// 
-			// toolStripSeparator4
-			// 
-			this.toolStripSeparator4.Name = "toolStripSeparator4";
-			this.toolStripSeparator4.Size = new System.Drawing.Size(6, 25);
+			this.tsbViewStyle.SelectedIndexChanged += new System.EventHandler(this.TsbViewStyle_SelectedIndexChanged);
 			// 
 			// tsbExportText
 			// 
-			this.tsbExportText.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.LoadConfig;
 			this.tsbExportText.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbExportText.Name = "tsbExportText";
 			this.tsbExportText.Size = new System.Drawing.Size(87, 22);
 			this.tsbExportText.Text = "To Clipboard";
-			this.tsbExportText.Click += new System.EventHandler(this.tsbExportText_Click);
+			this.tsbExportText.Click += new System.EventHandler(this.TsbExportText_Click);
 			// 
 			// lvCDL
 			// 
@@ -277,14 +208,12 @@
 			this.lvCDL.TabIndex = 9;
 			this.lvCDL.AllowColumnReorder = false;
 			this.lvCDL.AllowColumnResize = true;
-			this.lvCDL.QueryItemText += new InputRoll.QueryItemTextHandler(this.lvCDL_QueryItemText);
+			this.lvCDL.QueryItemText += new InputRoll.QueryItemTextHandler(this.LvCDL_QueryItemText);
 			// 
 			// miAutoResume
 			// 
-			this.miAutoResume.Name = "miAutoResume";
-			this.miAutoResume.Size = new System.Drawing.Size(193, 22);
 			this.miAutoResume.Text = "Auto-Resume";
-			this.miAutoResume.Click += new System.EventHandler(this.miAutoResume_Click);
+			this.miAutoResume.Click += new System.EventHandler(this.MiAutoResume_Click);
 			// 
 			// CDL
 			// 
@@ -295,12 +224,10 @@
 			this.Controls.Add(this.lvCDL);
 			this.Controls.Add(this.toolStrip1);
 			this.Controls.Add(this.menuStrip1);
-			this.Icon = global::BizHawk.Client.EmuHawk.Properties.Resources.cdlogger_MultiSize;
 			this.MainMenuStrip = this.menuStrip1;
 			this.MinimumSize = new System.Drawing.Size(150, 130);
 			this.Name = "CDL";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-			this.Text = "Code Data Logger";
 			this.Load += new System.EventHandler(this.CDL_Load);
 			this.DragDrop += new System.Windows.Forms.DragEventHandler(this.CDL_DragDrop);
 			this.DragEnter += new System.Windows.Forms.DragEventHandler(this.CDL_DragEnter);
@@ -316,29 +243,27 @@
 		#endregion
 
 		private MenuStripEx menuStrip1;
-		private System.Windows.Forms.ToolStripMenuItem FileSubMenu;
-		private System.Windows.Forms.ToolStripMenuItem ClearMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem OpenMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem SaveAsMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem AppendMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem NewMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem DisassembleMenuItem;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-		private System.Windows.Forms.ToolStripMenuItem ExitMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem SaveMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem RecentSubMenu;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
-		private System.Windows.Forms.ToolStripMenuItem noneToolStripMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx FileSubMenu;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx ClearMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx OpenMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx SaveAsMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx AppendMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx NewMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx DisassembleMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx SaveMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx RecentSubMenu;
+		private BizHawk.WinForms.Controls.ToolStripSeparatorEx toolStripSeparator2;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx noneToolStripMenuItem;
 		private System.Windows.Forms.ToolStripButton tsbLoggingActive;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
+		private BizHawk.WinForms.Controls.ToolStripSeparatorEx toolStripSeparator3;
 		private System.Windows.Forms.ToolStripButton tsbViewUpdate;
 		private System.Windows.Forms.ToolStripComboBox tsbViewStyle;
 		private InputRoll lvCDL;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
+		private BizHawk.WinForms.Controls.ToolStripSeparatorEx toolStripSeparator4;
 		private System.Windows.Forms.ToolStripButton tsbExportText;
-		private System.Windows.Forms.ToolStripMenuItem miAutoStart;
-		private System.Windows.Forms.ToolStripMenuItem miAutoSave;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx miAutoStart;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx miAutoSave;
 		private ToolStripEx toolStrip1;
-		private System.Windows.Forms.ToolStripMenuItem miAutoResume;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx miAutoResume;
 	}
 }

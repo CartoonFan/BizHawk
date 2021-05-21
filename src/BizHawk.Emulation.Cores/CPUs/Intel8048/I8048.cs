@@ -1,5 +1,4 @@
 using System;
-using BizHawk.Emulation.Cores.Consoles.O2Hawk;
 using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
@@ -8,8 +7,7 @@ namespace BizHawk.Emulation.Cores.Components.I8048
 {
 	public sealed partial class I8048
 	{
-		public O2Hawk Core { get; set; }
-
+		public int LY;
 		// operations that can take place in an instruction
 		public const ushort IDLE = 0; 
 		public const ushort OP = 1;
@@ -328,7 +326,7 @@ namespace BizHawk.Emulation.Cores.Components.I8048
 					Regs[reg_d_ad] = (ushort)((Regs[reg_d_ad] + 1) & 0xFF);
 					break;
 				case RES_TF:
-					TF = false;
+					if (test_pass) { TF = false; }				
 					break;
 				case SET_ADDR_M3:
 					Regs[ALU] &= 0xFF;
@@ -424,7 +422,7 @@ namespace BizHawk.Emulation.Cores.Components.I8048
 				case TEST_COND:
 					reg_d_ad = cur_instr[instr_pntr++];
 
-					bool test_pass = true;
+					test_pass = true;
 					if ((reg_d_ad == 0) && !TF) { test_pass = false; }
 					if ((reg_d_ad == 1) && T0) { test_pass = false; }
 					if ((reg_d_ad == 2) && !T0) { test_pass = false; }
@@ -480,7 +478,7 @@ namespace BizHawk.Emulation.Cores.Components.I8048
 			if (timer_en)
 			{
 				timer_prescale++;
-				if (timer_prescale == 32)
+				if (timer_prescale == 32 * 5)
 				{
 					timer_prescale = 0;
 					if (Regs[TIM] == 255)
@@ -489,7 +487,7 @@ namespace BizHawk.Emulation.Cores.Components.I8048
 						if (TimIntEn)
 						{
 							TIRQPending = true;
-							//Console.WriteLine("Timer: " + TotalExecutedCycles);
+							// Console.WriteLine("Timer: " + LY + " " + TotalExecutedCycles);
 						}
 					}
 					Regs[TIM] = (ushort)((Regs[TIM] + 1) & 0xFF);
@@ -507,7 +505,7 @@ namespace BizHawk.Emulation.Cores.Components.I8048
 						if (TimIntEn)
 						{
 							TIRQPending = true;
-							//Console.WriteLine("Counter: " + TotalExecutedCycles);
+							// Console.WriteLine("Counter: " + LY + " " + TotalExecutedCycles);
 						}
 					}
 					Regs[TIM] = (ushort)((Regs[TIM] + 1) & 0xFF);
@@ -541,7 +539,7 @@ namespace BizHawk.Emulation.Cores.Components.I8048
 					Regs[(ushort)(R7 + RB)],
 					Regs[PSW],
 					TotalExecutedCycles,
-					Core.ppu.LY,
+					LY,
 					FlagC ? "C" : "c",
 					FlagAC ? "A" : "a",
 					FlagF0 ? "F" : "f",
@@ -585,6 +583,7 @@ namespace BizHawk.Emulation.Cores.Components.I8048
 			ser.Sync(nameof(IRQPending), ref IRQPending);
 			ser.Sync(nameof(TIRQPending), ref TIRQPending);
 			ser.Sync(nameof(INT_MSTR), ref INT_MSTR);
+			ser.Sync(nameof(test_pass), ref test_pass);
 
 			ser.Sync(nameof(instr_pntr), ref instr_pntr);
 			ser.Sync(nameof(cur_instr), ref cur_instr, false);
@@ -592,6 +591,7 @@ namespace BizHawk.Emulation.Cores.Components.I8048
 			ser.Sync(nameof(IRQS), ref IRQS);
 			ser.Sync(nameof(irq_pntr), ref irq_pntr);
 
+			ser.Sync(nameof(LY), ref LY);
 			ser.Sync(nameof(EA), ref EA);
 			ser.Sync(nameof(TF), ref TF);
 			ser.Sync(nameof(timer_en), ref timer_en);

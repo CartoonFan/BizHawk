@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -65,7 +66,7 @@ namespace BizHawk.Emulation.Common
 				_buttons.Add(k, source.IsPressed(k) ? 1 : 0);
 			}
 
-			foreach (var k in Definition.AxisControls)
+			foreach (var k in Definition.Axes.Keys)
 			{
 				if (_buttons.Keys.Contains(k))
 				{
@@ -95,5 +96,9 @@ namespace BizHawk.Emulation.Common
 		{
 			return _buttons[name];
 		}
+
+		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => Array.Empty<(string, int)>();
+
+		public void SetHapticChannelStrength(string name, int strength) {}
 	}
 }

@@ -2,15 +2,13 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Threading;
-using System.Windows.Forms;
 
-using ICSharpCode.SharpZipLib.Zip.Compression.Streams;
-using ICSharpCode.SharpZipLib.Zip.Compression;
+using BizHawk.Client.Common;
 
 using BizHawk.Emulation.Common;
-using BizHawk.Client.Common;
 using BizHawk.Common;
 
 namespace BizHawk.Client.EmuHawk
@@ -24,6 +22,25 @@ namespace BizHawk.Client.EmuHawk
 	[VideoWriter("jmd", "JMD writer", "Writes a JPC-rr multidump file (JMD).  These can be read and further processed with jpc-streamtools.  One JMD file contains all audio (uncompressed) and video (compressed).")]
 	public class JmdWriter : IVideoWriter
 	{
+		// We formerly used a compressor that supported 0-9 values for compression level
+		private const int NO_COMPRESSION = 0;
+		private const int BEST_COMPRESSION = 9;
+		private const int DEFAULT_COMPRESSION = -1;
+		private const int BEST_SPEED = 1;
+
+		private static CompressionLevel GetCompressionLevel(int v)
+		{
+			switch (v)
+			{
+				case NO_COMPRESSION:
+					return CompressionLevel.NoCompression;
+				case BEST_COMPRESSION:
+					return CompressionLevel.Optimal;
+				default:
+					return CompressionLevel.Fastest;
+			}
+		}
+
 		/// <summary>
 		/// carries private compression information data
 		/// </summary>
@@ -48,10 +65,12 @@ namespace BizHawk.Client.EmuHawk
 			/// </summary>
 			public CodecToken()
 			{
-				CompressionLevel = Deflater.DEFAULT_COMPRESSION;
+				CompressionLevel = DEFAULT_COMPRESSION;
 				NumThreads = 3;
 			}
 		}
+
+		private readonly IDialogParent _dialogParent;
 
 		// stores compression parameters
 		private CodecToken _token;
@@ -142,7 +161,7 @@ namespace BizHawk.Client.EmuHawk
 			// output stream is always stereo
 			private readonly bool _stereo;
 
-			/// underlying bytestream that is being written to
+			/// <summary>underlying bytestream that is being written to</summary>
 			private readonly Stream _f;
 
 			/// <exception cref="ArgumentException"><paramref name="f"/> cannot be written to</exception>
@@ -495,8 +514,10 @@ namespace BizHawk.Client.EmuHawk
 		/// <summary>
 		/// sets default (probably wrong) parameters
 		/// </summary>
-		public JmdWriter()
+		public JmdWriter(IDialogParent dialogParent)
 		{
+			_dialogParent = dialogParent;
+
 			_fpsNum = 25;
 			_fpsDen = 1;
 			_audioSampleRate = 22050;
@@ -525,25 +546,20 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		/// <summary>
-		/// obtain a set of recording compression parameters
-		/// </summary>
-		/// <param name="hwnd">hwnd to attach to if the user is shown config dialog</param>
-		/// <returns>codec token, dispose of it when you're done with it</returns>
-		public IDisposable AcquireVideoCodecToken(IWin32Window hwnd)
+		public IDisposable AcquireVideoCodecToken(Config config)
 		{
 			var ret = new CodecToken();
 
 			// load from config and sanitize
-			int t = Math.Min(Math.Max(GlobalWin.Config.JmdThreads, 1), 6);
+			int t = Math.Min(Math.Max(config.JmdThreads, 1), 6);
 
-			int c = Math.Min(Math.Max(GlobalWin.Config.JmdCompression, Deflater.NO_COMPRESSION), Deflater.BEST_COMPRESSION);
+			int c = Math.Min(Math.Max(config.JmdCompression, NO_COMPRESSION), BEST_COMPRESSION);
 
-			if (!JmdForm.DoCompressionDlg(ref t, ref c, 1, 6, Deflater.NO_COMPRESSION, Deflater.BEST_COMPRESSION, hwnd))
+			if (!JmdForm.DoCompressionDlg(ref t, ref c, 1, 6, NO_COMPRESSION, BEST_COMPRESSION, _dialogParent.AsWinFormsHandle()))
 				return null;
 
-			GlobalWin.Config.JmdThreads = ret.NumThreads = t;
-			GlobalWin.Config.JmdCompression = ret.CompressionLevel = c;
+			config.JmdThreads = ret.NumThreads = t;
+			config.JmdCompression = ret.CompressionLevel = c;
 
 			return ret;
 		}
@@ -592,7 +608,7 @@ namespace BizHawk.Client.EmuHawk
 			string ext = Path.GetExtension(baseName);
 			if (ext == null || ext.ToLower() != ".jmd")
 			{
-				baseName = baseName + ".jmd";
+				baseName += ".jmd";
 			}
 
 			_jmdFile = new JmdFile(File.Open(baseName, FileMode.Create), _fpsNum, _fpsDen, _audioSampleRate, _audioChannels == 2);
@@ -650,7 +666,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			catch (Exception e)
 			{
-				MessageBox.Show($"JMD Worker Thread died:\n\n{e}");
+				_dialogParent.DialogController.ShowMessageBox($"JMD Worker Thread died:\n\n{e}");
 			}
 		}
 
@@ -709,11 +725,8 @@ namespace BizHawk.Client.EmuHawk
 			m.WriteByte((byte)(v.BufferWidth & 255));
 			m.WriteByte((byte)(v.BufferHeight >> 8));
 			m.WriteByte((byte)(v.BufferHeight & 255));
-			var g = new DeflaterOutputStream(m, new Deflater(_token.CompressionLevel))
-			{
-				IsStreamOwner = false // leave memory stream open so we can pick its contents
-			};
 
+			var g = new GZipStream(m, GetCompressionLevel(_token.CompressionLevel), true); // leave memory stream open so we can pick its contents
 			g.Write(v.VideoBuffer, 0, v.VideoBuffer.Length);
 			g.Flush();
 			g.Close();
@@ -779,14 +792,14 @@ namespace BizHawk.Client.EmuHawk
 
 		public string DesiredExtension() => "jmd";
 
-		public void SetDefaultVideoCodecToken()
+		public void SetDefaultVideoCodecToken(Config config)
 		{
 			CodecToken ct = new CodecToken();
 
 			// load from config and sanitize
-			int t = Math.Min(Math.Max(GlobalWin.Config.JmdThreads, 1), 6);
+			int t = Math.Min(Math.Max(config.JmdThreads, 1), 6);
 
-			int c = Math.Min(Math.Max(GlobalWin.Config.JmdCompression, Deflater.NO_COMPRESSION), Deflater.BEST_COMPRESSION);
+			int c = Math.Min(Math.Max(config.JmdCompression, NO_COMPRESSION), BEST_COMPRESSION);
 
 			ct.CompressionLevel = c;
 			ct.NumThreads = t;

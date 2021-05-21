@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using BizHawk.BizInvoke;
-using BizHawk.Common;
 
 namespace BizHawk.Emulation.Cores.Waterbox
 {
@@ -145,6 +143,10 @@ namespace BizHawk.Emulation.Cores.Waterbox
 			public int FpsFixed;
 			public int LcmWidth;
 			public int LcmHeight;
+			public int  PointerScaleX;
+			public int  PointerScaleY;
+			public int  PointerOffsetX;
+			public int  PointerOffsetY;
 		}
 
 		[BizImport(CC, Compatibility = true)]
@@ -153,9 +155,24 @@ namespace BizHawk.Emulation.Cores.Waterbox
 		[BizImport(CC)]
 		public abstract void DumpSettings();
 
+		/// <summary>
+		/// Call when a non-sync setting changes value after emulation started.
+		/// The new value should already be available from FrontendSettingQuery
+		/// </summary>
+		[BizImport(CC)]
+		public abstract void NotifySettingChanged(string name);
+
 		public delegate void FrontendSettingQuery(string setting, IntPtr dest);
 		[BizImport(CC)]
 		public abstract void SetFrontendSettingQuery(FrontendSettingQuery q);
+
+		public delegate void FrontendFirmwareNotify(string name);
+		/// <summary>
+		/// Set a callback to be called whenever the core calls MDFN_MakeFName for a firmware, so that we can load firmwares on demand
+		/// </summary>
+		/// <param name="cb"></param>
+		[BizImport(CC)]
+		public abstract void SetFrontendFirmwareNotify(FrontendFirmwareNotify cb);
 
 		[StructLayout(LayoutKind.Sequential)]
 		public class TOC
@@ -176,8 +193,13 @@ namespace BizHawk.Emulation.Cores.Waterbox
 			[MarshalAs(UnmanagedType.ByValArray, SizeConst = 101)]
 			public Track[] Tracks;
 		}
+		/// <summary>
+		/// Callback to receive a disk TOC
+		/// </summary>
+		/// <param name="disk"></param>
+		/// <param name="dest">Deposit a LibNymaCore.TOC here</param>
 		[UnmanagedFunctionPointer(CC)]
-		public delegate void CDTOCCallback(int disk, [In, Out]TOC toc);
+		public delegate void CDTOCCallback(int disk, IntPtr dest);
 		[UnmanagedFunctionPointer(CC)]
 		public delegate void CDSectorCallback(int disk, int lba, IntPtr dest);
 		[BizImport(CC)]

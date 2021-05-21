@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -17,10 +15,10 @@ namespace BizHawk.Common
 	{
 		// TODO - manage paths other than %temp%, make not static, or allow adding multiple paths to static instance
 
-		public static string GetTempFilename(string friendlyName, string extension = null, bool delete = true)
+		public static string GetTempFilename(string friendlyName, string? dotAndExtension = null, bool delete = true)
 		{
 			string guidPart = Guid.NewGuid().ToString();
-			var fname = $"biz-{System.Diagnostics.Process.GetCurrentProcess().Id}-{friendlyName}-{guidPart}{extension ?? ""}";
+			var fname = $"biz-{System.Diagnostics.Process.GetCurrentProcess().Id}-{friendlyName}-{guidPart}{dotAndExtension ?? ""}";
 			if (delete)
 			{
 				fname = RenameTempFilenameForDelete(fname);
@@ -33,7 +31,7 @@ namespace BizHawk.Common
 		public static string RenameTempFilenameForDelete(string path)
 		{
 			string filename = Path.GetFileName(path);
-			string dir = Path.GetDirectoryName(path);
+			var dir = Path.GetDirectoryName(path) ?? throw new InvalidOperationException();
 			if (!filename.StartsWith("biz-"))
 			{
 				throw new InvalidOperationException();
@@ -61,7 +59,7 @@ namespace BizHawk.Common
 			}
 		}
 
-		static void ThreadProc()
+		private static void ThreadProc()
 		{
 			// squirrely logic, trying not to create garbage
 			var knownTempDirs = new HashSet<string>();
@@ -77,37 +75,35 @@ namespace BizHawk.Common
 
 				foreach(var di in dis)
 				{
-					FileInfo[] fis = null;
+					FileInfo[] fis;
 					try
 					{
 						fis = di.GetFiles("bizdelete-*");
 					}
 					catch
 					{
+						continue;
 					}
 
-					if (fis != null)
+					foreach (var fi in fis)
 					{
-						foreach (var fi in fis)
+						try
 						{
-							try
+							if (OSTailoredCode.IsUnixHost)
 							{
-								if (OSTailoredCode.IsUnixHost)
-								{
-									fi.Delete(); // naive deletion, Mono doesn't care
-								}
-								else
-								{
-									Win32Imports.DeleteFileW(fi.FullName); // SHUT. UP. THE. EXCEPTIONS.
-								}
+								fi.Delete(); // naive deletion, Mono doesn't care
 							}
-							catch
+							else
 							{
+								Win32Imports.DeleteFileW(fi.FullName); // SHUT. UP. THE. EXCEPTIONS.
 							}
-
-							// try not to do more than one thing per frame
-							Thread.Sleep(100);
 						}
+						catch
+						{
+						}
+
+						// try not to do more than one thing per frame
+						Thread.Sleep(100);
 					}
 				}
 
@@ -120,7 +116,7 @@ namespace BizHawk.Common
 		{
 		}
 
-		static Thread thread;
+		private static Thread? thread;
 
 		public static void HelperSetTempPath(string path)
 		{

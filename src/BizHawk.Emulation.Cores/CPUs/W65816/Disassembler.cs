@@ -1,15 +1,4 @@
-﻿//taken from:
-
-//https://raw.githubusercontent.com/pelrun/Dispel/master/65816.c
-//65816.c
-//65816/6502 module for DisPel
-//James Churchill
-//Created 230900
-//Last Modified 240900
-
-//license: assumed public domain
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -17,11 +6,11 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Components.W65816
 {
-	class W65816_DisassemblerService : IDisassemblable
+	internal class W65816_DisassemblerService : IDisassemblable
 	{
 		public string Cpu { get; set; }
 
-		W65816 disassemblerCpu = new W65816();
+		private readonly W65816 disassemblerCpu = new W65816();
 		
 		public IEnumerable<string> AvailableCpus
 		{
@@ -37,15 +26,20 @@ namespace BizHawk.Emulation.Cores.Components.W65816
 		}
 	}
 
-	class W65816
+	/// <remarks>
+	/// Ported from C-lang project https://github.com/pelrun/Dispel at <c>cb38eeee0</c> (specifically, the file <c>65816.c</c>).<br/>
+	/// The DisPel software is unlicensed, and is thus assumed to be copyrighted without any transfer of rights.
+	/// This reproduction is made with the assumption that it cannot be infringing because every part of its structure is necessary for its function (in the US, scènes à faire).
+	/// </remarks>
+	internal class W65816
 	{
 		//unsigned char *mem, unsigned long pos, unsigned char *flag, char *inst, unsigned char tsrc
 		//TODO - what ha ppens at the end of memory? make sure peek wraps around?
 		public string Disassemble(uint addr, Func<long, byte> peek, ref byte P, out int length)
 		{
 			byte opcode = peek(addr);
-			string ibuf;
-			string pbuf;
+			string ibuf = null;
+			string pbuf = null;
 			int offset = -1, sval = -1;
 
 			bool tsrc_2 = false;
@@ -241,9 +235,6 @@ namespace BizHawk.Emulation.Cores.Components.W65816
 					ibuf = "xba";break;
 				case 0xFB:
 					ibuf = "xce";break;
-				default:
-					length = 1;
-					return "???";
 			}
 
 			// Parse out parameter list
@@ -475,9 +466,6 @@ namespace BizHawk.Emulation.Cores.Components.W65816
 						offset = 3;
 					}
 					break;
-				default:
-					length = 1;
-					return "???";
 			}
 
 			StringBuilder sb = new StringBuilder();

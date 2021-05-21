@@ -1,15 +1,19 @@
 ﻿using System;
+using System.IO;
 using System.Windows.Forms;
 
 using BizHawk.Common;
 using BizHawk.Client.Common;
-using System.IO;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class MultiDiskFileSelector : UserControl
+	public partial class MultiDiskFileSelector : UserControl, IDialogParent
 	{
-		private readonly ToolFormBase _parent;
+		private readonly Func<string> _getLoadedRomNameCallback;
+
+		private readonly PathEntryCollection _pathEntries;
+
+		public IDialogController DialogController { get; }
 
 		public string SystemString { get; set; } = "";
 
@@ -26,9 +30,11 @@ namespace BizHawk.Client.EmuHawk
 			OnNameChanged(EventArgs.Empty);
 		}
 
-		public MultiDiskFileSelector(ToolFormBase parent)
+		public MultiDiskFileSelector(IDialogController dialogController, PathEntryCollection pathEntries, Func<string> getLoadedRomNameCallback)
 		{
-			_parent = parent;
+			DialogController = dialogController;
+			_pathEntries = pathEntries;
+			_getLoadedRomNameCallback = getLoadedRomNameCallback;
 			InitializeComponent();
 			PathBox.TextChanged += HandleLabelTextChanged;
 		}
@@ -67,21 +73,14 @@ namespace BizHawk.Client.EmuHawk
 		{
 			using var ofd = new OpenFileDialog
 			{
-				InitialDirectory = _parent.Config.PathEntries.RomAbsolutePath(),
-				Filter = MainForm.RomFilter,
+				InitialDirectory = _pathEntries.RomAbsolutePath(),
+				Filter = RomLoader.RomFilter,
 				RestoreDirectory = true
 			};
-			string hawkPath = "";
 
-			var result = ofd.ShowHawkDialog();
-			if (result == DialogResult.OK)
-			{
-				hawkPath = ofd.FileName;
-			}
-			else
-			{
-				return;
-			}
+			if (this.ShowDialogWithTempMute(ofd) != DialogResult.OK) return;
+
+			var hawkPath = ofd.FileName;
 
 			try
 			{
@@ -94,7 +93,7 @@ namespace BizHawk.Client.EmuHawk
 					// archive - run the archive chooser
 					if (SystemString == "PSX" || SystemString == "PCFX" || SystemString == "SAT")
 					{
-						MessageBox.Show("Using archives with PSX, PCFX or SATURN is not currently recommended/supported.");
+						DialogController.ShowMessageBox("Using archives with PSX, PCFX or SATURN is not currently recommended/supported.");
 						return;
 					}
 
@@ -123,7 +122,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void UseCurrentRomButton_Click(object sender, EventArgs e)
 		{
-			PathBox.Text = _parent.MainForm.CurrentlyOpenRom;
+			PathBox.Text = _getLoadedRomNameCallback();
 		}
 
 		private void DualGBFileSelector_Load(object sender, EventArgs e)
@@ -133,9 +132,10 @@ namespace BizHawk.Client.EmuHawk
 
 		public void UpdateValues()
 		{
+			var loadedRomName = _getLoadedRomNameCallback();
 			UseCurrentRomButton.Enabled =
-				!string.IsNullOrEmpty(_parent.MainForm.CurrentlyOpenRom)
-				&& !_parent.MainForm.CurrentlyOpenRom.Contains(".xml"); // Can't already be an xml
+				!string.IsNullOrEmpty(loadedRomName)
+				&& !loadedRomName.Contains(".xml"); // Can't already be an xml
 		}
 
 		private void PathBox_TextChanged(object sender, EventArgs e)

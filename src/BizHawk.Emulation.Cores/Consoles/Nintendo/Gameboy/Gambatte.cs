@@ -10,24 +10,18 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 	/// <summary>
 	/// a gameboy/gameboy color emulator wrapped around native C++ libgambatte
 	/// </summary>
-	[Core(
-		CoreNames.Gambatte,
-		"",
-		isPorted: true,
-		isReleased: true,
-		portedVersion: "SVN 344",
-		portedUrl: "http://gambatte.sourceforge.net/",
-		singleInstance: false)]
+	[PortedCore(CoreNames.Gambatte, "", "Gambatte-Speedrun r717+", "https://github.com/pokemon-speedrunning/gambatte-speedrun")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class Gameboy : IEmulator, IVideoProvider, ISoundProvider, ISaveRam, IStatable, IInputPollable, ICodeDataLogger,
 		IBoardInfo, IRomInfo, IDebuggable, ISettable<Gameboy.GambatteSettings, Gameboy.GambatteSyncSettings>,
 		IGameboyCommon, ICycleTiming, ILinkable
 	{
-		[CoreConstructor(new[] { "GB", "GBC" })]
-		public Gameboy(CoreComm comm, GameInfo game, byte[] file, object settings, object syncSettings, bool deterministic)
+		[CoreConstructor("GB")]
+		[CoreConstructor("GBC")]
+		public Gameboy(CoreComm comm, GameInfo game, byte[] file, Gameboy.GambatteSettings settings, Gameboy.GambatteSyncSettings syncSettings, bool deterministic)
 		{
 			var ser = new BasicServiceProvider(this);
-			ser.Register<IDisassemblable>(new GBDisassembler());
+			ser.Register<IDisassemblable>(_disassembler);
 			ServiceProvider = ser;
 			Tracer = new TraceBuffer
 			{
@@ -59,19 +53,17 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 				switch (_syncSettings.ConsoleMode)
 				{
 					case GambatteSyncSettings.ConsoleModeType.GB:
-						flags |= LibGambatte.LoadFlags.FORCE_DMG;
 						break;
 					case GambatteSyncSettings.ConsoleModeType.GBC:
+						flags |= LibGambatte.LoadFlags.CGB_MODE;
+						break;
+					case GambatteSyncSettings.ConsoleModeType.GBA:
+						flags |= LibGambatte.LoadFlags.CGB_MODE | LibGambatte.LoadFlags.GBA_FLAG;
 						break;
 					default:
-						if (game.System == "GB")
-							flags |= LibGambatte.LoadFlags.FORCE_DMG;
+						if (game.System == "GBC")
+							flags |= LibGambatte.LoadFlags.CGB_MODE;
 						break;
-				}
-
-				if (_syncSettings.GBACGB)
-				{
-					flags |= LibGambatte.LoadFlags.GBA_CGB;
 				}
 
 				if (_syncSettings.MulticartCompat)
@@ -85,42 +77,33 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 				}
 
 				byte[] bios;
-				string biosName;
-				if ((flags & LibGambatte.LoadFlags.FORCE_DMG) == LibGambatte.LoadFlags.FORCE_DMG)
+				string biosSystemId;
+				string biosId;
+				if ((flags & LibGambatte.LoadFlags.CGB_MODE) == LibGambatte.LoadFlags.CGB_MODE)
 				{
-					biosName = "GB";
-					IsCgb = false;
+					biosSystemId = "GBC";
+					biosId = _syncSettings.ConsoleMode == GambatteSyncSettings.ConsoleModeType.GBA ? "AGB" : "World";
+					IsCgb = true;
 				}
 				else
 				{
-					// TODO: Fix AGB bios mode stuff
-					// biosName = _syncSettings.GBACGB ? "AGB" : "GBC";
-					biosName = "GBC";
-					IsCgb = true;
+					biosSystemId = "GB";
+					biosId = "World";
+					IsCgb = false;
 				}
 
 				if (_syncSettings.EnableBIOS)
 				{
-					bios = comm.CoreFileProvider.GetFirmware(biosName, "World", true, "BIOS Not Found, Cannot Load.  Change SyncSettings to run without BIOS.");
+					bios = comm.CoreFileProvider.GetFirmware(biosSystemId, biosId, true, "BIOS Not Found, Cannot Load.  Change SyncSettings to run without BIOS.");
 				}
 				else
 				{
-					Lazy<byte[]> builtinBios;
-					switch (biosName)
-					{
-						case "GB":
-							builtinBios = Resources.SameboyDmgBoot;
-							break;
-						case "GBC":
-							builtinBios = Resources.SameboyCgbBoot;
-							break;
-						// TODO: This doesn't work; locks up before leaving the bios screen
-						// case "AGB":
-						// 	builtinBios = Resources.SameboyAgbBoot;
-						// 	break;
-						default:
-							throw new Exception("Internal GB Error (BIOS??)");
-					}
+					var builtinBios = (biosSystemId, biosId) switch {
+						("GB", "World") => Resources.FastDmgBoot,
+						("GBC", "World") => Resources.FastCgbBoot,
+						("GBC", "AGB") => Resources.FastAgbBoot,
+						(_, _) => throw new Exception("Internal GB Error (BIOS??)"),
+					};
 					bios = BizHawk.Common.Util.DecompressGzipFile(new MemoryStream(builtinBios.Value, false));
 				}
 
@@ -155,6 +138,42 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 				{
 					LibGambatte.gambatte_settimemode(GambatteState, false);
 				}
+
+				if (DeterministicEmulation)
+				{
+					int[] rtcRegs = new int[11];
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.Dh] = 0;
+					if (_syncSettings.InternalRTCOverflow)
+					{
+						rtcRegs[(int)LibGambatte.RtcRegIndicies.Dh] |= 0x80;
+					}
+					if (_syncSettings.InternalRTCHalt)
+					{
+						rtcRegs[(int)LibGambatte.RtcRegIndicies.Dh] |= 0x40;
+					}
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.Dh] |= _syncSettings.InternalRTCDays >> 8;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.Dl] = _syncSettings.InternalRTCDays & 0xFF;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.H] = (_syncSettings.InternalRTCHours < 0) ? (_syncSettings.InternalRTCHours + 0x20) : _syncSettings.InternalRTCHours;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.M] = (_syncSettings.InternalRTCMinutes < 0) ? (_syncSettings.InternalRTCMinutes + 0x40) : _syncSettings.InternalRTCMinutes;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.S] = (_syncSettings.InternalRTCSeconds < 0) ? (_syncSettings.InternalRTCSeconds + 0x40) : _syncSettings.InternalRTCSeconds;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.C] = _syncSettings.InternalRTCCycles;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.Dh_L] = 0;
+					if (_syncSettings.LatchedRTCOverflow)
+					{
+						rtcRegs[(int)LibGambatte.RtcRegIndicies.Dh_L] |= 0x80;
+					}
+					if (_syncSettings.LatchedRTCHalt)
+					{
+						rtcRegs[(int)LibGambatte.RtcRegIndicies.Dh_L] |= 0x40;
+					}
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.Dh_L] |= _syncSettings.LatchedRTCDays >> 8;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.Dl_L] = _syncSettings.LatchedRTCDays & 0xFF;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.H_L] = _syncSettings.LatchedRTCHours;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.M_L] = _syncSettings.LatchedRTCMinutes;
+					rtcRegs[(int)LibGambatte.RtcRegIndicies.S_L] = _syncSettings.LatchedRTCSeconds;
+					LibGambatte.gambatte_setrtcregs(GambatteState, rtcRegs);
+				}
+
 				LibGambatte.gambatte_setrtcdivisoroffset(GambatteState, _syncSettings.RTCDivisorOffset);
 
 				_cdCallback = new LibGambatte.CDCallback(CDCallbackProc);
@@ -167,6 +186,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 				throw;
 			}
 		}
+
+		private readonly GBDisassembler _disassembler = new();
 
 		public string RomDetails { get; }
 
@@ -255,8 +276,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 
 		internal void FrameAdvancePrep(IController controller)
 		{
-			Frame++;
-
 			// update our local copy of the controller data
 			CurrentButtons = 0;
 
@@ -296,7 +315,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 
 			LibGambatte.gambatte_settracecallback(GambatteState, _tracecb);
 
-			LibGambatte.gambatte_setlayers(GambatteState, (_settings.DisplayBG ? 1 : 0) | (_settings.DisplayOBJ ? 2 : 0) | (_settings.DisplayWindow ? 4 : 0));
+			LibGambatte.gambatte_setlayers(GambatteState, (_syncSettings.DisplayBG ? 1 : 0) | (_syncSettings.DisplayOBJ ? 2 : 0) | (_syncSettings.DisplayWindow ? 4 : 0));
 		}
 
 		internal void FrameAdvancePost()
@@ -305,6 +324,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 			{
 				LagCount++;
 			}
+
+			Frame++;
 
 			endofframecallback?.Invoke(LibGambatte.gambatte_cpuread(GambatteState, 0xff40));
 		}
@@ -392,13 +413,12 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 			}
 		}
 
-		public IntPtr _vram = IntPtr.Zero;
-		public IntPtr _bgpal = IntPtr.Zero;
-		public IntPtr _sppal = IntPtr.Zero;
-		public IntPtr _oam = IntPtr.Zero;
-
-		public GPUMemoryAreas GetGPU()
-		{		
+		public IGPUMemoryAreas LockGPU()
+		{
+			var _vram = IntPtr.Zero;
+			var _bgpal = IntPtr.Zero;
+			var _sppal = IntPtr.Zero;
+			var _oam = IntPtr.Zero;
 			int unused = 0;
 			if (!LibGambatte.gambatte_getmemoryarea(GambatteState, LibGambatte.MemoryAreas.vram, ref _vram, ref unused)
 				|| !LibGambatte.gambatte_getmemoryarea(GambatteState, LibGambatte.MemoryAreas.bgpal, ref _bgpal, ref unused)
@@ -407,7 +427,26 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 			{
 				throw new InvalidOperationException("Unexpected error in gambatte_getmemoryarea");
 			}
-			return new GPUMemoryAreas(_vram, _oam, _sppal, _bgpal);
+			return new GPUMemoryAreas
+			{
+				Vram = _vram,
+				Oam = _oam,
+				Sppal = _sppal,
+				Bgpal = _bgpal,	
+			};
+		}
+
+		private class GPUMemoryAreas : IGPUMemoryAreas
+		{
+			public IntPtr Vram { get; init; }
+
+			public IntPtr Oam { get; init; }
+
+			public IntPtr Sppal { get; init; }
+
+			public IntPtr Bgpal { get; init; }
+
+			public void Dispose() {}
 		}
 
 		/// <summary>
@@ -437,10 +476,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 			}
 			else if (line >= 0 && line <= 153)
 			{
-				scanlinecb = delegate
-				{
-					callback(LibGambatte.gambatte_cpuread(GambatteState, 0xff40));
-				};
+				scanlinecb = () => callback(LibGambatte.gambatte_cpuread(GambatteState, 0xff40));
 				LibGambatte.gambatte_setscanlinecallback(GambatteState, scanlinecb, line);
 			}
 			else
@@ -449,7 +485,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 			}
 		}
 
-		GambattePrinter printer;
+		private GambattePrinter printer;
 
 		/// <summary>
 		/// set up Printer callback
@@ -475,8 +511,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 			}
 		}
 
-		LibGambatte.ScanlineCallback scanlinecb;
-		ScanlineCallback endofframecallback;
+		private LibGambatte.ScanlineCallback scanlinecb;
+		private ScanlineCallback endofframecallback;
 
 		/// <summary>
 		/// update gambatte core's internal colors

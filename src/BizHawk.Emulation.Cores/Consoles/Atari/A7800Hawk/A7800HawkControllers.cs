@@ -93,7 +93,7 @@ namespace BizHawk.Emulation.Cores.Atari.A7800Hawk
 			PortNum = portNum;
 			Definition = new ControllerDefinition
 			{
-				Name = "Atari 2600 Basic Controller",
+				Name = "Atari 7800 Basic Controller",
 				BoolButtons = BaseDefinition
 				.Select(b => "P" + PortNum + " " + b)
 				.ToList()
@@ -272,12 +272,8 @@ namespace BizHawk.Emulation.Cores.Atari.A7800Hawk
 			Definition = new ControllerDefinition
 			{
 				Name = "Light Gun Controller",
-				BoolButtons = BaseDefinition
-				.Select(b => "P" + PortNum + " " + b)
-				.ToList(),
-				AxisControls = { "P" + PortNum + " X", "P" + PortNum + " Y" },
-				AxisRanges = { new ControllerDefinition.AxisRange(1, 160, 320), new ControllerDefinition.AxisRange(1, 121, 242) }
-			};
+				BoolButtons = BaseDefinition.Select(b => $"P{PortNum} {b}").ToList()
+			}.AddXYPair($"P{PortNum} {{0}}", AxisPairOrientation.RightAndUp, 1.RangeTo(320), 160, 1.RangeTo(242), 121); //TODO verify direction against hardware
 		}
 		
 		public int PortNum { get; }
@@ -315,8 +311,8 @@ namespace BizHawk.Emulation.Cores.Atari.A7800Hawk
 
 		public bool Is_LightGun(IController c, out float x, out float y)
 		{
-			x = c.AxisValue(Definition.AxisControls[0]);
-			y = c.AxisValue(Definition.AxisControls[1]);
+			x = c.AxisValue(Definition.Axes[0]);
+			y = c.AxisValue(Definition.Axes[1]);
 			return true;
 		}
 

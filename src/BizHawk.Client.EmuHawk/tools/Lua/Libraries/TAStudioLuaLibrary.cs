@@ -16,15 +16,14 @@ namespace BizHawk.Client.EmuHawk
 	[LuaLibrary(released: true)]
 	public sealed class TAStudioLuaLibrary : LuaLibraryBase
 	{
-		public TAStudioLuaLibrary(Lua lua)
-			: base(lua) { }
+		public ToolManager Tools { get; set; }
 
-		public TAStudioLuaLibrary(Lua lua, Action<string> logOutputCallback)
-			: base(lua, logOutputCallback) { }
+		public TAStudioLuaLibrary(IPlatformLuaLibEnv luaLibsImpl, ApiContainer apiContainer, Action<string> logOutputCallback)
+			: base(luaLibsImpl, apiContainer, logOutputCallback) {}
 
 		public override string Name => "tastudio";
 
-		private TAStudio Tastudio => GlobalWin.Tools.Get<TAStudio>() as TAStudio;
+		private TAStudio Tastudio => Tools.Get<TAStudio>() as TAStudio;
 
 		private struct PendingChanges
 		{
@@ -41,13 +40,14 @@ namespace BizHawk.Client.EmuHawk
 		{
 			InputChange,
 			InsertFrames,
-			DeleteFrames
+			DeleteFrames,
+			ClearFrames
 		}
 
 		private enum InputChangeTypes
 		{
 			Bool,
-			Float
+			Axis
 		}
 
 		public class TastudioBranchInfo
@@ -63,7 +63,7 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod("engaged", "returns whether or not tastudio is currently engaged (active)")]
 		public bool Engaged()
 		{
-			return GlobalWin.Tools.Has<TAStudio>(); // TODO: eventually tastudio should have an engaged flag
+			return Tools.Has<TAStudio>(); // TODO: eventually tastudio should have an engaged flag
 		}
 
 		[LuaMethodExample("if ( tastudio.getrecording( ) ) then\r\n\tconsole.log( \"returns whether or not TAStudio is in recording mode\" );\r\nend;")]
@@ -136,6 +136,8 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (Engaged())
 			{
+				_luaLibsImpl.IsUpdateSupressed = true;
+
 				int f;
 				if (frame is double frameNumber)
 				{
@@ -156,12 +158,14 @@ namespace BizHawk.Client.EmuHawk
 				{
 					Tastudio.GoToFrame(f, true);
 				}
+
+				_luaLibsImpl.IsUpdateSupressed = false;
 			}
 		}
 
 		[LuaMethodExample("local nltasget = tastudio.getselection( );")]
 		[LuaMethod("getselection", "gets the currently selected frames")]
-		public LuaTable GetSelection() => Engaged() ? Tastudio.GetSelection().EnumerateToLuaTable(Lua) : Lua.NewTable();
+		public LuaTable GetSelection() => Engaged() ? _th.EnumerateToLuaTable(Tastudio.GetSelection()) : _th.CreateTable();
 
 		[LuaMethodExample("")]
 		[LuaMethod("submitinputchange", "")]
@@ -215,7 +219,7 @@ namespace BizHawk.Client.EmuHawk
 						if (Tastudio.CurrentTasMovie.GetAxisState(frame, button) != (int) value) // Check if the button state is not already in the state the user set in the lua script
 						{
 							newChange.Type = LuaChangeTypes.InputChange;
-							newChange.InputType = InputChangeTypes.Float;
+							newChange.InputType = InputChangeTypes.Axis;
 							newChange.Frame = frame;
 							newChange.Button = button;
 							newChange.ValueAxis = (int) value;
@@ -226,7 +230,7 @@ namespace BizHawk.Client.EmuHawk
 					else
 					{
 						newChange.Type = LuaChangeTypes.InputChange;
-						newChange.InputType = InputChangeTypes.Float;
+						newChange.InputType = InputChangeTypes.Axis;
 						newChange.Frame = frame;
 						newChange.Button = button;
 						newChange.ValueAxis = (int) value;
@@ -268,11 +272,28 @@ namespace BizHawk.Client.EmuHawk
 		}
 
 		[LuaMethodExample("")]
+		[LuaMethod("submitclearframes", "")]
+		public void SubmitClearFrames(int frame, int number)
+		{
+			if (Engaged() && 0.RangeToExclusive(Tastudio.CurrentTasMovie.InputLogLength).Contains(frame) && number > 0)
+			{
+				_changeList.Add(new PendingChanges
+				{
+					Type = LuaChangeTypes.ClearFrames,
+					Frame = frame,
+					Number = number
+				});
+			}
+		}
+
+		[LuaMethodExample("")]
 		[LuaMethod("applyinputchanges", "")]
 		public void ApplyInputChanges()
 		{
 			if (Engaged())
 			{
+				_luaLibsImpl.IsUpdateSupressed = true;
+
 				if (_changeList.Count > 0)
 				{
 					int size = _changeList.Count;
@@ -287,7 +308,7 @@ namespace BizHawk.Client.EmuHawk
 									case InputChangeTypes.Bool:
 										Tastudio.CurrentTasMovie.SetBoolState(_changeList[i].Frame, _changeList[i].Button, _changeList[i].ValueBool);
 										break;
-									case InputChangeTypes.Float:
+									case InputChangeTypes.Axis:
 										Tastudio.CurrentTasMovie.SetAxisState(_changeList[i].Frame, _changeList[i].Button, _changeList[i].ValueAxis);
 										break;
 								}
@@ -298,6 +319,9 @@ namespace BizHawk.Client.EmuHawk
 							case LuaChangeTypes.DeleteFrames:
 								Tastudio.DeleteFrames(_changeList[i].Frame, _changeList[i].Number);
 								break;
+							case LuaChangeTypes.ClearFrames:
+								Tastudio.ClearFrames(_changeList[i].Frame, _changeList[i].Number);
+								break;
 						}
 					}
 					_changeList.Clear();
@@ -306,7 +330,7 @@ namespace BizHawk.Client.EmuHawk
 					Tastudio.DoAutoRestore();
 				}
 
-
+				_luaLibsImpl.IsUpdateSupressed = false;
 			}
 		}
 
@@ -351,45 +375,33 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod("getbranches", "Returns a list of the current tastudio branches.  Each entry will have the Id, Frame, and Text properties of the branch")]
 		public LuaTable GetBranches()
 		{
-			if (Engaged())
+			if (!Engaged()) return _th.CreateTable();
+			return _th.EnumerateToLuaTable(Tastudio.CurrentTasMovie.Branches.Select(b => new
 			{
-				return Tastudio.CurrentTasMovie.Branches
-					.Select(b => new
-					{
-						Id = b.Uuid.ToString(),
-						b.Frame,
-						Text = b.UserText
-					})
-					.EnumerateToLuaTable(Lua);
-			}
-
-			return Lua.NewTable();
+				Id = b.Uuid.ToString(),
+				b.Frame,
+				Text = b.UserText
+			}));
 		}
 
 		[LuaMethodExample("local nltasget = tastudio.getbranchinput( \"97021544-2454-4483-824f-47f75e7fcb6a\", 500 );")]
 		[LuaMethod("getbranchinput", "Gets the controller state of the given frame with the given branch identifier")]
 		public LuaTable GetBranchInput(string branchId, int frame)
 		{
-			var table = Lua.NewTable();
+			var table = _th.CreateTable();
+			if (!Engaged()) return table;
 
-			if (Engaged())
+			var controller = Tastudio.GetBranchInput(branchId, frame);
+			if (controller == null) return table;
+
+			foreach (var button in controller.Definition.BoolButtons)
 			{
-				var branch = Tastudio.CurrentTasMovie.Branches.FirstOrDefault(b => b.Uuid.ToString() == branchId);
-				if (branch != null && frame < branch.InputLog.Count)
-				{
-					var controller = GlobalWin.MovieSession.GenerateMovieController();
-					controller.SetFromMnemonic(branch.InputLog[frame]);
+				table[button] = controller.IsPressed(button);
+			}
 
-					foreach (var button in controller.Definition.BoolButtons)
-					{
-						table[button] = controller.IsPressed(button);
-					}
-
-					foreach (var button in controller.Definition.AxisControls)
-					{
-						table[button] = controller.AxisValue(button);
-					}
-				}
+			foreach (var button in controller.Definition.Axes.Keys)
+			{
+				table[button] = controller.AxisValue(button);
 			}
 
 			return table;
@@ -401,7 +413,11 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (Engaged())
 			{
+				_luaLibsImpl.IsUpdateSupressed = true;
+
 				Tastudio.LoadBranchByIndex(index);
+
+				_luaLibsImpl.IsUpdateSupressed = false;
 			}
 		}
 
@@ -461,18 +477,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (Engaged())
 			{
-				Tastudio.QueryItemBgColorCallback = (index, name) =>
-				{
-					var result = luaf.Call(index, name);
-
-					if (result != null)
-					{
-						var color = ToColor(result[0]);
-						return color;
-					}
-
-					return null;
-				};
+				Tastudio.QueryItemBgColorCallback = (index, name) => _th.SafeParseColor(luaf.Call(index, name)?[0]);
 			}
 		}
 

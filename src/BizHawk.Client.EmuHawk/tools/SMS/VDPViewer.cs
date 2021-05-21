@@ -1,25 +1,31 @@
 ﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
-using BizHawk.Emulation.Cores.Sega.MasterSystem;
 using System.Drawing.Imaging;
 
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
+using BizHawk.Emulation.Cores.Sega.MasterSystem;
 
 namespace BizHawk.Client.EmuHawk
 {
+	[SpecializedTool("VDP Viewer")]
 	public partial class SmsVdpViewer : ToolFormBase, IToolFormAutoConfig
 	{
 		[RequiredService]
-		private SMS Sms { get; set; }
-		private VDP Vdp => Sms.Vdp;
+		private ISmsGpuView Vdp { get; set; }
+
+		[RequiredService]
+		private IEmulator Emulator { get; set; }
 
 		private int _palIndex;
+
+		protected override string WindowTitleStatic => "VDP Viewer";
 
 		public SmsVdpViewer()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.SmsIcon;
 
 			bmpViewTiles.ChangeBitmapSize(256, 128);
 			bmpViewPalette.ChangeBitmapSize(16, 2);
@@ -28,7 +34,7 @@ namespace BizHawk.Client.EmuHawk
 
 		protected override void GeneralUpdate() => UpdateBefore();
 
-		static unsafe void Draw8x8(byte* src, int* dest, int pitch, int* pal)
+		private static unsafe void Draw8x8(byte* src, int* dest, int pitch, int* pal)
 		{
 			int inc = pitch - 8;
 			dest -= inc;
@@ -40,7 +46,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		static unsafe void Draw8x8hv(byte* src, int* dest, int pitch, int* pal, bool hflip, bool vflip)
+		private static unsafe void Draw8x8hv(byte* src, int* dest, int pitch, int* pal, bool hflip, bool vflip)
 		{
 			int incX = hflip ? -1 : 1;
 			int incY = vflip ? -pitch : pitch;
@@ -60,7 +66,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		unsafe void DrawTiles(int *pal)
+		private unsafe void DrawTiles(int *pal)
 		{
 			var lockData = bmpViewTiles.Bmp.LockBits(new Rectangle(0, 0, 256, 128), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
 			int* dest = (int*)lockData.Scan0;
@@ -81,7 +87,7 @@ namespace BizHawk.Client.EmuHawk
 			bmpViewTiles.Refresh();
 		}
 
-		unsafe void DrawBG(int* pal)
+		private unsafe void DrawBG(int* pal)
 		{
 			int bgHeight = Vdp.FrameHeight == 192 ? 224 : 256;
 			int maxTile = bgHeight * 4;
@@ -117,7 +123,7 @@ namespace BizHawk.Client.EmuHawk
 			bmpViewBG.Refresh();
 		}
 
-		unsafe void DrawPal(int* pal)
+		private unsafe void DrawPal(int* pal)
 		{
 			var lockData = bmpViewPalette.Bmp.LockBits(new Rectangle(0, 0, 16, 2), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
 			int* dest = (int*)lockData.Scan0;
@@ -150,12 +156,12 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public void Restart()
+		public override void Restart()
 		{
 			GeneralUpdate();
 		}
 
-		private void bmpViewPalette_MouseClick(object sender, MouseEventArgs e)
+		private void BmpViewPalette_MouseClick(object sender, MouseEventArgs e)
 		{
 			int p = Math.Min(Math.Max(e.Y / 16, 0), 1);
 			_palIndex = p;
@@ -189,24 +195,24 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		private void CloseMenuItem_Click(object sender, EventArgs e)
+		private void SaveAsFile(Bitmap bmp, string suffix)
 		{
-			Close();
+			bmp.SaveAsFile(Game, suffix, Emulator.SystemId, Config.PathEntries, this);
 		}
 
-		private void saveTilesScreenshotToolStripMenuItem_Click(object sender, EventArgs e)
+		private void SaveTilesScreenshotToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			bmpViewTiles.SaveFile();
+			SaveAsFile(bmpViewTiles.Bmp, "Tiles");
 		}
 
 		private void SavePalettesScreenshotMenuItem_Click(object sender, EventArgs e)
 		{
-			bmpViewPalette.SaveFile();
+			SaveAsFile(bmpViewPalette.Bmp, "Palette");
 		}
 
 		private void SaveBgScreenshotMenuItem_Click(object sender, EventArgs e)
 		{
-			bmpViewBG.SaveFile();
+			SaveAsFile(bmpViewBG.Bmp, "BG");
 		}
 	}
 }

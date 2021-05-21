@@ -1,4 +1,6 @@
-﻿namespace BizHawk.Client.EmuHawk
+﻿using BizHawk.WinForms.Controls;
+
+namespace BizHawk.Client.EmuHawk
 {
 	partial class LogWindow
 	{
@@ -49,7 +51,7 @@
 			this.btnClose.TabIndex = 2;
 			this.btnClose.Text = "Close";
 			this.btnClose.UseVisualStyleBackColor = true;
-			this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
+			this.btnClose.Click += new System.EventHandler(this.BtnClose_Click);
 			// 
 			// btnClear
 			// 
@@ -59,7 +61,7 @@
 			this.btnClear.TabIndex = 1;
 			this.btnClear.Text = "&Clear";
 			this.btnClear.UseVisualStyleBackColor = true;
-			this.btnClear.Click += new System.EventHandler(this.btnClear_Click);
+			this.btnClear.Click += new System.EventHandler(this.BtnClear_Click);
 			// 
 			// tableLayoutPanel1
 			// 
@@ -137,11 +139,7 @@
 			// 
 			// MenuStrip
 			// 
-			this.MenuStrip.Location = new System.Drawing.Point(0, 0);
-			this.MenuStrip.Name = "MenuStrip";
-			this.MenuStrip.Size = new System.Drawing.Size(675, 24);
 			this.MenuStrip.TabIndex = 9;
-			this.MenuStrip.Text = "menuStrip1";
 			// 
 			// LogWindow
 			// 
@@ -155,9 +153,8 @@
 			this.MainMenuStrip = this.MenuStrip;
 			this.MinimumSize = new System.Drawing.Size(171, 97);
 			this.Name = "LogWindow";
-			this.ShowIcon = false;
+			this.ShowIcon = true;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-			this.Text = "Log Window";
 			this.Load += new System.EventHandler(this.LogWindow_Load);
 			this.tableLayoutPanel1.ResumeLayout(false);
 			this.ResumeLayout(false);

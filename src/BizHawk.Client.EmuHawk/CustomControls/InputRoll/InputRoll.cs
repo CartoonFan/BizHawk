@@ -85,6 +85,10 @@ namespace BizHawk.Client.EmuHawk
 			SetStyle(ControlStyles.Opaque, true);
 			SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
 
+			// Deep in the bowels of winform documentation we discover these are necessary if you want your control to be able to have focus
+			SetStyle(ControlStyles.Selectable, true);
+			SetStyle(ControlStyles.UserMouse, true);
+
 			_renderer = new GdiPlusRenderer(Font);
 
 			UpdateCellSize();
@@ -210,12 +214,10 @@ namespace BizHawk.Client.EmuHawk
 			{
 				if (_horizontalOrientation != value)
 				{
-					int temp = ScrollSpeed;
 					_horizontalOrientation = value;
 					OrientationChanged();
 					_hBar.SmallChange = CellWidth;
 					_vBar.SmallChange = CellHeight;
-					ScrollSpeed = temp;
 				}
 			}
 		}
@@ -224,30 +226,7 @@ namespace BizHawk.Client.EmuHawk
 		/// Gets or sets the scrolling speed
 		/// </summary>
 		[Category("Behavior")]
-		public int ScrollSpeed
-		{
-			get
-			{
-				if (HorizontalOrientation)
-				{
-					return _hBar.SmallChange / CellWidth;
-				}
-
-				return _vBar.SmallChange / CellHeight;
-			}
-
-			set
-			{
-				if (HorizontalOrientation)
-				{
-					_hBar.SmallChange = value * CellWidth;
-				}
-				else
-				{
-					_vBar.SmallChange = value * CellHeight;
-				}
-			}
-		}
+		public int ScrollSpeed { get; set; }
 
 		/// <summary>
 		/// Gets or sets the sets the virtual number of rows to be displayed. Does not include the column header row.
@@ -331,18 +310,18 @@ namespace BizHawk.Client.EmuHawk
 		public bool AllowColumnReorder { get; set; }
 
 		/// <summary>
-		/// Gets or sets a value indicating whether the entire row will always be selected 
+		/// Gets or sets a value indicating whether the entire row will always be selected
 		/// </summary>
 		[Category("Appearance")]
 		[DefaultValue(false)]
 		public bool FullRowSelect { get; set; }
 
 		/// <summary>
-		/// Gets or sets a value indicating whether multiple items can to be selected
+		/// Gets or sets a value indicating whether multiple items can be selected
 		/// </summary>
 		[Category("Behavior")]
 		[DefaultValue(true)]
-		public bool MultiSelect { get; set; }
+		public bool MultiSelect { get; set; } = true;
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the control is in input painting mode
@@ -375,6 +354,14 @@ namespace BizHawk.Client.EmuHawk
 		/// </summary>
 		[Category("Behavior")]
 		public int SeekingCutoffInterval { get; set; }
+
+		/// <summary>
+		/// Gets or sets a value indicating whether pressing page up/down will cause
+		/// the current selection to change
+		/// </summary>
+		[DefaultValue(false)]
+		[Category("Behavior")]
+		public bool ChangeSelectionWhenPaging { get; set; } = true;
 
 		/// <summary>
 		/// Returns all columns including those that are not visible
@@ -585,12 +572,15 @@ namespace BizHawk.Client.EmuHawk
 
 			FullRowSelect = oldFullRowVal;
 			_lastSelectedRow = RowCount;
+			Refresh();
 		}
 
 		public void DeselectAll()
 		{
 			_lastSelectedRow = null;
 			_selectedItems.Clear();
+			SelectedIndexChanged?.Invoke(this, new EventArgs());
+			Refresh();
 		}
 
 		public void TruncateSelection(int index)
@@ -818,7 +808,8 @@ namespace BizHawk.Client.EmuHawk
 					return (_drawWidth - MaxColumnWidth) / CellWidth;
 				}
 
-				return (_drawHeight - ColumnHeight - 3) / CellHeight; // Minus three makes it work
+				var result = (_drawHeight - ColumnHeight - 3) / CellHeight; // Minus three makes it work
+				return result < 0 ? 0 : result;
 			}
 		}
 
@@ -1204,21 +1195,22 @@ namespace BizHawk.Client.EmuHawk
 
 			if (AllowRightClickSelection && e.Button == MouseButtons.Right)
 			{
-				if (!IsHoveringOnColumnCell && CurrentCell != null)
-				{
-					_currentX = e.X;
-					_currentY = e.Y;
-					Cell newCell = CalculatePointedCell(_currentX.Value, _currentY.Value);
-					newCell.RowIndex += FirstVisibleRow;
+				// In the case that we have a context menu already open, we must manually update the CurrentCell as MouseMove isn't triggered while it is open.
+				if (CurrentCell == null)
+					OnMouseMove(e);
 
+				if (!IsHoveringOnColumnCell)
+				{
 					// If this cell is not currently selected, clear and select
-					if (!_selectedItems.Contains(newCell))
+					if (!_selectedItems.Contains(CurrentCell))
 					{
 						_selectedItems.Clear();
 						SelectCell(CurrentCell);
+
+						Refresh();
+
+						SelectedIndexChanged?.Invoke(this, new EventArgs());
 					}
-					
-					CellChanged(newCell);
 				}
 			}
 
@@ -1258,7 +1250,7 @@ namespace BizHawk.Client.EmuHawk
 			int newVal;
 			if (increment)
 			{
-				newVal = bar.Value + bar.SmallChange;
+				newVal = bar.Value + bar.SmallChange * ScrollSpeed;
 				if (newVal > bar.Maximum - bar.LargeChange)
 				{
 					newVal = bar.Maximum - bar.LargeChange;
@@ -1266,7 +1258,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			else
 			{
-				newVal = bar.Value - bar.SmallChange;
+				newVal = bar.Value - bar.SmallChange * ScrollSpeed;
 				if (newVal < 0)
 				{
 					newVal = 0;
@@ -1342,7 +1334,12 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (!SuspendHotkeys)
 			{
-				if (e.Control && !e.Alt && e.Shift && e.KeyCode == Keys.F) // Ctrl+Shift+F
+				if (e.IsPressed(Keys.Escape))
+				{
+					DeselectAll();
+					Refresh();
+				}
+				else if (e.IsCtrlShift(Keys.F))
 				{
 					if (Rotatable)
 					{
@@ -1350,51 +1347,65 @@ namespace BizHawk.Client.EmuHawk
 					}
 				}
 				// Scroll
-				else if (!e.Control && !e.Alt && !e.Shift && e.KeyCode == Keys.PageUp) // Page Up
+				else if (e.IsPressed(Keys.PageUp))
 				{
-					var selectedRow = SelectedRows.Any() ? SelectedRows.First() : FirstVisibleRow;
-					var increment = LastVisibleRow - FirstVisibleRow;
-					var newSelectedRow = selectedRow - increment;
-					if (newSelectedRow < 0)
+					if (ChangeSelectionWhenPaging)
 					{
-						newSelectedRow = 0;
-					}
+						var selectedRow = SelectedRows.Any() ? SelectedRows.First() : FirstVisibleRow;
+						var increment = LastVisibleRow - FirstVisibleRow;
+						var newSelectedRow = selectedRow - increment;
+						if (newSelectedRow < 0)
+						{
+							newSelectedRow = 0;
+						}
 
-					FirstVisibleRow = newSelectedRow;
-					DeselectAll();
-					SelectRow(newSelectedRow, true);
-					Refresh();
+						FirstVisibleRow = newSelectedRow;
+						DeselectAll();
+						SelectRow(newSelectedRow, true);
+						Refresh();
+					}
+					else if (FirstVisibleRow > 0)
+					{
+						LastVisibleRow = FirstVisibleRow;
+					}
 				}
-				else if (!e.Control && !e.Alt && !e.Shift && e.KeyCode == Keys.PageDown) // Page Down
+				else if (e.IsPressed(Keys.PageDown))
 				{
-					var selectedRow = SelectedRows.Any() ? SelectedRows.First() : FirstVisibleRow;
-					var increment = LastVisibleRow - FirstVisibleRow;
-					var newSelectedRow = selectedRow + increment;
-					if (newSelectedRow > RowCount - 1)
+					if (ChangeSelectionWhenPaging)
 					{
-						newSelectedRow = RowCount - 1;
-					}
+						var selectedRow = SelectedRows.Any() ? SelectedRows.First() : FirstVisibleRow;
+						var increment = LastVisibleRow - FirstVisibleRow;
+						var newSelectedRow = selectedRow + increment;
+						if (newSelectedRow > RowCount - 1)
+						{
+							newSelectedRow = RowCount - 1;
+						}
 
-					LastVisibleRow = newSelectedRow;
-					DeselectAll();
-					SelectRow(newSelectedRow, true);
-					Refresh();
+						LastVisibleRow = newSelectedRow;
+						DeselectAll();
+						SelectRow(newSelectedRow, true);
+						Refresh();
+					}
+					else if (LastVisibleRow < RowCount)
+					{
+						FirstVisibleRow = LastVisibleRow;
+					}
 				}
-				else if (AllowMassNavigationShortcuts && !e.Control && !e.Alt && !e.Shift && e.KeyCode == Keys.Home) // Home
+				else if (AllowMassNavigationShortcuts && e.IsPressed(Keys.Home))
 				{
 					DeselectAll();
 					SelectRow(0, true);
 					FirstVisibleRow = 0;
 					Refresh();
 				}
-				else if (AllowMassNavigationShortcuts && !e.Control && !e.Alt && !e.Shift && e.KeyCode == Keys.End) // End
+				else if (AllowMassNavigationShortcuts && e.IsPressed(Keys.End))
 				{
 					DeselectAll();
 					SelectRow(RowCount - 1, true);
 					LastVisibleRow = RowCount;
 					Refresh();
 				}
-				else if (!e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.Up) // Up
+				else if (e.IsPressed(Keys.Up))
 				{
 					if (SelectedRows.Any())
 					{
@@ -1409,7 +1420,7 @@ namespace BizHawk.Client.EmuHawk
 						}
 					}
 				}
-				else if (!e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.Down) // Down
+				else if (e.IsPressed(Keys.Down))
 				{
 					if (SelectedRows.Any())
 					{
@@ -1424,7 +1435,7 @@ namespace BizHawk.Client.EmuHawk
 						}
 					}
 				}
-				else if (!e.Control && e.Shift && !e.Alt && e.KeyCode == Keys.Up) // Shift+Up
+				else if (e.IsShift(Keys.Up))
 				{
 					if (MultiSelect && _lastSelectedRow > 0)
 					{
@@ -1441,7 +1452,7 @@ namespace BizHawk.Client.EmuHawk
 						Refresh();
 					}
 				}
-				else if (!e.Control && e.Shift && !e.Alt && e.KeyCode == Keys.Down) // Shift+Down
+				else if (e.IsShift(Keys.Down))
 				{
 					if (MultiSelect && _lastSelectedRow < RowCount - 1)
 					{
@@ -1464,7 +1475,7 @@ namespace BizHawk.Client.EmuHawk
 					}
 				}
 				// Selection cursor
-				else if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.Up) // Ctrl + Up
+				else if (e.IsCtrl(Keys.Up))
 				{
 					if (SelectedRows.Any() && LetKeysModifySelection && SelectedRows.First() > 0)
 					{
@@ -1475,7 +1486,7 @@ namespace BizHawk.Client.EmuHawk
 						}
 					}
 				}
-				else if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.Down) // Ctrl + Down
+				else if (e.IsCtrl(Keys.Down))
 				{
 					if (SelectedRows.Any() && LetKeysModifySelection)
 					{
@@ -1486,35 +1497,35 @@ namespace BizHawk.Client.EmuHawk
 						}
 					}
 				}
-				else if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.Left) // Ctrl + Left
+				else if (e.IsCtrl(Keys.Left))
 				{
 					if (SelectedRows.Any() && LetKeysModifySelection)
 					{
 						SelectRow(SelectedRows.Last(), false);
 					}
 				}
-				else if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.Right) // Ctrl + Right
+				else if (e.IsCtrl(Keys.Right))
 				{
 					if (SelectedRows.Any() && LetKeysModifySelection && SelectedRows.Last() < _rowCount - 1)
 					{
 						SelectRow(SelectedRows.Last() + 1, true);
 					}
 				}
-				else if (e.Control && e.Shift && !e.Alt && e.KeyCode == Keys.Left) // Ctrl + Shift + Left
+				else if (e.IsCtrlShift(Keys.Left))
 				{
 					if (SelectedRows.Any() && LetKeysModifySelection && SelectedRows.First() > 0)
 					{
 						SelectRow(SelectedRows.First() - 1, true);
 					}
 				}
-				else if (e.Control && e.Shift && !e.Alt && e.KeyCode == Keys.Right) // Ctrl + Shift + Right
+				else if (e.IsCtrlShift(Keys.Right))
 				{
 					if (SelectedRows.Any() && LetKeysModifySelection)
 					{
 						SelectRow(SelectedRows.First(), false);
 					}
 				}
-				else if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.PageUp) // Ctrl + Page Up
+				else if (e.IsCtrl(Keys.PageUp))
 				{
 					//jump to above marker with selection courser
 					if (LetKeysModifySelection)
@@ -1522,7 +1533,7 @@ namespace BizHawk.Client.EmuHawk
 						
 					}
 				}
-				else if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.PageDown) // Ctrl + Page Down
+				else if (e.IsCtrl(Keys.PageDown))
 				{
 					//jump to below marker with selection courser
 					if (LetKeysModifySelection)
@@ -1558,7 +1569,7 @@ namespace BizHawk.Client.EmuHawk
 			CurrentCell = newCell;
 
 			if (PointedCellChanged != null &&
-				(_lastCell.Column != CurrentCell.Column || _lastCell.RowIndex != CurrentCell.RowIndex))
+				(_lastCell?.Column != CurrentCell.Column || _lastCell?.RowIndex != CurrentCell.RowIndex))
 			{
 				PointedCellChanged(this, new CellEventArgs(_lastCell, CurrentCell));
 			}
@@ -1582,7 +1593,7 @@ namespace BizHawk.Client.EmuHawk
 
 			if (_horizontalOrientation)
 			{
-				ColumnScroll?.Invoke(_vBar, e);
+				ColumnScroll?.Invoke(_hBar, e);
 			}
 			else
 			{

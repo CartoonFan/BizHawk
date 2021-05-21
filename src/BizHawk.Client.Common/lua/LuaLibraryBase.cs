@@ -1,23 +1,18 @@
 ﻿using System;
 using System.Drawing;
+using System.Globalization;
 using System.Threading;
-
-using NLua;
-using BizHawk.Common.ReflectionExtensions;
 
 namespace BizHawk.Client.Common
 {
 	public abstract class LuaLibraryBase
 	{
-		protected LuaLibraryBase(Lua lua)
-		{
-			Lua = lua;
-		}
-
-		protected LuaLibraryBase(Lua lua, Action<string> logOutputCallback)
-			: this(lua)
+		protected LuaLibraryBase(IPlatformLuaLibEnv luaLibsImpl, ApiContainer apiContainer, Action<string> logOutputCallback)
 		{
 			LogOutputCallback = logOutputCallback;
+			_luaLibsImpl = luaLibsImpl;
+			_th = _luaLibsImpl.GetTableHelper();
+			APIs = apiContainer;
 		}
 
 		protected static LuaFile CurrentFile { get; private set; }
@@ -26,8 +21,14 @@ namespace BizHawk.Client.Common
 		private static readonly object ThreadMutex = new object();
 
 		public abstract string Name { get; }
-		public Action<string> LogOutputCallback { protected get; set; }
-		protected Lua Lua { get; }
+
+		public ApiContainer APIs { protected get; set; }
+
+		protected readonly Action<string> LogOutputCallback;
+
+		protected readonly IPlatformLuaLibEnv _luaLibsImpl;
+
+		protected readonly NLuaTableHelper _th;
 
 		public static void ClearCurrentThread()
 		{
@@ -58,32 +59,9 @@ namespace BizHawk.Client.Common
 			return (int)(double)luaArg;
 		}
 
-		protected static Color? ToColor(object o)
-		{
-			return o switch
-			{
-				null => null,
-				double d => Color.FromArgb((int) (long) d),
-				string s => Color.FromName(s),
-				_ => (Color?) null
-			};
-		}
-
 		protected void Log(object message)
 		{
 			LogOutputCallback?.Invoke(message.ToString());
-		}
-
-		public void LuaRegister(Type callingLibrary, LuaDocumentation docs = null)
-		{
-			Lua.NewTable(Name);
-			foreach (var method in GetType().GetMethods())
-			{
-				var foundAttrs = method.GetCustomAttributes(typeof(LuaMethodAttribute), false);
-				if (foundAttrs.Length == 0) continue;
-				Lua.RegisterFunction($"{Name}.{((LuaMethodAttribute) foundAttrs[0]).Name}", this, method);
-				docs?.Add(new LibraryFunction(Name, callingLibrary.Description(), method));
-			}
 		}
 	}
 }

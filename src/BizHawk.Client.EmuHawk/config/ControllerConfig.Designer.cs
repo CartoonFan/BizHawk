@@ -33,19 +33,20 @@
 			this.NormalControlsTab = new System.Windows.Forms.TabPage();
 			this.AutofireControlsTab = new System.Windows.Forms.TabPage();
 			this.AnalogControlsTab = new System.Windows.Forms.TabPage();
+			this.FeedbacksTab = new System.Windows.Forms.TabPage();
 			this.checkBoxAutoTab = new System.Windows.Forms.CheckBox();
 			this.buttonOK = new System.Windows.Forms.Button();
 			this.buttonCancel = new System.Windows.Forms.Button();
 			this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
 			this.pictureBox1 = new System.Windows.Forms.PictureBox();
 			this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
-			this.testToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.loadDefaultsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.clearToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.testToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.loadDefaultsToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.clearToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
-			this.label3 = new System.Windows.Forms.Label();
-			this.label2 = new System.Windows.Forms.Label();
-			this.label38 = new System.Windows.Forms.Label();
+			this.label3 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label2 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label38 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.btnMisc = new BizHawk.Client.EmuHawk.MenuButton();
 			this.AllowUdCheckbox = new System.Windows.Forms.CheckBox();
 			this.tabControl1.SuspendLayout();
@@ -59,6 +60,7 @@
 			this.tabControl1.Controls.Add(this.NormalControlsTab);
 			this.tabControl1.Controls.Add(this.AutofireControlsTab);
 			this.tabControl1.Controls.Add(this.AnalogControlsTab);
+			this.tabControl1.Controls.Add(this.FeedbacksTab);
 			this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.tabControl1.Location = new System.Drawing.Point(3, 3);
 			this.tabControl1.Name = "tabControl1";
@@ -94,6 +96,15 @@
 			this.AnalogControlsTab.TabIndex = 2;
 			this.AnalogControlsTab.Text = "Analog Controls";
 			this.AnalogControlsTab.UseVisualStyleBackColor = true;
+			// 
+			// FeedbacksTab
+			// 
+			this.FeedbacksTab.Location = new System.Drawing.Point(4, 22);
+			this.FeedbacksTab.Name = "FeedbacksTab";
+			this.FeedbacksTab.Size = new System.Drawing.Size(554, 495);
+			this.FeedbacksTab.TabIndex = 3;
+			this.FeedbacksTab.Text = "Feedbacks";
+			this.FeedbacksTab.UseVisualStyleBackColor = true;
 			// 
 			// checkBoxAutoTab
 			// 
@@ -169,53 +180,38 @@
 			// 
 			// testToolStripMenuItem
 			// 
-			this.testToolStripMenuItem.Name = "testToolStripMenuItem";
-			this.testToolStripMenuItem.Size = new System.Drawing.Size(146, 22);
 			this.testToolStripMenuItem.Text = "Save Defaults";
 			this.testToolStripMenuItem.Click += new System.EventHandler(this.ButtonSaveDefaults_Click);
 			// 
 			// loadDefaultsToolStripMenuItem
 			// 
-			this.loadDefaultsToolStripMenuItem.Name = "loadDefaultsToolStripMenuItem";
-			this.loadDefaultsToolStripMenuItem.Size = new System.Drawing.Size(146, 22);
 			this.loadDefaultsToolStripMenuItem.Text = "Load Defaults";
 			this.loadDefaultsToolStripMenuItem.Click += new System.EventHandler(this.ButtonLoadDefaults_Click);
 			// 
 			// clearToolStripMenuItem
 			// 
-			this.clearToolStripMenuItem.Name = "clearToolStripMenuItem";
-			this.clearToolStripMenuItem.Size = new System.Drawing.Size(146, 22);
 			this.clearToolStripMenuItem.Text = "Clear";
 			this.clearToolStripMenuItem.Click += new System.EventHandler(this.ClearBtn_Click);
 			// 
 			// label3
 			// 
 			this.label3.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.label3.AutoSize = true;
 			this.label3.Location = new System.Drawing.Point(11, 550);
 			this.label3.Name = "label3";
-			this.label3.Size = new System.Drawing.Size(30, 13);
-			this.label3.TabIndex = 112;
 			this.label3.Text = "Tips:";
 			// 
 			// label2
 			// 
 			this.label2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.label2.AutoSize = true;
 			this.label2.Location = new System.Drawing.Point(197, 550);
 			this.label2.Name = "label2";
-			this.label2.Size = new System.Drawing.Size(168, 13);
-			this.label2.TabIndex = 111;
 			this.label2.Text = "* Disable Auto Tab to multiply bind";
 			// 
 			// label38
 			// 
 			this.label38.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.label38.AutoSize = true;
 			this.label38.Location = new System.Drawing.Point(41, 550);
 			this.label38.Name = "label38";
-			this.label38.Size = new System.Drawing.Size(153, 13);
-			this.label38.TabIndex = 110;
 			this.label38.Text = "* Escape clears a key mapping";
 			// 
 			// btnMisc
@@ -231,7 +227,7 @@
 			// 
 			// AllowUdCheckbox
 			// 
-			this.AllowUdCheckbox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.AllowUdCheckbox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.AllowUdCheckbox.AutoSize = true;
 			this.AllowUdCheckbox.Location = new System.Drawing.Point(576, 548);
 			this.AllowUdCheckbox.Name = "AllowUdCheckbox";
@@ -256,6 +252,7 @@
 			this.Controls.Add(this.buttonCancel);
 			this.Controls.Add(this.buttonOK);
 			this.Controls.Add(this.checkBoxAutoTab);
+			this.MinimumSize = new System.Drawing.Size(948, 611);
 			this.Name = "ControllerConfig";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Controller Config";
@@ -281,15 +278,16 @@
 		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
 		private System.Windows.Forms.PictureBox pictureBox1;
 		private System.Windows.Forms.TabPage AnalogControlsTab;
+		private System.Windows.Forms.TabPage FeedbacksTab;
 		private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
 		private System.Windows.Forms.ToolTip toolTip1;
 		private MenuButton btnMisc;
-				private System.Windows.Forms.ToolStripMenuItem testToolStripMenuItem;
-				private System.Windows.Forms.ToolStripMenuItem loadDefaultsToolStripMenuItem;
-				private System.Windows.Forms.ToolStripMenuItem clearToolStripMenuItem;
-				private System.Windows.Forms.Label label3;
-				private System.Windows.Forms.Label label2;
-				private System.Windows.Forms.Label label38;
+				private BizHawk.WinForms.Controls.ToolStripMenuItemEx testToolStripMenuItem;
+				private BizHawk.WinForms.Controls.ToolStripMenuItemEx loadDefaultsToolStripMenuItem;
+				private BizHawk.WinForms.Controls.ToolStripMenuItemEx clearToolStripMenuItem;
+				private BizHawk.WinForms.Controls.LocLabelEx label3;
+				private BizHawk.WinForms.Controls.LocLabelEx label2;
+				private BizHawk.WinForms.Controls.LocLabelEx label38;
 		private System.Windows.Forms.CheckBox AllowUdCheckbox;
 	}
 }

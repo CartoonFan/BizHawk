@@ -74,16 +74,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 			_cablediscosignal = reader.ReadBoolean();
 		}
 
-		public byte[] SaveStateBinary()
-		{
-			MemoryStream ms = new MemoryStream();
-			BinaryWriter bw = new BinaryWriter(ms);
-			SaveStateBinary(bw);
-			bw.Flush();
-			return ms.ToArray();
-		}
-
-		private JsonSerializer ser = new JsonSerializer { Formatting = Formatting.Indented };
+		private readonly JsonSerializer ser = new JsonSerializer { Formatting = Formatting.Indented };
 
 		private class DGBSerialized
 		{

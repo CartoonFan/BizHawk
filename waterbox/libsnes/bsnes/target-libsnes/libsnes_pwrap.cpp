@@ -109,10 +109,8 @@ enum eStatus : int32
 #endif
 struct CPURegsComm {
 	u32 pc;
-	u16 a, x, y, z, s, d, vector; //7x
-	u8 p, nothing;
-	u32 aa, rd;
-	u8 sp, dp, db, mdr;
+	u16 a, x, y, s, d, vector; //6x
+	u8 p, db, nothing, nothing2;
 	u16 v, h;
 }
 #ifndef _MSC_VER
@@ -165,8 +163,8 @@ struct CommStruct
 
 	int32 padding3;
 
-	int64 cdl_ptr[8];
-	int32 cdl_size[8];
+	int64 cdl_ptr[16];
+	int32 cdl_size[16];
 
 	CPURegsComm cpuregs;
 	LayerEnablesComm layerEnables;
@@ -174,6 +172,7 @@ struct CommStruct
 	//static configuration-type information which can be grabbed off the core at any time without even needing a QUERY command
 	uint32 region;
 	uint32 mapper;
+	uint32 BLANKO;
 
 	//===========================================================
 
@@ -298,10 +297,7 @@ void* snes_allocSharedMemory(const char* memtype, size_t amt)
 
 	void* ret;
 
-	if (strcmp(memtype, "CARTRIDGE_ROM") == 0)
-		ret = alloc_sealed(amt);
-	else
-		ret = alloc_plain(amt);
+	ret = alloc_plain(amt);
 
 	comm.str = (char*)memtype;
 	comm.size = amt;
@@ -525,23 +521,18 @@ void QUERY_peek_cpu_regs() {
 	comm.cpuregs.a = SNES::cpu.regs.a;
 	comm.cpuregs.x = SNES::cpu.regs.x;
 	comm.cpuregs.y = SNES::cpu.regs.y;
-	comm.cpuregs.z = SNES::cpu.regs.z;
 	comm.cpuregs.s = SNES::cpu.regs.s;
 	comm.cpuregs.d = SNES::cpu.regs.d;
-	comm.cpuregs.aa = (u32)SNES::cpu.aa;
-	comm.cpuregs.rd = (u32)SNES::cpu.rd;
-	comm.cpuregs.sp = SNES::cpu.sp;
-	comm.cpuregs.dp = SNES::cpu.dp;
 	comm.cpuregs.db = SNES::cpu.regs.db;
-	comm.cpuregs.mdr = SNES::cpu.regs.mdr;
 	comm.cpuregs.vector = SNES::cpu.regs.vector;
 	comm.cpuregs.p = SNES::cpu.regs.p;
 	comm.cpuregs.nothing = 0;
+	comm.cpuregs.nothing2 = 0;
 	comm.cpuregs.v = SNES::cpu.vcounter();
 	comm.cpuregs.h = SNES::cpu.hdot();
 }
 void QUERY_peek_set_cdl() {
-	for (int i = 0; i<eCDLog_AddrType_NUM; i++)
+	for (int i = 0; i<16; i++)
 	{
 		cdlInfo.blocks[i] = (uint8*)comm.cdl_ptr[i];
 		cdlInfo.blockSizes[i] = comm.cdl_size[i];
@@ -624,13 +615,14 @@ EXPORT void* DllInit()
 	T(buf, 88);
 	T(buf_size, 112);
 	T(cdl_ptr, 128);
-	T(cdl_size, 192);
-	T(cpuregs, 224);
-	T(layerEnables, 260);
-	T(region, 272);
-	T(mapper, 276);
+	T(cdl_size, 256);
+	T(cpuregs, 320);
+	T(layerEnables, 344);
+	T(region, 356);
+	T(mapper, 360);
+	T(BLANKO, 364);
 	// start of private stuff
-	T(privbuf, 280);
+	T(privbuf, 368);
 	#undef T
 
 	memset(&comm, 0, sizeof(comm));

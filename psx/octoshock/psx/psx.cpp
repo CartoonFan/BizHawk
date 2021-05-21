@@ -1438,10 +1438,10 @@ EW_EXPORT s32 shock_Destroy(void* psx)
 	for(int i=0;i<2;i++)
 	{
 		delete VTBuffer[i];
-		VTLineWidths[i] = nullptr;
-
-		free(VTLineWidths[i]);
 		VTBuffer[i] = nullptr;
+		
+		free(VTLineWidths[i]);
+		VTLineWidths[i] = nullptr;
 	}
 
 	TextMem.resize(0);
@@ -2841,4 +2841,25 @@ EW_EXPORT s32 shock_SetLEC(void* psx, bool enabled)
 EW_EXPORT s32 shock_GetGPUUnlagged(void* psx)
 {
 	return GpuFrameForLag ? SHOCK_TRUE : SHOCK_FALSE;
+}
+
+EW_EXPORT s32 shock_PeekMemory(void* psx, u32 address, u8* value) 
+{
+	if (!s_Created) {
+		return SHOCK_NOCANDO;
+	}
+
+	*value = CPU->PeekMem8(address);
+	return SHOCK_OK;
+}
+
+EW_EXPORT s32 shock_PokeMemory(void* psx, u32 address, u8 value) 
+{
+	if (!s_Created) {
+		return SHOCK_NOCANDO;
+	}
+
+	CPU->PokeMem8(address, value);
+	return SHOCK_OK;
+
 }

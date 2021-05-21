@@ -1,4 +1,6 @@
-﻿namespace BizHawk.Client.EmuHawk
+﻿using BizHawk.WinForms.Controls;
+
+namespace BizHawk.Client.EmuHawk
 {
 	partial class PceTileViewer
 	{
@@ -35,13 +37,11 @@
 			this.bmpViewSPPal = new BizHawk.Client.EmuHawk.BmpView();
 			this.bmpViewSP = new BizHawk.Client.EmuHawk.BmpView();
 			this.checkBoxVDC2 = new System.Windows.Forms.CheckBox();
-			this.label1 = new System.Windows.Forms.Label();
+			this.label1 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.menuStrip1 = new MenuStripEx();
-			this.FileSubMenu = new System.Windows.Forms.ToolStripMenuItem();
-			this.saveBackgroundScreenshotToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.saveSpriteScreenshotToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-			this.closeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.FileSubMenu = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.saveBackgroundScreenshotToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.saveSpriteScreenshotToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.groupBox1.SuspendLayout();
 			this.groupBox2.SuspendLayout();
 			this.menuStrip1.SuspendLayout();
@@ -116,61 +116,32 @@
 			// 
 			// label1
 			// 
-			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(504, 599);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(294, 13);
-			this.label1.TabIndex = 7;
 			this.label1.Text = "CTRL + C copies the pane under the mouse to the clipboard.";
 			// 
 			// menuStrip1
 			// 
-			this.menuStrip1.ClickThrough = true;
 			this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.FileSubMenu});
-			this.menuStrip1.Location = new System.Drawing.Point(0, 0);
-			this.menuStrip1.Name = "menuStrip1";
-			this.menuStrip1.Size = new System.Drawing.Size(810, 24);
 			this.menuStrip1.TabIndex = 8;
-			this.menuStrip1.Text = "menuStrip1";
 			// 
 			// FileSubMenu
 			// 
 			this.FileSubMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.saveBackgroundScreenshotToolStripMenuItem,
-            this.saveSpriteScreenshotToolStripMenuItem,
-            this.toolStripSeparator1,
-            this.closeToolStripMenuItem});
-			this.FileSubMenu.Name = "FileSubMenu";
-			this.FileSubMenu.Size = new System.Drawing.Size(35, 20);
+            this.saveSpriteScreenshotToolStripMenuItem});
 			this.FileSubMenu.Text = "&File";
 			// 
 			// saveBackgroundScreenshotToolStripMenuItem
 			// 
-			this.saveBackgroundScreenshotToolStripMenuItem.Name = "saveBackgroundScreenshotToolStripMenuItem";
-			this.saveBackgroundScreenshotToolStripMenuItem.Size = new System.Drawing.Size(198, 22);
 			this.saveBackgroundScreenshotToolStripMenuItem.Text = "Save BG Screenshot...";
 			this.saveBackgroundScreenshotToolStripMenuItem.Click += new System.EventHandler(this.SaveBackgroundScreenshotMenuItem_Click);
 			// 
 			// saveSpriteScreenshotToolStripMenuItem
 			// 
-			this.saveSpriteScreenshotToolStripMenuItem.Name = "saveSpriteScreenshotToolStripMenuItem";
-			this.saveSpriteScreenshotToolStripMenuItem.Size = new System.Drawing.Size(198, 22);
 			this.saveSpriteScreenshotToolStripMenuItem.Text = "Save Sprite Screenshot...";
 			this.saveSpriteScreenshotToolStripMenuItem.Click += new System.EventHandler(this.SaveSpriteScreenshotMenuItem_Click);
-			// 
-			// toolStripSeparator1
-			// 
-			this.toolStripSeparator1.Name = "toolStripSeparator1";
-			this.toolStripSeparator1.Size = new System.Drawing.Size(195, 6);
-			// 
-			// closeToolStripMenuItem
-			// 
-			this.closeToolStripMenuItem.Name = "closeToolStripMenuItem";
-			this.closeToolStripMenuItem.ShortcutKeyDisplayString = "Alt+F4";
-			this.closeToolStripMenuItem.Size = new System.Drawing.Size(198, 22);
-			this.closeToolStripMenuItem.Text = "&Close";
-			this.closeToolStripMenuItem.Click += new System.EventHandler(this.CloseMenuItem_Click);
 			// 
 			// PCETileViewer
 			// 
@@ -182,12 +153,9 @@
 			this.Controls.Add(this.groupBox2);
 			this.Controls.Add(this.groupBox1);
 			this.Controls.Add(this.menuStrip1);
-			this.Icon = global::BizHawk.Client.EmuHawk.Properties.Resources.pce_MultiSize;
 			this.KeyPreview = true;
 			this.MainMenuStrip = this.menuStrip1;
 			this.Name = "PceTileViewer";
-			this.Text = "Tile Viewer";
-			this.Load += new System.EventHandler(this.PceTileViewer_Load);
 			this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.PceTileViewer_KeyDown);
 			this.groupBox1.ResumeLayout(false);
 			this.groupBox2.ResumeLayout(false);
@@ -207,12 +175,10 @@
 		private BmpView bmpViewBG;
 		private BmpView bmpViewSPPal;
 		private BmpView bmpViewSP;
-		private System.Windows.Forms.Label label1;
+		private BizHawk.WinForms.Controls.LocLabelEx label1;
 		private MenuStripEx menuStrip1;
-		private System.Windows.Forms.ToolStripMenuItem FileSubMenu;
-		private System.Windows.Forms.ToolStripMenuItem closeToolStripMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem saveBackgroundScreenshotToolStripMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem saveSpriteScreenshotToolStripMenuItem;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx FileSubMenu;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx saveBackgroundScreenshotToolStripMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx saveSpriteScreenshotToolStripMenuItem;
 	}
 }

@@ -4,7 +4,6 @@ using System.IO;
 using BizHawk.Common;
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
-using BizHawk.Emulation.Cores.Nintendo.GBA;
 
 namespace BizHawk.Client.EmuHawk
 {
@@ -65,15 +64,15 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public BatchRunner(MainForm mainForm, IEnumerable<string> files, int numFrames)
+		public BatchRunner(Config config, CoreComm comm, IEnumerable<string> files, int numFrames)
 		{
 			_files = new List<string>(files);
 			_numFrames = numFrames;
 
-			_ldr = new RomLoader(GlobalWin.Config, GlobalWin.FirmwareManager);
+			_ldr = new RomLoader(config);
 			_ldr.OnLoadError += OnLoadError;
 			_ldr.ChooseArchive = ChooseArchive;
-			_comm = mainForm.CreateCoreComm();
+			_comm = comm;
 		}
 
 		private void OnLoadError(object sender, RomLoader.RomErrorArgs e)

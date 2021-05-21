@@ -76,10 +76,13 @@ namespace BizHawk.Client.EmuHawk
 
 		public void StopMovie(bool suppressSave)
 		{
-			Focus();
-			_suppressAskSave = suppressSave;
-			NewTasMenuItem_Click(null, null);
-			_suppressAskSave = false;
+			if (!MainForm.GameIsClosing)
+			{
+				Focus();
+				_suppressAskSave = suppressSave;
+				NewTasMenuItem_Click(null, null);
+				_suppressAskSave = false;
+			}
 		}
 
 		public bool WantsToControlRewind => true;
@@ -127,6 +130,15 @@ namespace BizHawk.Client.EmuHawk
 				WantsToControlStopMovie = true;
 				RefreshDialog();
 			}
+		}
+
+		public bool WantsToControlReboot { get; private set; } = true;
+
+		public void RebootCore()
+		{
+			WantsToControlReboot = false;
+			NewTasMenuItem_Click(null, null);
+			WantsToControlReboot = true;
 		}
 	}
 }

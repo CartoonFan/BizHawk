@@ -68,8 +68,6 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawkLink3x
 				L.cpu.TraceCallback = null;
 			}
 
-			_frame++;
-
 			if (controller.IsPressed("P1 Power"))
 			{
 				L.HardReset();
@@ -129,6 +127,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawkLink3x
 			{
 				_lagcount++;
 			}
+
+			_frame++;
 
 			return true;
 		}
@@ -388,6 +388,25 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawkLink3x
 					R.vblank_rise = false;
 					do_frame_fill = true;
 				}
+			}
+
+			// clear the screens as needed
+			if (L.ppu.clear_screen)
+			{
+				L.clear_screen_func();
+				do_frame_fill = true;
+			}
+
+			if (C.ppu.clear_screen)
+			{
+				C.clear_screen_func();
+				do_frame_fill = true;
+			}
+
+			if (R.ppu.clear_screen)
+			{
+				R.clear_screen_func();
+				do_frame_fill = true;
 			}
 		}
 

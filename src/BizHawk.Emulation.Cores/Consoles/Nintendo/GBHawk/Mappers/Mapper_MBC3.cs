@@ -69,7 +69,9 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					}
 					else
 					{
-						return 0xFF;
+						return Core.cpu.TotalExecutedCycles > (Core.bus_access_time + 8)
+							? (byte) 0xFF
+							: Core.bus_value;
 					}
 				}
 
@@ -80,12 +82,14 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 				}
 				else
 				{
-					return 0x0;
+					return 0xFF;
 				}
 			}
 			else
 			{
-				return 0x0;
+				return Core.cpu.TotalExecutedCycles > (Core.bus_access_time + 8)
+					? (byte) 0xFF
+					: Core.bus_value;
 			}
 		}
 
@@ -168,7 +172,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 			{
 				if (addr < 0x2000)
 				{					
-					RAM_enable = ((value & 0xA) == 0xA);
+					RAM_enable = ((value & 0xF) == 0xA);
 				}
 				else if (addr < 0x4000)
 				{
@@ -210,6 +214,16 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 					}
 					else if ((RAM_bank >= 8) && (RAM_bank <= 0xC))
 					{
+						// not all bits are writable
+						switch (RAM_bank - 8)
+						{
+							case 0: value &= 0x3F;		break;
+							case 1: value &= 0x3F;		break;
+							case 2: value &= 0x1F;		break;
+							case 3: value &= 0xFF;		break;
+							case 4: value &= 0xC1;		break;
+						}
+
 						RTC_regs[RAM_bank - 8] = value;
 
 						if ((RAM_bank - 8) == 0) { RTC_low_clock = RTC_timer = 0; }
@@ -256,15 +270,15 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 
 						RTC_regs[0]++;
 
-						if (RTC_regs[0] > 59)
+						if (RTC_regs[0] == 60)
 						{
 							RTC_regs[0] = 0;
 							RTC_regs[1]++;
-							if (RTC_regs[1] > 59)
+							if (RTC_regs[1] == 60)
 							{
 								RTC_regs[1] = 0;
 								RTC_regs[2]++;
-								if (RTC_regs[2] > 23)
+								if (RTC_regs[2] == 24)
 								{
 									RTC_regs[2] = 0;
 									if (RTC_regs[3] < 0xFF)
@@ -286,7 +300,19 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawk
 										}
 									}
 								}
+								else
+								{
+									RTC_regs[2] &= 0x1F;
+								}
 							}
+							else
+							{
+								RTC_regs[1] &= 0x3F;
+							}
+						}
+						else
+						{
+							RTC_regs[0] &= 0x3F;
 						}
 					}
 				}

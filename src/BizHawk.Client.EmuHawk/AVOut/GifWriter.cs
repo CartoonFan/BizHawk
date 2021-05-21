@@ -5,6 +5,8 @@ using System.Drawing;
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
 
+using PcxFileTypePlugin.Quantize;
+
 namespace BizHawk.Client.EmuHawk
 {
 	[VideoWriter("gif", "GIF writer", "Creates an animated .gif")]
@@ -60,12 +62,12 @@ namespace BizHawk.Client.EmuHawk
 				}
 			}
 
-			public static GifToken LoadFromConfig()
+			public static GifToken LoadFromConfig(Config config)
 			{
 				return new GifToken(0, 0)
 				{
-					Frameskip = GlobalWin.Config.GifWriterFrameskip,
-					FrameDelay = GlobalWin.Config.GifWriterDelay
+					Frameskip = config.GifWriterFrameskip,
+					FrameDelay = config.GifWriterDelay
 				};
 			}
 
@@ -80,7 +82,11 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
+		private readonly IDialogParent _dialogParent;
+
 		private GifToken _token;
+
+		public GifWriter(IDialogParent dialogParent) => _dialogParent = dialogParent;
 
 		/// <exception cref="ArgumentException"><paramref name="token"/> does not inherit <see cref="GifWriter.GifToken"/></exception>
 		public void SetVideoCodecToken(IDisposable token)
@@ -96,33 +102,33 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		public void SetDefaultVideoCodecToken()
+		public void SetDefaultVideoCodecToken(Config config)
 		{
-			_token = GifToken.LoadFromConfig();
+			_token = GifToken.LoadFromConfig(config);
 			CalcDelay();
 		}
 
 		/// <summary>
 		/// true if the first frame has been written to the file; false otherwise
 		/// </summary>
-		private bool firstdone = false;
+		private bool _firstDone;
 
 		/// <summary>
 		/// the underlying stream we're writing to
 		/// </summary>
-		private Stream f;
+		private Stream _f;
 
 		/// <summary>
 		/// a final byte we must write before closing the stream
 		/// </summary>
-		private byte lastbyte;
+		private byte _lastByte;
 
 		/// <summary>
 		/// keep track of skippable frames
 		/// </summary>
-		private int skipindex = 0;
+		private int _skipIndex = 0;
 
-		private int fpsnum = 1, fpsden = 1;
+		private int _fpsNum = 1, _fpsDen = 1;
 
 		public void SetFrame(int frame)
 		{
@@ -130,35 +136,35 @@ namespace BizHawk.Client.EmuHawk
 
 		public void OpenFile(string baseName)
 		{
-			f = new FileStream(baseName, FileMode.OpenOrCreate, FileAccess.Write);
-			skipindex = _token.Frameskip;
+			_f = new FileStream(baseName, FileMode.OpenOrCreate, FileAccess.Write);
+			_skipIndex = _token.Frameskip;
 		}
 
 		public void CloseFile()
 		{
-			f.WriteByte(lastbyte);
-			f.Close();
+			_f.WriteByte(_lastByte);
+			_f.Close();
 		}
 
 		/// <summary>
 		/// precooked gif header
 		/// </summary>
-		static byte[] GifAnimation = { 33, 255, 11, 78, 69, 84, 83, 67, 65, 80, 69, 50, 46, 48, 3, 1, 0, 0, 0 };
+		private static readonly byte[] GifAnimation = { 33, 255, 11, 78, 69, 84, 83, 67, 65, 80, 69, 50, 46, 48, 3, 1, 0, 0, 0 };
 
 		/// <summary>
 		/// little endian frame length in 10ms units
 		/// </summary>
-		byte[] Delay = {100, 0};
+		private readonly byte[] _delay = { 100, 0 };
 
 		public void AddFrame(IVideoProvider source)
 		{
-			if (skipindex == _token.Frameskip)
+			if (_skipIndex == _token.Frameskip)
 			{
-				skipindex = 0;
+				_skipIndex = 0;
 			}
 			else
 			{
-				skipindex++;
+				_skipIndex++;
 				return; // skip this frame
 			}
 
@@ -171,22 +177,22 @@ namespace BizHawk.Client.EmuHawk
 			MemoryStream ms = new MemoryStream();
 			qBmp.Save(ms, System.Drawing.Imaging.ImageFormat.Gif);
 			byte[] b = ms.GetBuffer();
-			if (!firstdone)
+			if (!_firstDone)
 			{
-				firstdone = true;
+				_firstDone = true;
 				b[10] = (byte)(b[10] & 0x78); // no global color table
-				f.Write(b, 0, 13);
-				f.Write(GifAnimation, 0, GifAnimation.Length);
+				_f.Write(b, 0, 13);
+				_f.Write(GifAnimation, 0, GifAnimation.Length);
 			}
 
-			b[785] = Delay[0];
-			b[786] = Delay[1];
+			b[785] = _delay[0];
+			b[786] = _delay[1];
 			b[798] = (byte)(b[798] | 0x87);
-			f.Write(b, 781, 18);
-			f.Write(b, 13, 768);
-			f.Write(b, 799, (int)(ms.Length - 800));
+			_f.Write(b, 781, 18);
+			_f.Write(b, 13, 768);
+			_f.Write(b, 799, (int)(ms.Length - 800));
 
-			lastbyte = b[ms.Length - 1];
+			_lastByte = b[ms.Length - 1];
 		}
 
 		public void AddSamples(short[] samples)
@@ -194,9 +200,9 @@ namespace BizHawk.Client.EmuHawk
 			// ignored
 		}
 
-		public IDisposable AcquireVideoCodecToken(System.Windows.Forms.IWin32Window hwnd)
+		public IDisposable AcquireVideoCodecToken(Config config)
 		{
-			return GifWriterForm.DoTokenForm(hwnd);
+			return GifWriterForm.DoTokenForm(_dialogParent.AsWinFormsHandle(), config);
 		}
 
 		private void CalcDelay()
@@ -209,21 +215,21 @@ namespace BizHawk.Client.EmuHawk
 			int delay;
 			if (_token.FrameDelay == -1)
 			{
-				delay = (100 * fpsden * (_token.Frameskip + 1) + (fpsnum / 2)) / fpsnum;
+				delay = (100 * _fpsDen * (_token.Frameskip + 1) + (_fpsNum / 2)) / _fpsNum;
 			}
 			else
 			{
 				delay = _token.FrameDelay;
 			}
 
-			Delay[0] = (byte)(delay & 0xff);
-			Delay[1] = (byte)(delay >> 8 & 0xff);
+			_delay[0] = (byte)(delay & 0xff);
+			_delay[1] = (byte)(delay >> 8 & 0xff);
 		}
 
 		public void SetMovieParameters(int fpsNum, int fpsDen)
 		{
-			this.fpsnum = fpsNum;
-			this.fpsden = fpsDen;
+			this._fpsNum = fpsNum;
+			this._fpsDen = fpsDen;
 			CalcDelay();
 		}
 
@@ -250,10 +256,10 @@ namespace BizHawk.Client.EmuHawk
 
 		public void Dispose()
 		{
-			if (f != null)
+			if (_f != null)
 			{
-				f.Dispose();
-				f = null;
+				_f.Dispose();
+				_f = null;
 			}
 		}
 

@@ -1,20 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-
-using BizHawk.Common;
 
 namespace BizHawk.Emulation.Common
 {
 	/// <summary>
 	/// Defines the schema for all the currently available controls for an IEmulator instance
 	/// </summary>
-	/// <seealso cref="IEmulator" /> 
+	/// <seealso cref="IEmulator" />
 	public class ControllerDefinition
 	{
 		public ControllerDefinition()
 		{
+#if DEBUG
+			HapticsChannels.Add("Debug");
+#endif
 		}
 
 		public ControllerDefinition(ControllerDefinition source)
@@ -22,9 +22,7 @@ namespace BizHawk.Emulation.Common
 		{
 			Name = source.Name;
 			BoolButtons.AddRange(source.BoolButtons);
-			AxisControls.AddRange(source.AxisControls);
-			AxisRanges.AddRange(source.AxisRanges);
-			AxisConstraints.AddRange(source.AxisConstraints);
+			foreach (var kvp in source.Axes) Axes.Add(kvp);
 			CategoryLabels = source.CategoryLabels;
 		}
 
@@ -38,23 +36,10 @@ namespace BizHawk.Emulation.Common
 		/// </summary>
 		public List<string> BoolButtons { get; set; } = new List<string>();
 
-		/// <summary>
-		/// Gets a list of all non-boolean types, that can be represented by a numerical value (such as analog controls, stylus coordinates, etc
-		/// </summary>
-		public List<string> AxisControls { get; } = new List<string>();
+		public readonly AxisDict Axes = new AxisDict();
 
-		/// <summary>
-		/// Gets a list of all axis ranges for each axis control (must be one to one with AxisControls)
-		/// AxisRanges include the min/max/default values
-		/// </summary>
-		public List<AxisRange> AxisRanges { get; set; } = new List<AxisRange>();
-
-		/// <summary>
-		/// Gets the axis constraints that apply artificial constraints to float values
-		/// For instance, a N64 controller's analog range is actually larger than the amount allowed by the plastic that artificially constrains it to lower values
-		/// Axis constraints provide a way to technically allow the full range but have a user option to constrain down to typical values that a real control would have
-		/// </summary>
-		public List<AxisConstraint> AxisConstraints { get; } = new List<AxisConstraint>();
+		/// <summary>Contains names of virtual haptic feedback channels, e.g. <c>{ "P1 Mono" }</c>, <c>{ "P2 Left", "P2 Right" }</c>.</summary>
+		public List<string> HapticsChannels { get; } = new();
 
 		/// <summary>
 		/// Gets the category labels. These labels provide a means of categorizing controls in various controller display and config screens
@@ -63,101 +48,20 @@ namespace BizHawk.Emulation.Common
 
 		public void ApplyAxisConstraints(string constraintClass, IDictionary<string, int> axes)
 		{
-			if (AxisConstraints == null)
+			if (!Axes.HasContraints) return;
+			foreach (var kvp in Axes)
 			{
-				return;
-			}
-
-			foreach (var constraint in AxisConstraints)
-			{
-				if (constraint.Class != constraintClass)
+				var constraint = kvp.Value.Constraint;
+				if (constraint == null || constraint.Class != constraintClass) continue;
+				switch (constraint)
 				{
-					continue;
-				}
-
-				switch (constraint.Type)
-				{
-					case AxisConstraintType.Circular:
-						{
-							string xAxis = constraint.Params[0] as string ?? "";
-							string yAxis = constraint.Params[1] as string ?? "";
-							float range = (float)constraint.Params[2];
-							if (!axes.ContainsKey(xAxis)) break;
-							if (!axes.ContainsKey(yAxis)) break;
-							double xVal = axes[xAxis];
-							double yVal = axes[yAxis];
-							double length = Math.Sqrt((xVal * xVal) + (yVal * yVal));
-							if (length > range)
-							{
-								double ratio = range / length;
-								xVal *= ratio;
-								yVal *= ratio;
-							}
-
-							axes[xAxis] = (int) xVal;
-							axes[yAxis] = (int) yVal;
-							break;
-						}
+					case CircularAxisConstraint circular:
+						var xAxis = kvp.Key;
+						var yAxis = circular.PairedAxis;
+						(axes[xAxis], axes[yAxis]) = circular.ApplyTo(axes[xAxis], axes[yAxis]);
+						break;
 				}
 			}
-		}
-
-		public readonly struct AxisRange
-		{
-			public readonly bool IsReversed;
-
-			public readonly int Max;
-
-			/// <remarks>used as default/neutral/unset</remarks>
-			public readonly int Mid;
-
-			public readonly int Min;
-
-			public Range<float> FloatRange => ((float) Min).RangeTo(Max);
-
-			/// <value>maximum decimal digits analog input can occupy with no-args ToString</value>
-			/// <remarks>does not include the extra char needed for a minus sign</remarks>
-			public int MaxDigits => Math.Max(Math.Abs(Min).ToString().Length, Math.Abs(Max).ToString().Length);
-
-			public Range<int> Range => Min.RangeTo(Max);
-
-			public AxisRange(int min, int mid, int max, bool isReversed = false)
-			{
-				const string ReversedBoundsExceptionMessage = nameof(AxisRange) + " must not have " + nameof(max) + " < " + nameof(min) + ". pass " + nameof(isReversed) + ": true to ctor instead, or use " + nameof(CreateAxisRangePair);
-				if (max < min) throw new ArgumentOutOfRangeException(nameof(max), max, ReversedBoundsExceptionMessage);
-				IsReversed = isReversed;
-				Max = max;
-				Mid = mid;
-				Min = min;
-			}
-		}
-
-		public static List<AxisRange> CreateAxisRangePair(int min, int mid, int max, AxisPairOrientation pDir) => new List<AxisRange>
-		{
-			new AxisRange(min, mid, max, ((byte) pDir & 2) != 0),
-			new AxisRange(min, mid, max, ((byte) pDir & 1) != 0)
-		};
-
-		/// <summary>represents the direction of <c>(+, +)</c></summary>
-		/// <remarks>docs of individual controllers are being collected in comments of https://github.com/TASVideos/BizHawk/issues/1200</remarks>
-		public enum AxisPairOrientation : byte
-		{
-			RightAndUp = 0,
-			RightAndDown = 1,
-			LeftAndUp = 2,
-			LeftAndDown = 3
-		}
-
-		public enum AxisConstraintType
-		{
-			Circular
-		}
-
-		public struct AxisConstraint
-		{
-			public string Class;
-			public AxisConstraintType Type;
-			public object[] Params;
 		}
 
 		/// <summary>
@@ -168,7 +72,7 @@ namespace BizHawk.Emulation.Common
 		{
 			get
 			{
-				var list = new List<string>(AxisControls);
+				var list = new List<string>(Axes.Keys);
 				list.AddRange(BoolButtons);
 
 				// starts with console buttons, then each player's buttons individually
@@ -201,7 +105,7 @@ namespace BizHawk.Emulation.Common
 		{
 			get
 			{
-				var allNames = AxisControls.Concat(BoolButtons).ToList();
+				var allNames = Axes.Keys.Concat(BoolButtons).ToList();
 				var player = allNames
 					.Select(PlayerNumber)
 					.DefaultIfEmpty(0)
@@ -219,7 +123,7 @@ namespace BizHawk.Emulation.Common
 
 		public bool Any()
 		{
-			return BoolButtons.Any() || AxisControls.Any();
+			return BoolButtons.Any() || Axes.Any();
 		}
 	}
 }

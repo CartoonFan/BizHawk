@@ -2,11 +2,12 @@
 using System.Text;
 using System.IO;
 
+using BizHawk.Common.StringExtensions;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Atari.Lynx
 {
-	[Core("Handy", "K. Wilkins, Mednafen Team", true, true, "mednafen 0-9-34-1", "http://mednafen.sourceforge.net/", false)]
+	[PortedCore(CoreNames.Handy, "K. Wilkins, Mednafen Team", "mednafen 0-9-34-1", "http://mednafen.sourceforge.net/")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight), typeof(IRegionable), typeof(ISettable<,>) })]
 	public partial class Lynx : IEmulator, IVideoProvider, ISoundProvider, ISaveRam, IStatable, IInputPollable
 	{
@@ -32,12 +33,12 @@ namespace BizHawk.Emulation.Cores.Atari.Lynx
 				int p0 = br.ReadUInt16();
 				int p1 = br.ReadUInt16();
 				int ver = br.ReadUInt16();
-				string cname = Encoding.ASCII.GetString(br.ReadBytes(32)).Trim();
-				string mname = Encoding.ASCII.GetString(br.ReadBytes(16)).Trim();
+				string cname = Encoding.ASCII.GetString(br.ReadBytes(32)).SubstringBefore('\0').Trim();
+				string mname = Encoding.ASCII.GetString(br.ReadBytes(16)).SubstringBefore('\0').Trim();
 				int rot = br.ReadByte();
 
 				ms.Position = 6;
-				string bs93 = Encoding.ASCII.GetString(br.ReadBytes(6));
+				string bs93 = Encoding.ASCII.GetString(br.ReadBytes(4));
 				if (bs93 == "BS93")
 				{
 					throw new InvalidOperationException("Unsupported BS93 Lynx ram image");
@@ -92,7 +93,6 @@ namespace BizHawk.Emulation.Cores.Atari.Lynx
 			try
 			{
 				_saveBuff = new byte[LibLynx.BinStateSize(Core)];
-				_saveBuff2 = new byte[_saveBuff.Length + 13];
 
 				int rot = game.OptionPresent("rotate") ? int.Parse(game.OptionValue("rotate")) : 0;
 				LibLynx.SetRotation(Core, rot);
@@ -121,7 +121,6 @@ namespace BizHawk.Emulation.Cores.Atari.Lynx
 
 		public bool FrameAdvance(IController controller, bool render, bool rendersound = true)
 		{
-			Frame++;
 			if (controller.IsPressed("Power"))
 			{
 				LibLynx.Reset(Core);
@@ -134,6 +133,8 @@ namespace BizHawk.Emulation.Cores.Atari.Lynx
 			{
 				LagCount++;
 			}
+
+			Frame++;
 
 			return true;
 		}

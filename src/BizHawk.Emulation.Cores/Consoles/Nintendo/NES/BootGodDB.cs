@@ -13,24 +13,24 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 		/// <summary>
 		/// blocks until the DB is done loading
 		/// </summary>
-		static EventWaitHandle acquire;
+		private static EventWaitHandle acquire;
 
-		bool validate = true;
+		private readonly bool validate = true;
 
 		private readonly Bag<string, CartInfo> _sha1Table = new Bag<string, CartInfo>();
 
-		static BootGodDb instance;
+		private static BootGodDb instance;
 
 		public static void Initialize(string basePath)
 		{
 			if (acquire != null) throw new InvalidOperationException("Bootgod DB multiply initialized");
-			acquire =  new EventWaitHandle(false, EventResetMode.ManualReset); ;
+			acquire = new EventWaitHandle(false, EventResetMode.ManualReset);
 
 			var stopwatch = Stopwatch.StartNew();
 			ThreadPool.QueueUserWorkItem(_ =>
 			{
 				instance = new BootGodDb(basePath);
-				Console.WriteLine("Bootgod DB load: " + stopwatch.Elapsed + " sec");
+				Util.DebugWriteLine("Bootgod DB load: " + stopwatch.Elapsed + " sec");
 				acquire.Set();
 			});
 		}
@@ -118,6 +118,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.NES
 									break;
 								case "chip":
 									currCart.Chips.Add(xmlReader.GetAttribute("type"));
+									if (xmlReader.GetAttribute("battery") != null)
+										currCart.WramBattery = true;
 									break;
 							}
 						} else 

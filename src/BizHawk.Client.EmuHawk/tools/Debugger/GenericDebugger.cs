@@ -13,9 +13,12 @@ namespace BizHawk.Client.EmuHawk
 		private const string AddressColumnName = "Address";
 		private const string InstructionColumnName = "Instruction";
 
+		protected override string WindowTitleStatic => "Debugger";
+
 		public GenericDebugger()
 		{
 			InitializeComponent();
+			Icon = Properties.Resources.BugIcon;
 			Closing += (o, e) => DisengageDebugger();
 
 			DisassemblerView.QueryItemText += DisassemblerView_QueryItemText;
@@ -58,7 +61,7 @@ namespace BizHawk.Client.EmuHawk
 							DropDownStyle = ComboBoxStyle.DropDownList
 						};
 
-						c.Items.AddRange(Disassembler.AvailableCpus.ToArray());
+						c.Items.AddRange(Disassembler.AvailableCpus.Cast<object>().ToArray());
 						c.SelectedItem = Disassembler.Cpu;
 						c.SelectedIndexChanged += OnCpuDropDownIndexChanged;
 
@@ -185,11 +188,6 @@ namespace BizHawk.Client.EmuHawk
 			Disassembler.Cpu = ((ComboBox) sender).SelectedItem.ToString();
 		}
 
-		private void ExitMenuItem_Click(object sender, EventArgs e)
-		{
-			Close();
-		}
-
 		private void RunBtn_Click(object sender, EventArgs e)
 		{
 			MainForm.UnpauseEmulator();
@@ -245,7 +243,7 @@ namespace BizHawk.Client.EmuHawk
 			return base.ProcessCmdKey(ref msg, keyData);
 		}
 
-		private Control _currentToolTipControl = null; 
+		private Control _currentToolTipControl = null;
 
 		private void GenericDebugger_MouseMove(object sender, MouseEventArgs e)
 		{

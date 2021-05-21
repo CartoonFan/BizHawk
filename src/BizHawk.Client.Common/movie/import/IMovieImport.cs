@@ -1,14 +1,20 @@
-﻿using BizHawk.Emulation.Common;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+
+using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.Common
 {
 	public interface IMovieImport
 	{
-		ImportResult Import(IMovieSession session, IEmulator emulator, string path, Config config);
+		ImportResult Import(
+			IDialogParent dialogParent,
+			IMovieSession session,
+			IEmulator emulator,
+			string path,
+			Config config);
 	}
 
 	internal abstract class MovieImporter : IMovieImport
@@ -17,8 +23,27 @@ namespace BizHawk.Client.Common
 		protected const string Md5 = "MD5";
 		protected const string MovieOrigin = "MovieOrigin";
 
-		public ImportResult Import(IMovieSession session, IEmulator emulator, string path, Config config)
+		protected IDialogParent _dialogParent;
+
+		protected void MaybeSetCorePreference(string sysID, string coreName, string fileExt)
 		{
+			if (Config.PreferredCores[sysID] != coreName
+				&& _dialogParent.ModalMessageBox2(
+					$"{fileExt} movies will have a better chance of syncing using the {coreName} core. Change your core preference for {sysID} roms to {coreName} now?",
+					icon: EMsgBoxIcon.Question))
+			{
+				Config.PreferredCores[sysID] = coreName;
+			}
+		}
+
+		public ImportResult Import(
+			IDialogParent dialogParent,
+			IMovieSession session,
+			IEmulator emulator,
+			string path,
+			Config config)
+		{
+			_dialogParent = dialogParent;
 			SourceFile = new FileInfo(path);
 			Config = config;
 

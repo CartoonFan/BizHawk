@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores;
 
 namespace BizHawk.Client.Common
 {
-	internal partial class Bk2Movie : IMovie
+	public partial class Bk2Movie : IMovie
 	{
 		private Bk2Controller _adapter;
 
-		internal Bk2Movie(IMovieSession session, string filename)
+		public Bk2Movie(IMovieSession session, string filename)
 		{
 			if (string.IsNullOrWhiteSpace(filename))
 			{
@@ -23,17 +24,10 @@ namespace BizHawk.Client.Common
 
 		public virtual void Attach(IEmulator emulator)
 		{
-			// TODO: this check would ideally happen
-			// but is disabled for now because restarting a movie doesn't new one up
-			// so the old one hangs around with old emulator until this point
-			// maybe we should new it up, or have a detach method
-			//if (!Emulator.IsNull())
-			//{
-			//	throw new InvalidOperationException("A core has already been attached!");
-			//}
-
 			Emulator = emulator;
 		}
+
+		protected bool IsAttached() => Emulator != null;
 
 		public IEmulator Emulator { get; private set; }
 		public IMovieSession Session { get; }
@@ -48,8 +42,7 @@ namespace BizHawk.Client.Common
 			set
 			{
 				_filename = value;
-				int index = Filename.LastIndexOf("\\");
-				Name = Filename.Substring(index + 1, Filename.Length - index - 1);
+				Name = Path.GetFileName(Filename);
 			}
 		}
 
@@ -64,34 +57,45 @@ namespace BizHawk.Client.Common
 
 		public ILogEntryGenerator LogGeneratorInstance(IController source)
 		{
-			return new Bk2LogEntryGenerator(Emulator.SystemId, source);
+			return new Bk2LogEntryGenerator(Emulator?.SystemId ?? SystemID, source);
 		}
 
 		public int FrameCount => Log.Count;
 		public int InputLogLength => Log.Count;
 
-		public ulong TimeLength
+		public TimeSpan TimeLength
 		{
 			get
 			{
-				if (Header.ContainsKey(HeaderKeys.VBlankCount))
+				double dblSeconds;
+				var core = Header[HeaderKeys.Core];
+
+				if (Header.ContainsKey(HeaderKeys.CycleCount) && (core == CoreNames.Gambatte || core == CoreNames.SubGbHawk))
 				{
-					return Convert.ToUInt64(Header[HeaderKeys.VBlankCount]);
+					ulong numCycles = Convert.ToUInt64(Header[HeaderKeys.CycleCount]);
+					double cyclesPerSecond = PlatformFrameRates.GetFrameRate("GB_Clock", IsPal);
+					dblSeconds = numCycles / cyclesPerSecond;
+				}
+				else
+				{
+					ulong numFrames = (ulong) FrameCount;
+					if (Header.ContainsKey(HeaderKeys.VBlankCount))
+					{
+						numFrames = Convert.ToUInt64(Header[HeaderKeys.VBlankCount]);
+					}
+					dblSeconds = numFrames / FrameRate;
 				}
 
-				if (Header.ContainsKey(HeaderKeys.CycleCount) && Header[HeaderKeys.Core] == CoreNames.Gambatte)
-				{
-					return Convert.ToUInt64(Header[HeaderKeys.CycleCount]);
-				}
-
-				if (Header.ContainsKey(HeaderKeys.CycleCount) && Header[HeaderKeys.Core] == CoreNames.SubGbHawk)
-				{
-					return Convert.ToUInt64(Header[HeaderKeys.CycleCount]);
-				}
-
-				return (ulong)Log.Count;
+				var seconds = (int)(dblSeconds % 60);
+				var days = seconds / 86400;
+				var hours = seconds / 3600;
+				var minutes = (seconds / 60) % 60;
+				var milliseconds = (int)((dblSeconds - seconds) * 1000);
+				return new TimeSpan(days, hours, minutes, seconds, milliseconds);
 			}
 		}
+
+		public double FrameRate => PlatformFrameRates.GetFrameRate(SystemID, IsPal);
 
 		public IStringLog GetLogEntries() => Log;
 
@@ -129,15 +133,10 @@ namespace BizHawk.Client.Common
 
 		public virtual void Truncate(int frame)
 		{
-			// This is a bad way to do multitrack logic, pass the info in instead of going to the global
-			// and it is weird for Truncate to possibly not truncate
-			if (!Session.MultiTrack.IsActive)
+			if (frame < Log.Count)
 			{
-				if (frame < Log.Count)
-				{
-					Log.RemoveRange(frame, Log.Count - frame);
-					Changes = true;
-				}
+				Log.RemoveRange(frame, Log.Count - frame);
+				Changes = true;
 			}
 		}
 

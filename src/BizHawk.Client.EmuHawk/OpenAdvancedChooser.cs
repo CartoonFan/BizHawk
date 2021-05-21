@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using BizHawk.Emulation.Cores.Libretro;
 using BizHawk.Client.Common;
+using BizHawk.Common;
+using BizHawk.Emulation.Common;
 
 // these match strings from OpenAdvance. should we make them constants in there?
 namespace BizHawk.Client.EmuHawk
@@ -22,17 +24,29 @@ namespace BizHawk.Client.EmuHawk
 
 	public partial class OpenAdvancedChooser : Form
 	{
-		private readonly MainForm _mainForm;
 		private readonly Config _config;
 
-		public AdvancedRomLoaderType Result;
-		public string SuggestedExtensionFilter;
+		private readonly Func<CoreComm> _createCoreComm;
+
 		private RetroDescription _currentDescription;
 
-		public OpenAdvancedChooser(MainForm mainForm, Config config)
+		private readonly IGameInfo _game;
+
+		private readonly Func<bool> _libretroCoreChooserCallback;
+
+		public IDialogController DialogController { get; }
+
+		public AdvancedRomLoaderType Result;
+
+		public string SuggestedExtensionFilter;
+
+		public OpenAdvancedChooser(IDialogController dialogController, Config config, Func<CoreComm> createCoreComm, IGameInfo game, Func<bool> libretroCoreChooserCallback)
 		{
-			_mainForm = mainForm;
 			_config = config;
+			_createCoreComm = createCoreComm;
+			_game = game;
+			_libretroCoreChooserCallback = libretroCoreChooserCallback;
+			DialogController = dialogController;
 
 			InitializeComponent();
 
@@ -47,8 +61,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void btnSetLibretroCore_Click(object sender, EventArgs e)
 		{
-			if(_mainForm.RunLibretroCoreChooser())
-				RefreshLibretroCore(false);
+			if (_libretroCoreChooserCallback()) RefreshLibretroCore(false);
 		}
 
 		private void RefreshLibretroCore(bool bootstrap)
@@ -69,8 +82,8 @@ namespace BizHawk.Client.EmuHawk
 			// scan the current libretro core to see if it can be launched with NoGame,and other stuff
 			try
 			{
-				var coreComm = _mainForm.CreateCoreComm();
-				using var retro = new LibretroCore(coreComm, GlobalWin.Game, core);
+				var coreComm = _createCoreComm();
+				using var retro = new LibretroCore(coreComm, _game, core);
 				btnLibretroLaunchGame.Enabled = true;
 				if (retro.Description.SupportsNoGame)
 					btnLibretroLaunchNoGame.Enabled = true;
@@ -91,7 +104,7 @@ namespace BizHawk.Client.EmuHawk
 			{
 				if (!bootstrap)
 				{
-					MessageBox.Show($"Couldn't load the selected Libretro core for analysis. It won't be available.\n\nError:\n\n{ex}");
+					DialogController.ShowMessageBox($"Couldn't load the selected Libretro core for analysis. It won't be available.\n\nError:\n\n{ex}");
 				}
 			}
 		}
@@ -132,7 +145,8 @@ namespace BizHawk.Client.EmuHawk
 			if (e.Data.GetDataPresent(DataFormats.FileDrop))
 			{
 				var filePaths = (string[])e.Data.GetData(DataFormats.FileDrop);
-				if (Path.GetExtension(filePaths[0]).ToUpper() == ".DLL")
+				var ext = Path.GetExtension(filePaths[0]).ToUpperInvariant();
+				if (OSTailoredCode.IsUnixHost ? ext == ".SO" : ext == ".DLL")
 				{
 					e.Effect = DragDropEffects.Copy;
 					return;

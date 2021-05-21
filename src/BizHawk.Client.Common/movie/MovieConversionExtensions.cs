@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Nintendo.Gameboy;
 using BizHawk.Emulation.Cores.Nintendo.GBHawk;
@@ -28,6 +29,9 @@ namespace BizHawk.Client.Common
 			{
 				tas.HeaderEntries[kvp.Key] = kvp.Value;
 			}
+
+			// TODO: we have this version number string generated in multiple places
+			tas.HeaderEntries[HeaderKeys.MovieVersion] = $"BizHawk v2.0 Tasproj v{TasMovie.CurrentVersion}";
 
 			tas.SyncSettingsJson = old.SyncSettingsJson;
 
@@ -61,6 +65,9 @@ namespace BizHawk.Client.Common
 			{
 				bk2.HeaderEntries[kvp.Key] = kvp.Value;
 			}
+
+			// TODO: we have this version number string generated in multiple places
+			bk2.HeaderEntries[HeaderKeys.MovieVersion] = "BizHawk v2.0";
 
 			bk2.SyncSettingsJson = old.SyncSettingsJson;
 
@@ -134,7 +141,7 @@ namespace BizHawk.Client.Common
 				}
 			}
 
-			tas.TasStateManager.Settings = old.TasStateManager.Settings;
+			tas.TasStateManager.UpdateSettings(old.TasStateManager.Settings);
 
 			tas.Save();
 			return tas;
@@ -175,7 +182,7 @@ namespace BizHawk.Client.Common
 				tas.Subtitles.Add(sub);
 			}
 
-			tas.TasStateManager.Settings = old.TasStateManager.Settings;
+			tas.TasStateManager.UpdateSettings(old.TasStateManager.Settings);
 
 			tas.Save();
 			return tas;
@@ -191,6 +198,7 @@ namespace BizHawk.Client.Common
 		{
 			movie.Author = author;
 			movie.EmulatorVersion = VersionInfo.GetEmuVersion();
+			movie.OriginalEmulatorVersion = VersionInfo.GetEmuVersion();
 			movie.SystemID = emulator.SystemId;
 
 			var settable = new SettingsAdapter(emulator);
@@ -221,18 +229,17 @@ namespace BizHawk.Client.Common
 			if (emulator.HasRegions())
 			{
 				var region = emulator.AsRegionable().Region;
-				if (region == Emulation.Common.DisplayType.PAL)
+				if (region == DisplayType.PAL)
 				{
 					movie.HeaderEntries.Add(HeaderKeys.Pal, "1");
 				}
 			}
 
-			if (firmwareManager.RecentlyServed.Any())
+			if (firmwareManager.RecentlyServed.Count != 0)
 			{
 				foreach (var firmware in firmwareManager.RecentlyServed)
 				{
-					var key = $"{firmware.SystemId}_Firmware_{firmware.FirmwareId}";
-
+					var key = firmware.ID.MovieHeaderKey;
 					if (!movie.HeaderEntries.ContainsKey(key))
 					{
 						movie.HeaderEntries.Add(key, firmware.Hash);
@@ -304,7 +311,9 @@ namespace BizHawk.Client.Common
 			int fileSuffix = 0;
 			while (File.Exists(newFileName))
 			{
-				newFileName = $"{Path.GetDirectoryName(oldFileName)}{Path.GetFileNameWithoutExtension(oldFileName)} {++fileSuffix}.{TasMovie.Extension}";
+				// Using this should hopefully be system agnostic
+				var temp_path = Path.Combine(Path.GetDirectoryName(oldFileName), Path.GetFileNameWithoutExtension(oldFileName));
+				newFileName = $"{temp_path} {++fileSuffix}.{TasMovie.Extension}";
 			}
 
 			return newFileName;

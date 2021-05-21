@@ -1,8 +1,8 @@
 ﻿namespace BizHawk.Emulation.Cores.Libretro
 {
-	unsafe partial class LibretroApi
+	public partial class LibretroApi
 	{
-		bool Handle_BRK(eMessage msg)
+		private bool Handle_BRK(eMessage msg)
 		{
 			switch (msg)
 			{

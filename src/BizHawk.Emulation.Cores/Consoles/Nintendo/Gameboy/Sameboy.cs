@@ -10,8 +10,7 @@ using System.Linq;
 
 namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 {
-	[Core(CoreNames.SameBoy, "LIJI32", true, true, "efc11783c7fb6da66e1dd084e41ba6a85c0bd17e",
-		"https://sameboy.github.io/", false)]
+	[PortedCore(CoreNames.SameBoy, "LIJI32", "efc11783c7fb6da66e1dd084e41ba6a85c0bd17e", "https://sameboy.github.io/")]
 	public class Sameboy : WaterboxCore,
 		IGameboyCommon, ISaveRam,
 		ISettable<Sameboy.Settings, Sameboy.SyncSettings>
@@ -31,9 +30,11 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 		/// </summary>
 		private const int TICKSPERSECOND_SGB = 2147727;
 
-		private LibSameboy _core;
-		private bool _cgb;
-		private bool _sgb;
+		private readonly LibSameboy _core;
+		private readonly bool _cgb;
+		private readonly bool _sgb;
+
+		private readonly IntPtr[] _cachedGpuPointers = new IntPtr[4];
 
 		[CoreConstructor("SGB")]
 		public Sameboy(byte[] rom, CoreComm comm, Settings settings, SyncSettings syncSettings, bool deterministic)
@@ -41,6 +42,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 		{ }
 
 		[CoreConstructor("GB")]
+		[CoreConstructor("GBC")]
 		public Sameboy(CoreComm comm, byte[] rom, Settings settings, SyncSettings syncSettings, bool deterministic)
 			: this(rom, comm, false, settings, syncSettings, deterministic)
 		{ }
@@ -58,6 +60,9 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 				SystemId = sgb ? "SGB" : "GB"
 			})
 		{
+			_corePrinterCallback = PrinterCallbackRelay;
+			_coreScanlineCallback = ScanlineCallbackRelay;
+
 			_core = PreInit<LibSameboy>(new WaterboxOptions
 			{
 				Filename = "sameboy.wbx",
@@ -68,7 +73,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 				MmapHeapSizeKB = 1024,
 				SkipCoreConsistencyCheck = comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxCoreConsistencyCheck),
 				SkipMemoryConsistencyCheck = comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxMemoryConsistencyCheck),
-			});
+			}, new Delegate[] { _corePrinterCallback, _coreScanlineCallback });
 
 			_cgb = (rom[0x143] & 0xc0) == 0xc0 && !sgb;
 			_sgb = sgb;
@@ -95,11 +100,9 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 			_exe.RemoveReadonlyFile("game.rom");
 			_exe.RemoveReadonlyFile("boot.rom");
 
-			PostInit();
+			_core.GetGpuMemory(_cachedGpuPointers);
 
-			var scratch = new IntPtr[4];
-			_core.GetGpuMemory(scratch);
-			_gpuMemory = new GPUMemoryAreas(scratch[0], scratch[1], scratch[3], scratch[2], _exe);
+			PostInit();
 
 			DeterministicEmulation = deterministic || !_syncSettings.UseRealTime;
 			InitializeRtc(_syncSettings.InitialTime);
@@ -168,7 +171,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 
 		public new byte[] CloneSaveRam()
 		{
-			_exe.AddTransientFile(null, "save.ram");
+			_exe.AddTransientFile(new byte[0], "save.ram");
 			_core.GetSaveRam();
 			return _exe.RemoveTransientFile("save.ram");
 		}
@@ -272,8 +275,8 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 
 		protected override unsafe void FrameAdvancePost()
 		{
-			if (_scanlineCallback != null && _scanlineCallbackLine == -1)
-				_scanlineCallback(_core.GetIoReg(0x40));
+			if (_frontendScanlineCallback != null && _scanlineCallbackLine == -1)
+				_frontendScanlineCallback(_core.GetIoReg(0x40));
 
 			if (_sgb && !_settings.ShowSgbBorder)
 			{
@@ -298,27 +301,73 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 		protected override void LoadStateBinaryInternal(BinaryReader reader)
 		{
 			UpdateCoreScanlineCallback(false);
-			_core.SetPrinterCallback(_printerCallback);
+			UpdateCorePrinterCallback();
 		}
 
 		public bool IsCGBMode() => _cgb;
 
-		private GPUMemoryAreas _gpuMemory;
+		public IGPUMemoryAreas LockGPU()
+		{
+			_exe.Enter();
+			try
+			{
+				return new GPUMemoryAreas(_exe)
+				{
+					Vram = _cachedGpuPointers[0],
+					Oam = _cachedGpuPointers[1],
+					Sppal = _cachedGpuPointers[3],
+					Bgpal = _cachedGpuPointers[2]
+				};
+			}
+			catch
+			{
+				_exe.Exit();
+				throw;
+			}
+		}
 
-		public GPUMemoryAreas GetGPU() => _gpuMemory;
-		private ScanlineCallback _scanlineCallback;
+		private class GPUMemoryAreas : IGPUMemoryAreas
+		{
+			private IMonitor _monitor;
+			public IntPtr Vram { get; init; }
+
+			public IntPtr Oam { get; init; }
+
+			public IntPtr Sppal { get; init; }
+
+			public IntPtr Bgpal { get; init; }
+
+			public GPUMemoryAreas(IMonitor monitor)
+			{
+				_monitor = monitor;
+			}
+
+			public void Dispose()
+			{
+				_monitor?.Exit();
+				_monitor = null;
+			}
+		}
+
+		private readonly ScanlineCallback _coreScanlineCallback;
+		private ScanlineCallback _frontendScanlineCallback;
 		private int _scanlineCallbackLine;
+
+		private void ScanlineCallbackRelay(byte lcdc)
+		{
+			_frontendScanlineCallback?.Invoke(lcdc);
+		}
 
 		public void SetScanlineCallback(ScanlineCallback callback, int line)
 		{
-			_scanlineCallback = callback;
+			_frontendScanlineCallback = callback;
 			_scanlineCallbackLine = line;
 			UpdateCoreScanlineCallback(true);
 		}
 
 		private void UpdateCoreScanlineCallback(bool now)
 		{
-			if (_scanlineCallback == null)
+			if (_frontendScanlineCallback == null)
 			{
 				_core.SetScanlineCallback(null, -1);
 			}
@@ -326,25 +375,36 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.Gameboy
 			{
 				if (_scanlineCallbackLine >= 0 && _scanlineCallbackLine <= 153)
 				{
-					_core.SetScanlineCallback(_scanlineCallback, _scanlineCallbackLine);
+					_core.SetScanlineCallback(_coreScanlineCallback, _scanlineCallbackLine);
 				}
 				else
 				{
 					_core.SetScanlineCallback(null, -1);
 					if (_scanlineCallbackLine == -2 && now)
 					{
-						_scanlineCallback(_core.GetIoReg(0x40));
+						_frontendScanlineCallback(_core.GetIoReg(0x40));
 					}
 				}
 			}
 		}
 		
-		private PrinterCallback _printerCallback;
+		private readonly PrinterCallback _corePrinterCallback;
+		private PrinterCallback _frontendPrinterCallback;
+
+		private void PrinterCallbackRelay(IntPtr image, byte height, byte top_margin, byte bottom_margin, byte exposure)
+		{
+			_frontendPrinterCallback?.Invoke(image, height, top_margin, bottom_margin, exposure);
+		}
 		
 		public void SetPrinterCallback(PrinterCallback callback)
 		{
-			_printerCallback = callback;
-			_core.SetPrinterCallback(callback);
+			_frontendPrinterCallback = callback;
+			UpdateCorePrinterCallback();
+		}
+
+		private void UpdateCorePrinterCallback()
+		{
+			_core.SetPrinterCallback(_frontendPrinterCallback != null ? _corePrinterCallback : null);
 		}
 	}
 }

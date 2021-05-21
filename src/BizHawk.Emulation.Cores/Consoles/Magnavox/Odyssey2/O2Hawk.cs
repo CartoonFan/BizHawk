@@ -6,11 +6,7 @@ using BizHawk.Emulation.Cores.Components.I8048;
 
 namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 {
-	[Core(
-		"O2Hawk",
-		"",
-		isPorted: false,
-		isReleased: false)]
+	[Core(CoreNames.O2Hawk, "")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class O2Hawk : IEmulator, ISaveRam, IDebuggable, IInputPollable, IRegionable, ISettable<O2Hawk.O2Settings, O2Hawk.O2SyncSettings>, IBoardInfo
 	{
@@ -19,7 +15,7 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 
 		public byte addr_latch;
 		public byte kb_byte;
-		public bool ppu_en, RAM_en, kybrd_en, copy_en, cart_b0, cart_b1;
+		public bool ppu_en, vpp_en, RAM_en, kybrd_en, copy_en, cart_b0, cart_b1;
 		public ushort rom_bank;
 		public ushort bank_size;
 
@@ -40,9 +36,12 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 		public PPU ppu;
 
 		public bool is_pal;
+		public bool is_G7400;
+
+		public bool is_XROM;
 
 		[CoreConstructor("O2")]
-		public O2Hawk(CoreComm comm, GameInfo game, byte[] rom, /*string gameDbFn,*/ object settings, object syncSettings)
+		public O2Hawk(CoreComm comm, GameInfo game, byte[] rom, O2Settings settings, O2SyncSettings syncSettings)
 		{
 			var ser = new BasicServiceProvider(this);
 
@@ -57,29 +56,37 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 				OnExecFetch = ExecFetch,
 			};
 
-			_settings = (O2Settings)settings ?? new O2Settings();
-			_syncSettings = (O2SyncSettings)syncSettings ?? new O2SyncSettings();
-			_controllerDeck = new O2HawkControllerDeck("O2 Controller", "O2 Controller");
+			_settings = settings ?? new O2Settings();
+			_syncSettings = syncSettings ?? new O2SyncSettings();
 
-			_bios = comm.CoreFileProvider.GetFirmware("O2", "BIOS", true, "BIOS Not Found, Cannot Load")
+			is_G7400 = _syncSettings.G7400_Enable;
+
+			_controllerDeck = new O2HawkControllerDeck("O2 Controller", "O2 Controller", is_G7400);
+
+			if (is_G7400)
+			{
+				_bios = comm.CoreFileProvider.GetFirmware("O2", "BIOS-G7400", true, "BIOS Not Found, Cannot Load")
+				?? throw new MissingFirmwareException("Missing G7400 Bios");
+			}
+			else
+			{
+				_bios = comm.CoreFileProvider.GetFirmware("O2", "BIOS-O2", true, "BIOS Not Found, Cannot Load")
 				?? throw new MissingFirmwareException("Missing Odyssey2 Bios");
-
+			}
+			
 			Buffer.BlockCopy(rom, 0x100, header, 0, 0x50);
 
 			Console.WriteLine("MD5: " + rom.HashMD5(0, rom.Length));
 			Console.WriteLine("SHA1: " + rom.HashSHA1(0, rom.Length));
 			_rom = rom;
+
+			if (game["XROM"]) { is_XROM = true; }
 			Setup_Mapper();
 
 			_frameHz = 60;
 
-			cpu.Core = this;
-
 			ser.Register<IVideoProvider>(this);
 			ServiceProvider = ser;
-
-			_settings = (O2Settings)settings ?? new O2Settings();
-			_syncSettings = (O2SyncSettings)syncSettings ?? new O2SyncSettings();
 
 			_tracer = new TraceBuffer { Header = cpu.TraceHeader };
 			ser.Register(_tracer);
@@ -88,7 +95,7 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 			cpu.SetCallbacks(ReadMemory, PeekMemory, PeekMemory, WriteMemory);
 
 			// set up differences between PAL and NTSC systems
-			if (game.Region == "US" || game.Region == "EU-US" || game.Region == null)
+			if ((game.Region == "US" || game.Region == "EU-US" || game.Region == null) && !is_G7400)
 			{
 				is_pal = false;
 				pic_height = 240;
@@ -99,12 +106,13 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 			else
 			{
 				is_pal = true;
-				pic_height = 288;
+				pic_height = 240;
 				_frameHz = 50;
 				ppu = new PAL_PPU();
 			}
+
 			ppu.Core = this;
-			ppu.set_region(is_pal);
+			ppu.set_region(is_pal, is_G7400);
 			ser.Register<ISoundProvider>(ppu);
 
 			_vidbuffer = new int[372 * pic_height];
@@ -113,7 +121,7 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 			HardReset();
 		}
 
-		public DisplayType Region => DisplayType.NTSC;
+		public DisplayType Region => is_pal ? DisplayType.PAL : DisplayType.NTSC;
 
 		private readonly O2HawkControllerDeck _controllerDeck;
 
@@ -158,10 +166,20 @@ namespace BizHawk.Emulation.Cores.Consoles.O2Hawk
 
 		private void Setup_Mapper()
 		{
-			mapper = new MapperDefault
+			if (is_XROM)
 			{
-				Core = this
-			};
+				mapper = new MapperXROM
+				{
+					Core = this
+				};
+			}
+			else
+			{
+				mapper = new MapperDefault
+				{
+					Core = this
+				};
+			}
 
 			mapper.Initialize();
 

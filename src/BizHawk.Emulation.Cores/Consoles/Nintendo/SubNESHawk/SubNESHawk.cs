@@ -3,17 +3,13 @@ using BizHawk.Emulation.Cores.Nintendo.NES;
 
 namespace BizHawk.Emulation.Cores.Nintendo.SubNESHawk
 {
-	[Core(
-		CoreNames.SubNesHawk,
-		"",
-		isPorted: false,
-		isReleased: true)]
-	[ServiceNotApplicable(new [] { typeof(IDriveLight) })]
+	[Core(CoreNames.SubNesHawk, "")]
+	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class SubNESHawk : IEmulator, IStatable, IInputPollable,
 		ISettable<NES.NES.NESSettings, NES.NES.NESSyncSettings>
 	{
-		[CoreConstructor("NES")]
-		public SubNESHawk(CoreComm comm, GameInfo game, byte[] rom, /*string gameDbFn,*/ object settings, object syncSettings)
+		[CoreConstructor("NES", Priority = CorePriority.SuperLow)]
+		public SubNESHawk(CoreComm comm, GameInfo game, byte[] rom, /*string gameDbFn,*/ NES.NES.NESSettings settings, NES.NES.NESSyncSettings syncSettings)
 		{
 			var subNesSettings = (NES.NES.NESSettings)settings ?? new NES.NES.NESSettings();
 			var subNesSyncSettings = (NES.NES.NESSyncSettings)syncSettings ?? new NES.NES.NESSyncSettings();

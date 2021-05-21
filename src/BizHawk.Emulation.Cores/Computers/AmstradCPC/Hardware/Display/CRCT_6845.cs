@@ -325,7 +325,7 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 		/// R13:    Display Start Address (Low)
 		/// Unit:   
 		/// Notes:  Define the LSB of MA when a CRTC-screen starts
-		///         Allows you to offset the start of screen memory for hardware scrolling, and if using memory from address &0000 with the firmware.
+		///         Allows you to offset the start of screen memory for hardware scrolling, and if using memory from address &amp;0000 with the firmware.
 		/// </summary>
 		public const int DISP_START_ADDR_L = 13;
 		/// <summary>
@@ -364,14 +364,14 @@ namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
 		/// http://www.cantrell.org.uk/david/tech/cpc/cpc-firmware/firmware.pdf
 		/// (The defaults values given here are those programmed by the firmware ROM after a cold/warm boot of the CPC/Plus)
 		/// </summary>
-		private byte[] RegDefaults = { 63, 40, 46, 112, 38, 0, 25, 30, 0, 7, 0, 0, 48, 0, 192, 7, 0, 0 };
+		private readonly byte[] RegDefaults = { 63, 40, 46, 112, 38, 0, 25, 30, 0, 7, 0, 0, 48, 0, 192, 7, 0, 0 };
 
 		/// <summary>
 		/// Register masks
 		/// 0 = WRITE
 		/// 1 = READ
 		/// </summary>
-		private byte[] CPCMask = { 255, 255, 255, 255, 127, 31, 127, 126, 3, 31, 31, 31, 63, 255, 63, 255, 63, 255 };
+		private readonly byte[] CPCMask = { 255, 255, 255, 255, 127, 31, 127, 126, 3, 31, 31, 31, 63, 255, 63, 255, 63, 255 };
 
 		/// <summary>
 		/// Horizontal Character Count

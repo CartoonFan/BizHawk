@@ -1,35 +1,52 @@
 ﻿using System;
+using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 using System.Linq;
 
 using BizHawk.Emulation.Common;
 using BizHawk.Client.Common;
+using BizHawk.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
 	// TODO - Allow relative paths in record TextBox
-	public partial class RecordMovie : Form
+	public partial class RecordMovie : Form, IDialogParent
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForTools _mainForm;
 		private readonly Config _config;
 		private readonly GameInfo _game;
 		private readonly IEmulator _emulator;
 		private readonly IMovieSession _movieSession;
+		private readonly FirmwareManager _firmwareManager;
+
+		public IDialogController DialogController => _mainForm;
 
 		public RecordMovie(
-			MainForm mainForm,
+			IMainFormForTools mainForm,
 			Config config,
 			GameInfo game,
 			IEmulator core,
-			IMovieSession movieSession)
+			IMovieSession movieSession,
+			FirmwareManager firmwareManager)
 		{
 			_mainForm = mainForm;
 			_config = config;
 			_game = game;
 			_emulator = core;
 			_movieSession = movieSession;
+			_firmwareManager = firmwareManager;
 			InitializeComponent();
+			Icon = Properties.Resources.TAStudioIcon;
+			BrowseBtn.Image = Properties.Resources.OpenFile;
+			if (OSTailoredCode.IsUnixHost) Load += (_, _) =>
+			{
+				//HACK to make this usable on Linux. No clue why this Form in particular is so much worse, maybe the GroupBox? --yoshi
+				DefaultAuthorCheckBox.Location += new Size(0, 20);
+				var s = new Size(0, 36);
+				OK.Location += s;
+				Cancel.Location += s;
+			};
 
 			if (!_emulator.HasSavestates())
 			{
@@ -84,8 +101,8 @@ namespace BizHawk.Client.EmuHawk
 				var test = new FileInfo(path);
 				if (test.Exists)
 				{
-					var result = MessageBox.Show($"{path} already exists, overwrite?", "Confirm overwrite", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
-					if (result == DialogResult.Cancel)
+					var result = DialogController.ShowMessageBox2($"{path} already exists, overwrite?", "Confirm overwrite", EMsgBoxIcon.Warning, useOKCancel: true);
+					if (!result)
 					{
 						return;
 					}
@@ -132,8 +149,8 @@ namespace BizHawk.Client.EmuHawk
 
 				movieToRecord.PopulateWithDefaultHeaderValues(
 					_emulator,
-					GlobalWin.Game,
-					GlobalWin.FirmwareManager,
+					_game,
+					_firmwareManager,
 					AuthorBox.Text ?? _config.DefaultAuthor);
 				movieToRecord.Save();
 				_mainForm.StartNewMovie(movieToRecord, true);
@@ -148,7 +165,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			else
 			{
-				MessageBox.Show("Please select a movie to record", "File selection error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				DialogController.ShowMessageBox("Please select a movie to record", "File selection error", EMsgBoxIcon.Error);
 			}
 		}
 
@@ -179,16 +196,17 @@ namespace BizHawk.Client.EmuHawk
 				else throw;
 			}
 			
+			var preferredExt = _movieSession.Movie?.PreferredExtension ?? "bk2";
 			using var sfd = new SaveFileDialog
 			{
 				InitialDirectory = movieFolderPath,
-				DefaultExt = $".{_movieSession.Movie.PreferredExtension}",
+				DefaultExt = $".{preferredExt}",
 				FileName = RecordBox.Text,
 				OverwritePrompt = false,
-				Filter = new FilesystemFilterSet(new FilesystemFilter("Movie Files", new[] { _movieSession.Movie.PreferredExtension })).ToString()
+				Filter = new FilesystemFilterSet(new FilesystemFilter("Movie Files", new[] { preferredExt })).ToString()
 			};
 
-			var result = sfd.ShowHawkDialog();
+			var result = this.ShowDialogWithTempMute(sfd);
 			if (result == DialogResult.OK
 				&& !string.IsNullOrWhiteSpace(sfd.FileName))
 			{

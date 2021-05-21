@@ -5,7 +5,7 @@ using System.Drawing;
 
 namespace BizHawk.Bizware.BizwareGL
 {
-	public class TexAtlas
+	public static class TexAtlas
 	{
 		public class RectItem
 		{
@@ -31,136 +31,100 @@ namespace BizHawk.Bizware.BizwareGL
 			public readonly List<RectangleBinPack.Node> nodes = new List<RectangleBinPack.Node>();
 		}
 
-		public class PackedAtlasResults
-		{
-			public class SingleAtlas
-			{
-				public Size Size;
-				public List<RectItem> Items;
-			}
-			public List<SingleAtlas> Atlases = new List<SingleAtlas>();
-		}
-
 		public static int MaxSizeBits = 16;
 
 		/// <summary>
 		/// packs the supplied RectItems into an atlas. Modifies the RectItems with x/y values of location in new atlas.
 		/// </summary>
-		public static PackedAtlasResults PackAtlas(IEnumerable<RectItem> items)
+		public static IReadOnlyList<(Size Size, List<RectItem> Items)> PackAtlas(IReadOnlyCollection<RectItem> items)
 		{
-			var ret = new PackedAtlasResults();
-			ret.Atlases.Add(new PackedAtlasResults.SingleAtlas());
-
-			// initially, we'll try all the items; none remain
-			var currentItems = new List<RectItem>(items);
-			var remainItems = new List<RectItem>();
-
-		RETRY:
-
-			// this is where the texture size range is determined.
-			// we run this every time we make an atlas, in case we want to variably control the maximum texture output size.
-			// ALSO - we accumulate data in there, so we need to refresh it each time. ... lame.
-			var todoSizes = new List<TryFitParam>();
-			for (int i = 3; i <= MaxSizeBits; i++)
+			static void AddAtlas(ICollection<(Size, List<RectItem>)> atlases, IReadOnlyCollection<RectItem> initItems)
 			{
-				for (int j = 3; j <= MaxSizeBits; j++)
-				{
-					int w = 1 << i;
-					int h = 1 << j;
-					TryFitParam tfp = new TryFitParam(w, h);
-					todoSizes.Add(tfp);
-				}
-			}
+				List<RectItem> currentItems = new(initItems);
+				List<RectItem> remainItems = new();
 
-			//run the packing algorithm on each potential size
-			Parallel.ForEach(todoSizes, (param) =>
-			{
-				var rbp = new RectangleBinPack();
-				rbp.Init(16384, 16384);
-				param.rbp.Init(param.w, param.h);
-
-				foreach (var ri in currentItems)
+				TryFitParam tfpFinal;
+				while (true)
 				{
-					RectangleBinPack.Node node = param.rbp.Insert(ri.Width, ri.Height);
-					if (node == null)
+					// this is where the texture size range is determined.
+					// we run this every time we make an atlas, in case we want to variably control the maximum texture output size.
+					// ALSO - we accumulate data in there, so we need to refresh it each time. ... lame.
+					var todoSizes = new List<TryFitParam>();
+					for (int i = 3; i <= MaxSizeBits; i++)
 					{
-						param.ok = false;
+						for (int j = 3; j <= MaxSizeBits; j++)
+						{
+							int w = 1 << i;
+							int h = 1 << j;
+							TryFitParam tfp = new TryFitParam(w, h);
+							todoSizes.Add(tfp);
+						}
 					}
-					else
-					{
-						node.ri = ri;
-						param.nodes.Add(node);
-					}
-				}
-			});
 
-			//find the best fit among the potential sizes that worked
-			long best = long.MaxValue;
-			TryFitParam tfpFinal = null;
-			foreach (TryFitParam tfp in todoSizes)
-			{
-				if (tfp.ok)
-				{
-					long area = (long)tfp.w * (long)tfp.h;
-					long perimeter = (long)tfp.w + (long)tfp.h;
-					if (area < best)
+					//run the packing algorithm on each potential size
+					Parallel.ForEach(todoSizes, (param) =>
 					{
+						var rbp = new RectangleBinPack();
+						rbp.Init(16384, 16384);
+						param.rbp.Init(param.w, param.h);
+
+						foreach (var ri in currentItems)
+						{
+							RectangleBinPack.Node node = param.rbp.Insert(ri.Width, ri.Height);
+							if (node == null)
+							{
+								param.ok = false;
+							}
+							else
+							{
+								node.ri = ri;
+								param.nodes.Add(node);
+							}
+						}
+					});
+
+					//find the best fit among the potential sizes that worked
+					var best = long.MaxValue;
+					tfpFinal = todoSizes[0];
+					foreach (var tfp in todoSizes)
+					{
+						if (!tfp.ok) continue;
+						var area = tfp.w * (long) tfp.h;
+						if (area > best) continue; // larger than best, not interested
+						if (area == best) // same area, compare perimeter as tie-breaker (to create squares, which are nicer to look at)
+						{
+							if (tfp.w + tfp.h >= tfpFinal.w + tfpFinal.h) continue;
+						}
 						best = area;
 						tfpFinal = tfp;
 					}
-					else if (area == best)
-					{
-						//try to minimize perimeter (to create squares, which are nicer to look at)
-						if (tfpFinal == null)
-						{ }
-						else if (perimeter < tfpFinal.w + tfpFinal.h)
-						{
-							best = area;
-							tfpFinal = tfp;
-						}
-					}
+
+					//did we find any fit?
+					if (best < long.MaxValue) break;
+					//nope - move an item to the remaining list and try again
+					remainItems.Add(currentItems[currentItems.Count - 1]);
+					currentItems.RemoveAt(currentItems.Count - 1);
 				}
+
+				//we found a fit. setup this atlas in the result and drop the items into it
+				atlases.Add((new Size(tfpFinal.w, tfpFinal.h), new List<RectItem>(currentItems)));
+				foreach (var item in currentItems)
+				{
+					object o = item.Item;
+					var node = tfpFinal.nodes.Find((x) => x.ri == item);
+					item.X = node.x;
+					item.Y = node.y;
+					item.TexIndex = atlases.Count - 1;
+				}
+
+				//if we have any items left, we've got to run this again
+				if (remainItems.Count > 0) AddAtlas(atlases, remainItems);
 			}
 
-			//did we find any fit?
-			if (best == long.MaxValue)
-			{
-				//nope - move an item to the remaining list and try again
-				remainItems.Add(currentItems[currentItems.Count - 1]);
-				currentItems.RemoveAt(currentItems.Count - 1);
-				goto RETRY;
-			}
-
-			//we found a fit. setup this atlas in the result and drop the items into it
-			var atlas = ret.Atlases[ret.Atlases.Count - 1];
-			atlas.Size.Width = tfpFinal.w;
-			atlas.Size.Height = tfpFinal.h;
-			atlas.Items = new List<RectItem>(items);
-			foreach (var item in currentItems)
-			{
-				object o = item.Item;
-				var node = tfpFinal.nodes.Find((x) => x.ri == item);
-				item.X = node.x;
-				item.Y = node.y;
-				item.TexIndex = ret.Atlases.Count - 1;
-			}
-
-			//if we have any items left, we've got to run this again
-			if (remainItems.Count > 0)
-			{
-				//move all remaining items into the clear list
-				currentItems.Clear();
-				currentItems.AddRange(remainItems);
-				remainItems.Clear();
-
-				ret.Atlases.Add(new PackedAtlasResults.SingleAtlas());
-				goto RETRY;
-			}
-
-			if (ret.Atlases.Count > 1)
-				Console.WriteLine("Created animset with >1 texture ({0} textures)", ret.Atlases.Count);
-
-			return ret;
+			List<(Size, List<RectItem>)> atlases = new();
+			AddAtlas(atlases, items);
+			if (atlases.Count > 1) Console.WriteLine($"Created animset with >1 texture ({atlases.Count} textures)");
+			return atlases;
 		}
 
 		// original file: RectangleBinPack.cpp
@@ -168,7 +132,7 @@ namespace BizHawk.Bizware.BizwareGL
 		private class RectangleBinPack
 		{
 			/** A node of a binary tree. Each node represents a rectangular area of the texture
-				we surface. Internal nodes store rectangles of used data, whereas leaf nodes track 
+				we surface. Internal nodes store rectangles of used data, whereas leaf nodes track
 				rectangles of free space. All the rectangles stored in the tree are disjoint. */
 			public class Node
 			{
@@ -188,7 +152,7 @@ namespace BizHawk.Bizware.BizwareGL
 				public RectItem ri;
 			}
 
-			/// Starts a new packing process to a bin of the given dimension.
+			/// <summary>Starts a new packing process to a bin of the given dimension.</summary>
 			public void Init(int width, int height)
 			{
 				binWidth = width;
@@ -201,17 +165,16 @@ namespace BizHawk.Bizware.BizwareGL
 			}
 
 
-			/// Inserts a new rectangle of the given size into the bin.
-			/** Running time is linear to the number of rectangles that have been already packed.
-				@return A pointer to the node that stores the newly added rectangle, or 0 
-					if it didn't fit. */
+			/// <summary>Inserts a new rectangle of the given size into the bin.</summary>
+			/// <returns>A pointer to the node that stores the newly added rectangle, or 0 if it didn't fit.</returns>
+			/// <remarks>Running time is linear to the number of rectangles that have been already packed.</remarks>
 			public Node Insert(int width, int height)
 			{
 				return Insert(root, width, height);
 			}
 
-			/// Computes the ratio of used surface area.
-			float Occupancy()
+			/// <summary>Computes the ratio of used surface area.</summary>
+			private float Occupancy()
 			{
 				int totalSurfaceArea = binWidth * binHeight;
 				int usedSurfaceArea = UsedSurfaceArea(root);
@@ -225,7 +188,7 @@ namespace BizHawk.Bizware.BizwareGL
 			private int binWidth;
 			private int binHeight;
 
-			/// @return The surface area used by the subtree rooted at node.
+			/// <returns>The surface area used by the subtree rooted at node.</returns>
 			private int UsedSurfaceArea(Node node)
 			{
 				if (node.left != null || node.right != null)
@@ -244,7 +207,7 @@ namespace BizHawk.Bizware.BizwareGL
 			}
 
 
-			/// Inserts a new rectangle in the subtree rooted at the given node.
+			/// <summary>Inserts a new rectangle in the subtree rooted at the given node.</summary>
 			private Node Insert(Node node, int width, int height)
 			{
 

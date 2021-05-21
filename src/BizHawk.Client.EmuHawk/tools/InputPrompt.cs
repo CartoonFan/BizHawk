@@ -15,7 +15,6 @@ namespace BizHawk.Client.EmuHawk
 	{
 		public InputPrompt()
 		{
-			GlobalWin.Sound.StopSound();
 			InitializeComponent();
 			StartLocation = new Point(-1, -1);
 		}
@@ -55,14 +54,12 @@ namespace BizHawk.Client.EmuHawk
 		{
 			DialogResult = DialogResult.OK;
 			Close();
-			GlobalWin.Sound.StartSound();
 		}
 
 		private void Cancel_Click(object sender, EventArgs e)
 		{
 			DialogResult = DialogResult.Cancel;
 			Close();
-			GlobalWin.Sound.StartSound();
 		}
 
 		private void PromptBox_KeyPress(object sender, KeyPressEventArgs e)

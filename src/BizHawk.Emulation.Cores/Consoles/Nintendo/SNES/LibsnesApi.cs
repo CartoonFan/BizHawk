@@ -24,11 +24,11 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 		public abstract void PostLoadState();
 	}
 
-	public unsafe partial class LibsnesApi : IDisposable, IMonitor, IBinaryStateable
+	public unsafe partial class LibsnesApi : IDisposable, IMonitor, IStatable
 	{
 		static LibsnesApi()
 		{
-			if (sizeof(CommStruct) != 280)
+			if (sizeof(CommStruct) != 368)
 			{
 				throw new InvalidOperationException("sizeof(comm)");
 			}
@@ -59,7 +59,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			_readonlyFiles.Add(name);
 		}
 
-		public LibsnesApi(string dllPath, CoreComm comm)
+		public LibsnesApi(string dllPath, CoreComm comm, IEnumerable<Delegate> allCallbacks)
 		{
 			_exe = new WaterboxHost(new WaterboxOptions
 			{
@@ -68,8 +68,8 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 				SbrkHeapSizeKB = 4 * 1024,
 				InvisibleHeapSizeKB = 8 * 1024,
 				MmapHeapSizeKB = 32 * 1024, // TODO: see if we can safely make libco stacks smaller
-				PlainHeapSizeKB = 2 * 1024, // TODO: wasn't there more in here?
-				SealedHeapSizeKB = 128 * 1024,
+				PlainHeapSizeKB = 32 * 1024, // TODO: This can be smaller, probably; needs to be as big as largest ROM + 2MB, or less
+				SealedHeapSizeKB = 80 * 1024,
 				SkipCoreConsistencyCheck = comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxCoreConsistencyCheck),
 				SkipMemoryConsistencyCheck = comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxMemoryConsistencyCheck),
 			});
@@ -78,7 +78,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 				// Marshal checks that function pointers passed to GetDelegateForFunctionPointer are
 				// _currently_ valid when created, even though they don't need to be valid until
 				// the delegate is later invoked.  so GetInvoker needs to be acquired within a lock.
-				_core = BizInvoker.GetInvoker<CoreImpl>(_exe, _exe, CallingConventionAdapters.Waterbox);
+				_core = BizInvoker.GetInvoker<CoreImpl>(_exe, _exe, CallingConventionAdapters.MakeWaterbox(allCallbacks, _exe));
 				_comm = (CommStruct*)_core.DllInit().ToPointer();
 			}
 		}
@@ -178,16 +178,17 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			BRR = 0x80,
 		}
 
-		snes_video_refresh_t video_refresh;
-		snes_input_poll_t input_poll;
-		snes_input_state_t input_state;
-		snes_input_notify_t input_notify;
-		snes_audio_sample_t audio_sample;
-		snes_scanlineStart_t scanlineStart;
-		snes_path_request_t pathRequest;
-		snes_trace_t traceCallback;
+		private snes_video_refresh_t video_refresh;
+		private snes_input_poll_t input_poll;
+		private snes_input_state_t input_state;
+		private snes_input_notify_t input_notify;
+		private snes_audio_sample_t audio_sample;
+		private snes_scanlineStart_t scanlineStart;
+		private snes_path_request_t pathRequest;
+		private snes_trace_t traceCallback;
 
 		public void QUERY_set_video_refresh(snes_video_refresh_t video_refresh) { this.video_refresh = video_refresh; }
+		// not used??
 		public void QUERY_set_input_poll(snes_input_poll_t input_poll) { this.input_poll = input_poll; }
 		public void QUERY_set_input_state(snes_input_state_t input_state) { this.input_state = input_state; }
 		public void QUERY_set_input_notify(snes_input_notify_t input_notify) { this.input_notify = input_notify; }
@@ -207,21 +208,19 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 		public struct CPURegs
 		{
 			public uint pc;
-			public ushort a, x, y, z, s, d, vector; //7x
-			public byte p, nothing;
-			public uint aa, rd;
-			public byte sp, dp, db, mdr;
+			public ushort a, x, y, s, d, vector; //7x
+			public byte p, db, nothing, nothing2;
 			public ushort v, h;
 		}
 
 		[StructLayout(LayoutKind.Sequential)]
 		public struct LayerEnables
 		{
-			byte _BG1_Prio0, _BG1_Prio1;
-			byte _BG2_Prio0, _BG2_Prio1;
-			byte _BG3_Prio0, _BG3_Prio1;
-			byte _BG4_Prio0, _BG4_Prio1;
-			byte _Obj_Prio0, _Obj_Prio1, _Obj_Prio2, _Obj_Prio3;
+			private byte _BG1_Prio0, _BG1_Prio1;
+			private byte _BG2_Prio0, _BG2_Prio1;
+			private byte _BG3_Prio0, _BG3_Prio1;
+			private byte _BG4_Prio0, _BG4_Prio1;
+			private byte _Obj_Prio0, _Obj_Prio1, _Obj_Prio2, _Obj_Prio3;
 
 			public bool BG1_Prio0
 			{
@@ -287,17 +286,17 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 		}
 
 		[StructLayout(LayoutKind.Explicit)]
-		struct CommStruct
+		private struct CommStruct
 		{
 			[FieldOffset(0)]
 			//the cmd being executed
-			public eMessage cmd;
+			public readonly eMessage cmd;
 			[FieldOffset(4)]
 			//the status of the core
-			public eStatus status;
+			public readonly eStatus status;
 			[FieldOffset(8)]
 			//the SIG or BRK that the core is halted in
-			public eMessage reason;
+			public readonly eMessage reason;
 
 			//flexible in/out parameters
 			//these are all "overloaded" a little so it isn't clear what's used for what in for any particular message..
@@ -339,27 +338,30 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 
 			[FieldOffset(128)]
 			//bleck. this is a long so that it can be a 32/64bit pointer
-			public fixed long cdl_ptr[8];
-			[FieldOffset(192)]
-			public fixed int cdl_size[8];
+			public fixed long cdl_ptr[16];
+			[FieldOffset(256)]
+			public fixed int cdl_size[16];
 
-			[FieldOffset(224)]
+			[FieldOffset(320)]
 			public CPURegs cpuregs;
-			[FieldOffset(260)]
+			[FieldOffset(344)]
 			public LayerEnables layerEnables;
 
-			[FieldOffset(272)]
+			[FieldOffset(356)]
 			//static configuration-type information which can be grabbed off the core at any time without even needing a QUERY command
 			public SNES_REGION region;
-			[FieldOffset(276)]
+			[FieldOffset(360)]
 			public SNES_MAPPER mapper;
+
+			[FieldOffset(364)] private uint BLANK0;
+
 
 			//utilities
 			//TODO: make internal, wrap on the API instead of the comm
-			public unsafe string GetAscii() { return _getAscii(str); }
+			public string GetAscii() => _getAscii(str);
 			public bool GetBool() { return value != 0; }
 
-			private unsafe string _getAscii(sbyte* ptr)
+			private string _getAscii(sbyte* ptr)
 			{
 				int len = 0;
 				sbyte* junko = (sbyte*)ptr;
@@ -435,6 +437,11 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 		{
 			_exe.LoadStateBinary(reader);
 			_core.PostLoadState();
+		}
+
+		public MemoryDomain GetPagesDomain()
+		{
+			return _exe.GetPagesDomain();
 		}
 	}
 }

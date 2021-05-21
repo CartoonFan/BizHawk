@@ -12,40 +12,94 @@ namespace BizHawk.Client.EmuHawk
 {
 	public static class ApiManager
 	{
-		private static readonly Type[] CtorParamTypesA = { typeof(Action<string>), typeof(DisplayManager), typeof(InputManager), typeof(MainForm) };
+		private static readonly IReadOnlyList<(Type ImplType, Type InterfaceType, ConstructorInfo Ctor, Type[] CtorTypes)> _apiTypes;
 
-		private static readonly Type[] CtorParamTypesB = { typeof(Action<string>) };
+		static ApiManager()
+		{
+			var list = new List<(Type, Type, ConstructorInfo, Type[])>();
+			foreach (var implType in Common.ReflectionCache.Types.Concat(ReflectionCache.Types)
+				.Where(t => /*t.IsClass &&*/t.IsSealed)) // small optimisation; api impl. types are all sealed classes
+			{
+				var interfaceType = implType.GetInterfaces().FirstOrDefault(t => typeof(IExternalApi).IsAssignableFrom(t) && t != typeof(IExternalApi));
+				if (interfaceType == null) continue; // if we couldn't determine what it's implementing, then it's not an api impl. type
+				var ctor = implType.GetConstructors().Single();
+				list.Add((implType, interfaceType, ctor, ctor.GetParameters().Select(pi => pi.ParameterType).ToArray()));
+			}
+			_apiTypes = list.ToArray();
+		}
 
-		/// <remarks>TODO do we need to keep references to these because of GC weirdness? --yoshi</remarks>
 		private static ApiContainer? _container;
 
 		private static ApiContainer? _luaContainer;
 
-		private static ApiContainer Register(IEmulatorServiceProvider serviceProvider, Action<string> logCallback)
+		private static ApiContainer Register(
+			IEmulatorServiceProvider serviceProvider,
+			Action<string> logCallback,
+			IMainFormForApi mainForm,
+			IDisplayManagerForApi displayManager,
+			InputManager inputManager,
+			IMovieSession movieSession,
+			ToolManager toolManager,
+			Config config,
+			IEmulator emulator,
+			IGameInfo game)
 		{
-			var libDict = new Dictionary<Type, IExternalApi>();
-			foreach (var api in Assembly.GetAssembly(typeof(ApiSubsetContainer)).GetTypes()
-				.Concat(Assembly.GetAssembly(typeof(ApiContainer)).GetTypes())
-				.Where(t => /*t.IsClass && */t.IsSealed
-					&& typeof(IExternalApi).IsAssignableFrom(t)
-					&& ServiceInjector.IsAvailable(serviceProvider, t)))
+			var avail = new Dictionary<Type, object>
 			{
-				var instance = api.GetConstructor(CtorParamTypesA)?.Invoke(new object[] { logCallback, GlobalWin.DisplayManager, GlobalWin.InputManager, GlobalWin.MainForm })
-					?? api.GetConstructor(CtorParamTypesB)?.Invoke(new object[] { logCallback })
-					?? Activator.CreateInstance(api);
-				ServiceInjector.UpdateServices(serviceProvider, instance);
-				libDict.Add(
-					api.GetInterfaces().First(intf => typeof(IExternalApi).IsAssignableFrom(intf) && intf != typeof(IExternalApi)),
-					(IExternalApi) instance
-				);
-			}
-			return new ApiContainer(libDict);
+				[typeof(Action<string>)] = logCallback,
+				[typeof(IMainFormForApi)] = mainForm,
+				[typeof(IDisplayManagerForApi)] = displayManager,
+				[typeof(IWindowCoordsTransformer)] = displayManager,
+				[typeof(InputManager)] = inputManager,
+				[typeof(IMovieSession)] = movieSession,
+				[typeof(ToolManager)] = toolManager,
+				[typeof(Config)] = config,
+				[typeof(IEmulator)] = emulator,
+				[typeof(IGameInfo)] = game,
+			};
+			return new ApiContainer(_apiTypes.Where(tuple => ServiceInjector.IsAvailable(serviceProvider, tuple.ImplType))
+				.ToDictionary(
+					tuple => tuple.InterfaceType,
+					tuple =>
+					{
+						var instance = tuple.Ctor.Invoke(tuple.CtorTypes.Select(t => avail[t]).ToArray());
+						ServiceInjector.UpdateServices(serviceProvider, instance);
+						return (IExternalApi) instance;
+					}));
 		}
 
-		public static IExternalApiProvider Restart(IEmulatorServiceProvider newServiceProvider)
-			=> new BasicApiProvider(_container = Register(newServiceProvider, Console.WriteLine));
+		public static IExternalApiProvider Restart(
+			IEmulatorServiceProvider serviceProvider,
+			IMainFormForApi mainForm,
+			IDisplayManagerForApi displayManager,
+			InputManager inputManager,
+			IMovieSession movieSession,
+			ToolManager toolManager,
+			Config config,
+			IEmulator emulator,
+			IGameInfo game)
+		{
+			_container?.Dispose();
+			_container = Register(serviceProvider, Console.WriteLine, mainForm, displayManager, inputManager, movieSession, toolManager, config, emulator, game);
+			return new BasicApiProvider(_container);
+		}
 
-		public static ApiContainer RestartLua(IEmulatorServiceProvider newServiceProvider, Action<string> logCallback)
-			=> _luaContainer = Register(newServiceProvider, logCallback);
+		public static ApiContainer RestartLua(
+			IEmulatorServiceProvider serviceProvider,
+			Action<string> logCallback,
+			IMainFormForApi mainForm,
+			IDisplayManagerForApi displayManager,
+			InputManager inputManager,
+			IMovieSession movieSession,
+			ToolManager toolManager,
+			Config config,
+			IEmulator emulator,
+			IGameInfo game)
+		{
+			_luaContainer?.Dispose();
+			_luaContainer = Register(serviceProvider, logCallback, mainForm, displayManager, inputManager, movieSession, toolManager, config, emulator, game);
+			((GuiApi) _luaContainer.Gui).EnableLuaAutolockHack = true;
+			return _luaContainer;
+		}
 	}
 }

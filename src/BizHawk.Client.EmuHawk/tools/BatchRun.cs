@@ -3,22 +3,34 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Threading;
 using System.IO;
+using System.Linq;
+
+using BizHawk.Client.Common;
+using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
 	public partial class BatchRun : Form
 	{
-		private Thread _thread;
-		private List<BatchRunner.Result> _mostRecentResults;
-		private MainForm _mainForm;
+		private readonly Config _config;
 
-		public BatchRun(MainForm mainForm)
+		private readonly Func<CoreComm> _createCoreComm;
+
+		private List<BatchRunner.Result> _mostRecentResults;
+
+		private Thread _thread;
+
+		public IDialogController DialogController { get; }
+
+		public BatchRun(IDialogController dialogController, Config config, Func<CoreComm> createCoreComm)
 		{
-			this._mainForm = mainForm;
+			_config = config;
+			_createCoreComm = createCoreComm;
+			DialogController = dialogController;
 			InitializeComponent();
 		}
 
-		private void listBox1_DragEnter(object sender, DragEventArgs e)
+		private void ListBox1_DragEnter(object sender, DragEventArgs e)
 		{
 			e.Set(DragDropEffects.Link);
 		}
@@ -28,39 +40,39 @@ namespace BizHawk.Client.EmuHawk
 			label2.Text = $"Number of files: {listBox1.Items.Count}";
 		}
 
-		private void listBox1_DragDrop(object sender, DragEventArgs e)
+		private void ListBox1_DragDrop(object sender, DragEventArgs e)
 		{
 			if (e.Data.GetDataPresent(DataFormats.FileDrop))
 			{
 				string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-				listBox1.Items.AddRange(files);
+				listBox1.Items.AddRange(files.Cast<object>().ToArray());
 				SetCount();
 			}
 		}
 
-		private void buttonClear_Click(object sender, EventArgs e)
+		private void ButtonClear_Click(object sender, EventArgs e)
 		{
 			listBox1.Items.Clear();
 			SetCount();
 		}
 
-		private void buttonGo_Click(object sender, EventArgs e)
+		private void ButtonGo_Click(object sender, EventArgs e)
 		{
 			if (_thread != null)
 			{
-				MessageBox.Show("Old one still running!");
+				DialogController.ShowMessageBox("Old one still running!");
 			}
 			else
 			{
 				if (listBox1.Items.Count == 0)
 				{
-					MessageBox.Show("No files!");
+					DialogController.ShowMessageBox("No files!");
 				}
 				else
 				{
 					label3.Text = "Status: Running...";
 					int numFrames = (int)numericUpDownFrames.Value;
-					List<string> files = new List<string>(listBox1.Items.Count);
+					var files = new List<string>(listBox1.Items.Count);
 					foreach (string s in listBox1.Items)
 					{
 						files.Add(s);
@@ -83,20 +95,20 @@ namespace BizHawk.Client.EmuHawk
 			try
 			{
 				var pp = (Tuple<int, List<string>>)o;
-				BatchRunner br = new BatchRunner(_mainForm, pp.Item2, pp.Item1);
-				br.OnProgress += br_OnProgress;
+				BatchRunner br = new BatchRunner(_config, _createCoreComm(), pp.Item2, pp.Item1);
+				br.OnProgress += BrOnProgress;
 				var results = br.Run();
 				this.Invoke(() => { label3.Text = "Status: Finished!"; _mostRecentResults = results; });
 			}
 			catch (Exception e)
 			{
-				MessageBox.Show(e.ToString(), "The Whole Thing Died!");
+				DialogController.ShowMessageBox(e.ToString(), "The Whole Thing Died!");
 				this.Invoke(() => label3.Text = "Deaded!");
 			}
 			this.Invoke(() => _thread = null);
 		}
 
-		void br_OnProgress(object sender, BatchRunner.ProgressEventArgs e)
+		private void BrOnProgress(object sender, BatchRunner.ProgressEventArgs e)
 		{
 			this.Invoke(() => ProgressUpdate(e.Completed, e.Total));
 			e.ShouldCancel = false;
@@ -106,12 +118,12 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (_thread != null)
 			{
-				MessageBox.Show("Can't close while task is running!");
+				DialogController.ShowMessageBox("Can't close while task is running!");
 				e.Cancel = true;
 			}
 		}
 
-		private void buttonDump_Click(object sender, EventArgs e)
+		private void ButtonDump_Click(object sender, EventArgs e)
 		{
 			if (_mostRecentResults != null)
 			{
@@ -128,7 +140,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			else
 			{
-				MessageBox.Show("No results to save!");
+				DialogController.ShowMessageBox("No results to save!");
 			}
 		}
 	}

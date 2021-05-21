@@ -1,53 +1,66 @@
 ﻿using BizHawk.Emulation.Common;
-using BizHawk.Emulation.Cores.Consoles.Sega.Saturn;
 using BizHawk.Emulation.Cores.Waterbox;
-using BizHawk.Emulation.DiscSystem;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.IO;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using BizHawk.Common;
 
 namespace BizHawk.Emulation.Cores.Consoles.NEC.PCFX
 {
-	[Core("T. S. T.", "Mednafen Team", true, true, "1.24.3",
-		"https://mednafen.github.io/releases/", false)]
+	[PortedCore(CoreNames.TST, "Mednafen Team", "1.26.1", "https://mednafen.github.io/releases/")]
 	public class Tst : NymaCore
 	{
 		[CoreConstructor("PCFX")]
-		public Tst(CoreComm comm, NymaSettings settings, NymaSyncSettings syncSettings)
-			: base(comm, "PCFX", "PCFX Controller Deck", settings, syncSettings)
+		public Tst(CoreLoadParameters<NymaSettings, NymaSyncSettings> lp)
+			: base(lp.Comm, "PCFX", "PC-FX Controller", lp.Settings, lp.SyncSettings)
 		{
-			throw new InvalidOperationException("To load a PC-FX game, please load the CUE file and not the BIN file.");
-		}
-
-		public Tst(CoreComm comm, GameInfo game,
-			IEnumerable<Disc> disks, NymaSettings settings, NymaSyncSettings syncSettings, bool deterministic)
-			: base(comm, "PCFX", "PCFX Controller Deck", settings, syncSettings)
-		{
-			var firmwares = new Dictionary<string, ValueTuple<string, string>>
+			if (lp.Roms.Count > 0)
+				throw new InvalidOperationException("To load a PC-FX game, please load the CUE file and not the BIN file.");
+			var firmwares = new Dictionary<string, FirmwareID>
 			{
-				{ "FIRMWARE:pcfx.rom", ("PCFX", "BIOS") },
+				{ "FIRMWARE:pcfx.rom", new("PCFX", "BIOS") },
 			};
 
-			DoInit<LibNymaCore>(game, null, disks.ToArray(), "pcfx.wbx", null, deterministic, firmwares);
+			DoInit<LibNymaCore>(lp, "pcfx.wbx", firmwares);
 		}
 
-		protected override IDictionary<string, string> SettingsOverrides { get; } = new Dictionary<string, string>
+		protected override IDictionary<string, SettingOverride> SettingOverrides { get; } = new Dictionary<string, SettingOverride>
 		{
-			{ "pcfx.input.port1.multitap", null },
-			{ "pcfx.input.port2.multitap", null },
-			{ "pcfx.bios", null },
-			{ "pcfx.fxscsi", null },
-			{ "nyma.rtcinitialtime", null },
-			{ "nyma.rtcrealtime", null },
+			{ "pcfx.input.port1.multitap", new() { Hide = true } },
+			{ "pcfx.input.port2.multitap", new() { Hide = true } },
+			{ "pcfx.bios", new() { Hide = true } },
+			{ "pcfx.fxscsi", new() { Hide = true } },
+			{ "nyma.rtcinitialtime", new() { Hide = true } },
+			{ "nyma.rtcrealtime", new() { Hide = true } },
+
+			{ "pcfx.slstart", new() { NonSync = true, NoRestart = true } },
+			{ "pcfx.slend", new() { NonSync = true, NoRestart = true } },
+
+			{ "pcfx.mouse_sensitivity", new() { Hide = true } },
+			{ "pcfx.nospritelimit", new() { NonSync = true } },
+			{ "pcfx.high_dotclock_width", new() { NonSync = true } },
+			{ "pcfx.rainbow.chromaip", new() { NonSync = true } },
+
+			{ "pcfx.adpcm.suppress_channel_reset_clicks", new() { NonSync = true } },
+			{ "pcfx.adpcm.emulate_buggy_codec", new() { NonSync = true } },
+
+			{ "pcfx.resamp_quality", new() { NonSync = true } },
+			{ "pcfx.resamp_rate_error", new() { Hide = true } },
 		};
-		protected override ISet<string> NonSyncSettingNames { get; } = new HashSet<string>
+
+		protected override HashSet<string> ComputeHiddenPorts()
 		{
-			"pcfx.slstart", "pcfx.slend",
-		};
+			// NB: Since we're hiding these settings up above, this will always trim us down to 2 ports
+			var devCount = 8;
+			if (SettingsQuery("pcfx.input.port1.multitap") != "1")
+				devCount -= 3;
+			if (SettingsQuery("pcfx.input.port2.multitap") != "1")
+				devCount -= 3;
+			var ret = new HashSet<string>();
+			for (var i = 1; i <= 8; i++)
+			{
+				if (i > devCount)
+					ret.Add($"port{i}");
+			}
+			return ret;
+		}
 	}
 }

@@ -1,18 +1,26 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-	<Import Project="../MainSlnCommon.props" />
-	<Import Project="../../CommonNullable.props" />
 	<PropertyGroup>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<TargetFramework>netstandard2.0</TargetFramework>
 	</PropertyGroup>
+	<Import Project="../MainSlnCommon.props" />
+	<PropertyGroup>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="System.ComponentModel.Annotations" Version="4.7.0" />
+		<PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
+		<PackageReference Include="System.Memory" Version="4.5.4" />
 		<PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" PrivateAssets="all" />
 		<PackageReference Include="Menees.Analyzers" Version="2.0.4" Condition=" '$(MachineRunAnalyzersDuringBuild)' != '' " />
-		<PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0" Condition=" '$(MachineRunAnalyzersDuringBuild)' != '' " />
-		<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.164" Condition=" '$(MachineRunAnalyzersDuringBuild)' != '' " />
-		<ProjectReference Include="$(ProjectDir)../BizHawk.Version/BizHawk.Version.csproj" />
-		<Compile Include="$(ProjectDir)../BizHawk.Version/svnrev.cs" />
-		<Compile Include="$(ProjectDir)../BizHawk.Version/VersionInfo.cs" />
+		<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.333" Condition=" '$(MachineRunAnalyzersDuringBuild)' != '' " />
+		<ProjectReference Include="$(ProjectDir)../BizHawk.Version/BizHawk.Version.csproj" ReferenceOutputAssembly="false" /><!-- generates VersionInfo.gen.cs -->
 	</ItemGroup>
+	<ItemGroup>
+		<Compile Update="VersionInfo.gen.cs" DependentUpon="VersionInfo.cs" />
+	</ItemGroup>
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<ItemGroup>
+			<AssetFiles Include="$(ProjectDir)../../Assets/**/*.*" />
+		</ItemGroup>
+		<Copy SourceFiles="@(AssetFiles)" DestinationFolder="$(OutputPath)../%(RecursiveDir)" SkipUnchangedFiles="true" />
+	</Target>
 </Project>

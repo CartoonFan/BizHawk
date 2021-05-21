@@ -1,4 +1,5 @@
-﻿using BizHawk.Emulation.Common;
+﻿using BizHawk.Common;
+using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 {
@@ -24,8 +25,9 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 						return SMSPaddleController;
 					case SmsSyncSettings.ControllerTypes.LightPhaser:
 						// scale the vertical to the display mode
-						SMSLightPhaserController.AxisRanges[1] = new ControllerDefinition.AxisRange(0, Vdp.FrameHeight / 2, Vdp.FrameHeight - 1);
-
+						var axisName = SMSLightPhaserController.Axes[1];
+						SMSLightPhaserController.Axes[axisName] = SMSLightPhaserController.Axes[axisName]
+							.With(0.RangeTo(Vdp.FrameHeight - 1), Vdp.FrameHeight / 2);
 						return SMSLightPhaserController;
 					case SmsSyncSettings.ControllerTypes.SportsPad:
 						return SMSSportsPadController;
@@ -38,13 +40,12 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 		}
 
 		// not savestated variables
-		int s_L, s_R;
+		private int s_L, s_R;
 
 		public bool FrameAdvance(IController controller, bool render, bool renderSound)
 		{
 			_controller = controller;
 			_lagged = true;
-			_frame++;
 
 			if (!IsGameGear)
 			{
@@ -127,6 +128,8 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 				_isLag = false;
 			}
 
+			_frame++;
+
 			return true;
 		}
 
@@ -134,7 +137,6 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 		public void FrameAdvancePrep()
 		{
 			_lagged = true;
-			_frame++;
 
 			if (!IsGameGear && IsGameGear_C)
 			{
@@ -154,11 +156,13 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 			{
 				_isLag = false;
 			}
+
+			_frame++;
 		}
 
 		public int Frame => _frame;
 
-		public string SystemId => "SMS";
+		public string SystemId { get; }
 
 		public bool DeterministicEmulation => true;
 

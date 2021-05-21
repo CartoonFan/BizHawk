@@ -7,6 +7,8 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.NDS
 {
 	unsafe partial class MelonDS : IStatable
 	{
+		private byte[] _stateBuffer = new byte[0];
+
 		public void LoadStateBinary(BinaryReader reader)
 		{
 			var mStream = new MemoryStream();
@@ -25,22 +27,20 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.NDS
 			}
 		}
 
-		public byte[] SaveStateBinary()
+		public void SaveStateBinary(BinaryWriter writer)
 		{
 			int len = GetSavestateSize();
-			byte[] ret = new byte[len];
-			fixed (byte* ptr = ret)
+			if (len > _stateBuffer.Length)
+			{
+				_stateBuffer = new byte[len];
+			}
+
+			fixed (byte* ptr = _stateBuffer)
 			{
 				GetSavestateData(ptr, len);
 			}
 
-			return ret;
-		}
-
-		public void SaveStateBinary(BinaryWriter writer)
-		{
-			byte[] data = SaveStateBinary();
-			writer.Write(data);
+			writer.Write(_stateBuffer, 0, len);
 		}
 
 		[DllImport(dllPath)]

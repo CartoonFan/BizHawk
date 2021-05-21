@@ -9,17 +9,17 @@ using System.ComponentModel;
 
 namespace BizHawk.Emulation.Cores.Consoles.Sega.PicoDrive
 {
-	[Core(CoreNames.PicoDrive, "notaz", true, true,
-		"0e352905c7aa80b166933970abbcecfce96ad64e", "https://github.com/notaz/picodrive", false)]
+	[PortedCore(CoreNames.PicoDrive, "notaz", "0e352905c7aa80b166933970abbcecfce96ad64e", "https://github.com/notaz/picodrive")]
 	public class PicoDrive : WaterboxCore, IDriveLight, IRegionable, ISettable<object, PicoDrive.SyncSettings>
 	{
-		private LibPicoDrive _core;
-		private LibPicoDrive.CDReadCallback _cdcallback;
-		private Disc _cd;
-		private DiscSectorReader _cdReader;
-		private bool _isPal;
+		private readonly LibPicoDrive _core;
+		private readonly LibPicoDrive.CDReadCallback _cdcallback;
+		private readonly Disc _cd;
+		private readonly DiscSectorReader _cdReader;
+		private readonly bool _isPal;
 
-		[CoreConstructor("GEN")]
+		[CoreConstructor("GEN", Priority = CorePriority.Low)]
+		[CoreConstructor("32X")]
 		public PicoDrive(CoreComm comm, GameInfo game, byte[] rom, bool deterministic, SyncSettings syncSettings)
 			: this(comm, game, rom, null, deterministic, syncSettings)
 		{ }
@@ -45,6 +45,8 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.PicoDrive
 
 			_syncSettings = syncSettings ?? new SyncSettings();
 
+			_cdcallback = CDRead;
+
 			_core = PreInit<LibPicoDrive>(new WaterboxOptions
 			{
 				Filename = "picodrive.wbx",
@@ -55,7 +57,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.PicoDrive
 				PlainHeapSizeKB = 64,
 				SkipCoreConsistencyCheck = comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxCoreConsistencyCheck),
 				SkipMemoryConsistencyCheck = comm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxMemoryConsistencyCheck),
-			});
+			}, new Delegate[] { _cdcallback });
 
 			if (has32xBios)
 			{
@@ -72,7 +74,6 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.PicoDrive
 				_exe.AddReadonlyFile(gpgx.GPGX.GetCDData(cd), "toc");
 				_cd = cd;
 				_cdReader = new DiscSectorReader(_cd);
-				_cdcallback = CDRead;
 				_core.SetCDReadCallback(_cdcallback);
 				DriveLightEnabled = true;
 			}

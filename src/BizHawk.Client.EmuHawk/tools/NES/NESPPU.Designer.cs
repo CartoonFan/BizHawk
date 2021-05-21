@@ -1,4 +1,6 @@
-﻿namespace BizHawk.Client.EmuHawk
+﻿using BizHawk.WinForms.Controls;
+
+namespace BizHawk.Client.EmuHawk
 {
 	partial class NesPPU
 	{
@@ -30,78 +32,76 @@
 		{
 			this.components = new System.ComponentModel.Container();
 			this.PatternGroup = new System.Windows.Forms.GroupBox();
-			this.Table1PaletteLabel = new System.Windows.Forms.Label();
-			this.Table0PaletteLabel = new System.Windows.Forms.Label();
+			this.Table1PaletteLabel = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.Table0PaletteLabel = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.PatternView = new BizHawk.Client.EmuHawk.PatternViewer();
 			this.PatternContext = new System.Windows.Forms.ContextMenuStrip(this.components);
-			this.PatternSaveImageMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.PatternImageToClipboardMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.PatternRefreshMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.PatternSaveImageMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.PatternImageToClipboardMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.PatternRefreshMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.PalettesGroup = new System.Windows.Forms.GroupBox();
 			this.PaletteView = new BizHawk.Client.EmuHawk.PaletteViewer();
 			this.PaletteContext = new System.Windows.Forms.ContextMenuStrip(this.components);
-			this.PaletteSaveImageMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.PaletteImageToClipboardMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.PaletteRefreshMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.PaletteSaveImageMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.PaletteImageToClipboardMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.PaletteRefreshMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.DetailsBox = new System.Windows.Forms.GroupBox();
-			this.label2 = new System.Windows.Forms.Label();
-			this.Value5Label = new System.Windows.Forms.Label();
-			this.Value4Label = new System.Windows.Forms.Label();
-			this.label1 = new System.Windows.Forms.Label();
+			this.label2 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.Value5Label = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.Value4Label = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label1 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.ZoomBox = new System.Windows.Forms.PictureBox();
-			this.Value3Label = new System.Windows.Forms.Label();
-			this.Value2Label = new System.Windows.Forms.Label();
-			this.ValueLabel = new System.Windows.Forms.Label();
-			this.AddressLabel = new System.Windows.Forms.Label();
+			this.Value3Label = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.Value2Label = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.ValueLabel = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.AddressLabel = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.SpriteViewerBox = new System.Windows.Forms.GroupBox();
 			this.SpriteView = new BizHawk.Client.EmuHawk.SpriteViewer();
 			this.SpriteContext = new System.Windows.Forms.ContextMenuStrip(this.components);
-			this.SpriteSaveImageMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.SpriteImageToClipboardMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.SpriteRefreshMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.SpriteSaveImageMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.SpriteImageToClipboardMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.SpriteRefreshMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.txtScanline = new System.Windows.Forms.TextBox();
 			this.groupBox1 = new System.Windows.Forms.GroupBox();
 			this.groupBox2 = new System.Windows.Forms.GroupBox();
-			this.label4 = new System.Windows.Forms.Label();
-			this.label3 = new System.Windows.Forms.Label();
+			this.label4 = new BizHawk.WinForms.Controls.LocLabelEx();
+			this.label3 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.RefreshRate = new System.Windows.Forms.TrackBar();
 			this.NesPPUMenu = new MenuStripEx();
-			this.FileSubMenu = new System.Windows.Forms.ToolStripMenuItem();
-			this.SavePaletteScreenshotMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.SavePatternScreenshotMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.SaveSpriteScreenshotMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-			this.CopyPaletteToClipboardMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.CopyPatternToClipboardMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.CopySpriteToClipboardMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
-			this.ExitMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.PatternSubMenu = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table0PaletteSubMenu = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table0P0MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table0P1MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table0P2MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table0P3MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table0P4MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table0P5MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table0P6MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table0P7MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table1PaletteSubMenu = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table1P0MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table1P1MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table1P2MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table1P3MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table1P4MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table1P5MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table1P6MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.Table1P7MenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.SettingsSubMenu = new System.Windows.Forms.ToolStripMenuItem();
-			this.cHRROMTileViewerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.FileSubMenu = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.SavePaletteScreenshotMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.SavePatternScreenshotMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.SaveSpriteScreenshotMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.toolStripSeparator1 = new BizHawk.WinForms.Controls.ToolStripSeparatorEx();
+			this.CopyPaletteToClipboardMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.CopyPatternToClipboardMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.CopySpriteToClipboardMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.PatternSubMenu = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table0PaletteSubMenu = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table0P0MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table0P1MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table0P2MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table0P3MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table0P4MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table0P5MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table0P6MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table0P7MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table1PaletteSubMenu = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table1P0MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table1P1MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table1P2MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table1P3MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table1P4MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table1P5MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table1P6MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.Table1P7MenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.SettingsSubMenu = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
+			this.cHRROMTileViewerToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.NesPPUStatusBar = new StatusStripEx();
 			this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
 			this.Messagetimer = new System.Windows.Forms.Timer(this.components);
 			this.CHRROMGroup = new System.Windows.Forms.GroupBox();
-			this.label5 = new System.Windows.Forms.Label();
+			this.label5 = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.numericUpDownCHRROMBank = new System.Windows.Forms.NumericUpDown();
 			this.CHRROMView = new BizHawk.Client.EmuHawk.PatternViewer();
 			this.PatternGroup.SuspendLayout();
@@ -137,22 +137,16 @@
 			// 
 			// Table1PaletteLabel
 			// 
-			this.Table1PaletteLabel.AutoSize = true;
 			this.Table1PaletteLabel.Location = new System.Drawing.Point(172, 185);
 			this.Table1PaletteLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.Table1PaletteLabel.Name = "Table1PaletteLabel";
-			this.Table1PaletteLabel.Size = new System.Drawing.Size(68, 17);
-			this.Table1PaletteLabel.TabIndex = 2;
 			this.Table1PaletteLabel.Text = "Palette: 0";
 			// 
 			// Table0PaletteLabel
 			// 
-			this.Table0PaletteLabel.AutoSize = true;
 			this.Table0PaletteLabel.Location = new System.Drawing.Point(8, 185);
 			this.Table0PaletteLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.Table0PaletteLabel.Name = "Table0PaletteLabel";
-			this.Table0PaletteLabel.Size = new System.Drawing.Size(68, 17);
-			this.Table0PaletteLabel.TabIndex = 1;
 			this.Table0PaletteLabel.Text = "Palette: 0";
 			// 
 			// PatternView
@@ -182,22 +176,16 @@
 			// 
 			// PatternSaveImageMenuItem
 			// 
-			this.PatternSaveImageMenuItem.Name = "PatternSaveImageMenuItem";
-			this.PatternSaveImageMenuItem.Size = new System.Drawing.Size(214, 26);
 			this.PatternSaveImageMenuItem.Text = "&Save Image...";
 			this.PatternSaveImageMenuItem.Click += new System.EventHandler(this.SavePatternScreenshotMenuItem_Click);
 			// 
 			// PatternImageToClipboardMenuItem
 			// 
-			this.PatternImageToClipboardMenuItem.Name = "PatternImageToClipboardMenuItem";
-			this.PatternImageToClipboardMenuItem.Size = new System.Drawing.Size(214, 26);
 			this.PatternImageToClipboardMenuItem.Text = "Image to &Clipboard";
 			this.PatternImageToClipboardMenuItem.Click += new System.EventHandler(this.CopyPatternToClipboardMenuItem_Click);
 			// 
 			// PatternRefreshMenuItem
 			// 
-			this.PatternRefreshMenuItem.Name = "PatternRefreshMenuItem";
-			this.PatternRefreshMenuItem.Size = new System.Drawing.Size(214, 26);
 			this.PatternRefreshMenuItem.Text = "&Refresh";
 			this.PatternRefreshMenuItem.Click += new System.EventHandler(this.PatternRefreshMenuItem_Click);
 			// 
@@ -240,22 +228,16 @@
 			// 
 			// PaletteSaveImageMenuItem
 			// 
-			this.PaletteSaveImageMenuItem.Name = "PaletteSaveImageMenuItem";
-			this.PaletteSaveImageMenuItem.Size = new System.Drawing.Size(214, 26);
 			this.PaletteSaveImageMenuItem.Text = "&Save Image...";
 			this.PaletteSaveImageMenuItem.Click += new System.EventHandler(this.SavePaletteScreenshotMenuItem_Click);
 			// 
 			// PaletteImageToClipboardMenuItem
 			// 
-			this.PaletteImageToClipboardMenuItem.Name = "PaletteImageToClipboardMenuItem";
-			this.PaletteImageToClipboardMenuItem.Size = new System.Drawing.Size(214, 26);
 			this.PaletteImageToClipboardMenuItem.Text = "Image to &Clipboard";
 			this.PaletteImageToClipboardMenuItem.Click += new System.EventHandler(this.CopyPaletteToClipboardMenuItem_Click);
 			// 
 			// PaletteRefreshMenuItem
 			// 
-			this.PaletteRefreshMenuItem.Name = "PaletteRefreshMenuItem";
-			this.PaletteRefreshMenuItem.Size = new System.Drawing.Size(214, 26);
 			this.PaletteRefreshMenuItem.Text = "&Refresh";
 			this.PaletteRefreshMenuItem.Click += new System.EventHandler(this.PaletteRefreshMenuItem_Click);
 			// 
@@ -281,42 +263,30 @@
 			// 
 			// label2
 			// 
-			this.label2.AutoSize = true;
 			this.label2.Location = new System.Drawing.Point(8, 38);
 			this.label2.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.label2.Name = "label2";
-			this.label2.Size = new System.Drawing.Size(212, 17);
-			this.label2.TabIndex = 10;
 			this.label2.Text = "Shift-click to remember selection";
 			// 
 			// Value5Label
 			// 
-			this.Value5Label.AutoSize = true;
 			this.Value5Label.Location = new System.Drawing.Point(192, 182);
 			this.Value5Label.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.Value5Label.Name = "Value5Label";
-			this.Value5Label.Size = new System.Drawing.Size(56, 17);
-			this.Value5Label.TabIndex = 9;
 			this.Value5Label.Text = "Value 5";
 			// 
 			// Value4Label
 			// 
-			this.Value4Label.AutoSize = true;
 			this.Value4Label.Location = new System.Drawing.Point(192, 148);
 			this.Value4Label.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.Value4Label.Name = "Value4Label";
-			this.Value4Label.Size = new System.Drawing.Size(56, 17);
-			this.Value4Label.TabIndex = 8;
 			this.Value4Label.Text = "Value 4";
 			// 
 			// label1
 			// 
-			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(8, 20);
 			this.label1.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(200, 17);
-			this.label1.TabIndex = 7;
 			this.label1.Text = "Hover over item to view details";
 			// 
 			// ZoomBox
@@ -331,42 +301,30 @@
 			// 
 			// Value3Label
 			// 
-			this.Value3Label.AutoSize = true;
 			this.Value3Label.Location = new System.Drawing.Point(192, 113);
 			this.Value3Label.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.Value3Label.Name = "Value3Label";
-			this.Value3Label.Size = new System.Drawing.Size(56, 17);
-			this.Value3Label.TabIndex = 5;
 			this.Value3Label.Text = "Value 3";
 			// 
 			// Value2Label
 			// 
-			this.Value2Label.AutoSize = true;
 			this.Value2Label.Location = new System.Drawing.Point(13, 182);
 			this.Value2Label.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.Value2Label.Name = "Value2Label";
-			this.Value2Label.Size = new System.Drawing.Size(56, 17);
-			this.Value2Label.TabIndex = 3;
 			this.Value2Label.Text = "Value 2";
 			// 
 			// ValueLabel
 			// 
-			this.ValueLabel.AutoSize = true;
 			this.ValueLabel.Location = new System.Drawing.Point(13, 148);
 			this.ValueLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.ValueLabel.Name = "ValueLabel";
-			this.ValueLabel.Size = new System.Drawing.Size(56, 17);
-			this.ValueLabel.TabIndex = 2;
 			this.ValueLabel.Text = "Value 1";
 			// 
 			// AddressLabel
 			// 
-			this.AddressLabel.AutoSize = true;
 			this.AddressLabel.Location = new System.Drawing.Point(13, 113);
 			this.AddressLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.AddressLabel.Name = "AddressLabel";
-			this.AddressLabel.Size = new System.Drawing.Size(60, 17);
-			this.AddressLabel.TabIndex = 1;
 			this.AddressLabel.Text = "Address";
 			// 
 			// SpriteViewerBox
@@ -408,22 +366,16 @@
 			// 
 			// SpriteSaveImageMenuItem
 			// 
-			this.SpriteSaveImageMenuItem.Name = "SpriteSaveImageMenuItem";
-			this.SpriteSaveImageMenuItem.Size = new System.Drawing.Size(214, 26);
 			this.SpriteSaveImageMenuItem.Text = "&Save Image...";
 			this.SpriteSaveImageMenuItem.Click += new System.EventHandler(this.SaveSpriteScreenshotMenuItem_Click);
 			// 
 			// SpriteImageToClipboardMenuItem
 			// 
-			this.SpriteImageToClipboardMenuItem.Name = "SpriteImageToClipboardMenuItem";
-			this.SpriteImageToClipboardMenuItem.Size = new System.Drawing.Size(214, 26);
 			this.SpriteImageToClipboardMenuItem.Text = "Image to &Clipboard";
 			this.SpriteImageToClipboardMenuItem.Click += new System.EventHandler(this.CopySpriteToClipboardMenuItem_Click);
 			// 
 			// SpriteRefreshMenuItem
 			// 
-			this.SpriteRefreshMenuItem.Name = "SpriteRefreshMenuItem";
-			this.SpriteRefreshMenuItem.Size = new System.Drawing.Size(214, 26);
 			this.SpriteRefreshMenuItem.Text = "&Refresh";
 			this.SpriteRefreshMenuItem.Click += new System.EventHandler(this.SpriteRefreshMenuItem_Click);
 			// 
@@ -465,22 +417,16 @@
 			// 
 			// label4
 			// 
-			this.label4.AutoSize = true;
 			this.label4.Location = new System.Drawing.Point(187, 25);
 			this.label4.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.label4.Name = "label4";
-			this.label4.Size = new System.Drawing.Size(38, 17);
-			this.label4.TabIndex = 11;
 			this.label4.Text = "Less";
 			// 
 			// label3
 			// 
-			this.label3.AutoSize = true;
 			this.label3.Location = new System.Drawing.Point(8, 23);
 			this.label3.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.label3.Name = "label3";
-			this.label3.Size = new System.Drawing.Size(40, 17);
-			this.label3.TabIndex = 10;
 			this.label3.Text = "More";
 			// 
 			// RefreshRate
@@ -499,18 +445,13 @@
 			// 
 			// NesPPUMenu
 			// 
-			this.NesPPUMenu.ClickThrough = true;
 			this.NesPPUMenu.ImageScalingSize = new System.Drawing.Size(20, 20);
 			this.NesPPUMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.FileSubMenu,
             this.PatternSubMenu,
             this.SettingsSubMenu});
-			this.NesPPUMenu.Location = new System.Drawing.Point(0, 0);
-			this.NesPPUMenu.Name = "NesPPUMenu";
 			this.NesPPUMenu.Padding = new System.Windows.Forms.Padding(8, 2, 0, 2);
-			this.NesPPUMenu.Size = new System.Drawing.Size(1139, 28);
 			this.NesPPUMenu.TabIndex = 10;
-			this.NesPPUMenu.Text = "menuStrip1";
 			// 
 			// FileSubMenu
 			// 
@@ -521,79 +462,44 @@
             this.toolStripSeparator1,
             this.CopyPaletteToClipboardMenuItem,
             this.CopyPatternToClipboardMenuItem,
-            this.CopySpriteToClipboardMenuItem,
-            this.toolStripSeparator2,
-            this.ExitMenuItem});
-			this.FileSubMenu.Name = "FileSubMenu";
-			this.FileSubMenu.Size = new System.Drawing.Size(44, 24);
+            this.CopySpriteToClipboardMenuItem});
 			this.FileSubMenu.Text = "&File";
 			// 
 			// SavePaletteScreenshotMenuItem
 			// 
-			this.SavePaletteScreenshotMenuItem.Name = "SavePaletteScreenshotMenuItem";
-			this.SavePaletteScreenshotMenuItem.Size = new System.Drawing.Size(256, 26);
 			this.SavePaletteScreenshotMenuItem.Text = "Save Palette Screenshot...";
 			this.SavePaletteScreenshotMenuItem.Click += new System.EventHandler(this.SavePaletteScreenshotMenuItem_Click);
 			// 
 			// SavePatternScreenshotMenuItem
 			// 
-			this.SavePatternScreenshotMenuItem.Name = "SavePatternScreenshotMenuItem";
-			this.SavePatternScreenshotMenuItem.Size = new System.Drawing.Size(256, 26);
 			this.SavePatternScreenshotMenuItem.Text = "Save Pattern Screenshot...";
 			this.SavePatternScreenshotMenuItem.Click += new System.EventHandler(this.SavePatternScreenshotMenuItem_Click);
 			// 
 			// SaveSpriteScreenshotMenuItem
 			// 
-			this.SaveSpriteScreenshotMenuItem.Name = "SaveSpriteScreenshotMenuItem";
-			this.SaveSpriteScreenshotMenuItem.Size = new System.Drawing.Size(256, 26);
 			this.SaveSpriteScreenshotMenuItem.Text = "Save Sprite Screenshot...";
 			this.SaveSpriteScreenshotMenuItem.Click += new System.EventHandler(this.SaveSpriteScreenshotMenuItem_Click);
 			// 
-			// toolStripSeparator1
-			// 
-			this.toolStripSeparator1.Name = "toolStripSeparator1";
-			this.toolStripSeparator1.Size = new System.Drawing.Size(253, 6);
-			// 
 			// CopyPaletteToClipboardMenuItem
 			// 
-			this.CopyPaletteToClipboardMenuItem.Name = "CopyPaletteToClipboardMenuItem";
-			this.CopyPaletteToClipboardMenuItem.Size = new System.Drawing.Size(256, 26);
 			this.CopyPaletteToClipboardMenuItem.Text = "Copy Palette to Clipboard";
 			this.CopyPaletteToClipboardMenuItem.Click += new System.EventHandler(this.CopyPaletteToClipboardMenuItem_Click);
 			// 
 			// CopyPatternToClipboardMenuItem
 			// 
-			this.CopyPatternToClipboardMenuItem.Name = "CopyPatternToClipboardMenuItem";
-			this.CopyPatternToClipboardMenuItem.Size = new System.Drawing.Size(256, 26);
 			this.CopyPatternToClipboardMenuItem.Text = "Copy Pattern to Clipboard";
 			this.CopyPatternToClipboardMenuItem.Click += new System.EventHandler(this.CopyPatternToClipboardMenuItem_Click);
 			// 
 			// CopySpriteToClipboardMenuItem
 			// 
-			this.CopySpriteToClipboardMenuItem.Name = "CopySpriteToClipboardMenuItem";
-			this.CopySpriteToClipboardMenuItem.Size = new System.Drawing.Size(256, 26);
 			this.CopySpriteToClipboardMenuItem.Text = "Copy Sprite to Clipboard";
 			this.CopySpriteToClipboardMenuItem.Click += new System.EventHandler(this.CopySpriteToClipboardMenuItem_Click);
-			// 
-			// toolStripSeparator2
-			// 
-			this.toolStripSeparator2.Name = "toolStripSeparator2";
-			this.toolStripSeparator2.Size = new System.Drawing.Size(253, 6);
-			// 
-			// ExitMenuItem
-			// 
-			this.ExitMenuItem.Name = "ExitMenuItem";
-			this.ExitMenuItem.Size = new System.Drawing.Size(256, 26);
-			this.ExitMenuItem.Text = "E&xit";
-			this.ExitMenuItem.Click += new System.EventHandler(this.ExitMenuItem_Click);
 			// 
 			// PatternSubMenu
 			// 
 			this.PatternSubMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.Table0PaletteSubMenu,
             this.Table1PaletteSubMenu});
-			this.PatternSubMenu.Name = "PatternSubMenu";
-			this.PatternSubMenu.Size = new System.Drawing.Size(67, 24);
 			this.PatternSubMenu.Text = "&Pattern";
 			// 
 			// Table0PaletteSubMenu
@@ -607,64 +513,46 @@
             this.Table0P5MenuItem,
             this.Table0P6MenuItem,
             this.Table0P7MenuItem});
-			this.Table0PaletteSubMenu.Name = "Table0PaletteSubMenu";
-			this.Table0PaletteSubMenu.Size = new System.Drawing.Size(180, 26);
 			this.Table0PaletteSubMenu.Text = "Table 0 Palette";
 			this.Table0PaletteSubMenu.DropDownOpened += new System.EventHandler(this.Table0PaletteSubMenu_DropDownOpened);
 			// 
 			// Table0P0MenuItem
 			// 
-			this.Table0P0MenuItem.Name = "Table0P0MenuItem";
-			this.Table0P0MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table0P0MenuItem.Text = "0";
 			this.Table0P0MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table0P1MenuItem
 			// 
-			this.Table0P1MenuItem.Name = "Table0P1MenuItem";
-			this.Table0P1MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table0P1MenuItem.Text = "1";
 			this.Table0P1MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table0P2MenuItem
 			// 
-			this.Table0P2MenuItem.Name = "Table0P2MenuItem";
-			this.Table0P2MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table0P2MenuItem.Text = "2";
 			this.Table0P2MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table0P3MenuItem
 			// 
-			this.Table0P3MenuItem.Name = "Table0P3MenuItem";
-			this.Table0P3MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table0P3MenuItem.Text = "3";
 			this.Table0P3MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table0P4MenuItem
 			// 
-			this.Table0P4MenuItem.Name = "Table0P4MenuItem";
-			this.Table0P4MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table0P4MenuItem.Text = "4";
 			this.Table0P4MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table0P5MenuItem
 			// 
-			this.Table0P5MenuItem.Name = "Table0P5MenuItem";
-			this.Table0P5MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table0P5MenuItem.Text = "5";
 			this.Table0P5MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table0P6MenuItem
 			// 
-			this.Table0P6MenuItem.Name = "Table0P6MenuItem";
-			this.Table0P6MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table0P6MenuItem.Text = "6";
 			this.Table0P6MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table0P7MenuItem
 			// 
-			this.Table0P7MenuItem.Name = "Table0P7MenuItem";
-			this.Table0P7MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table0P7MenuItem.Text = "7";
 			this.Table0P7MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
@@ -679,64 +567,46 @@
             this.Table1P5MenuItem,
             this.Table1P6MenuItem,
             this.Table1P7MenuItem});
-			this.Table1PaletteSubMenu.Name = "Table1PaletteSubMenu";
-			this.Table1PaletteSubMenu.Size = new System.Drawing.Size(180, 26);
 			this.Table1PaletteSubMenu.Text = "Table 1 Palette";
 			this.Table1PaletteSubMenu.DropDownOpened += new System.EventHandler(this.Table1PaletteSubMenu_DropDownOpened);
 			// 
 			// Table1P0MenuItem
 			// 
-			this.Table1P0MenuItem.Name = "Table1P0MenuItem";
-			this.Table1P0MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table1P0MenuItem.Text = "0";
 			this.Table1P0MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table1P1MenuItem
 			// 
-			this.Table1P1MenuItem.Name = "Table1P1MenuItem";
-			this.Table1P1MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table1P1MenuItem.Text = "1";
 			this.Table1P1MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table1P2MenuItem
 			// 
-			this.Table1P2MenuItem.Name = "Table1P2MenuItem";
-			this.Table1P2MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table1P2MenuItem.Text = "2";
 			this.Table1P2MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table1P3MenuItem
 			// 
-			this.Table1P3MenuItem.Name = "Table1P3MenuItem";
-			this.Table1P3MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table1P3MenuItem.Text = "3";
 			this.Table1P3MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table1P4MenuItem
 			// 
-			this.Table1P4MenuItem.Name = "Table1P4MenuItem";
-			this.Table1P4MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table1P4MenuItem.Text = "4";
 			this.Table1P4MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table1P5MenuItem
 			// 
-			this.Table1P5MenuItem.Name = "Table1P5MenuItem";
-			this.Table1P5MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table1P5MenuItem.Text = "5";
 			this.Table1P5MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table1P6MenuItem
 			// 
-			this.Table1P6MenuItem.Name = "Table1P6MenuItem";
-			this.Table1P6MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table1P6MenuItem.Text = "6";
 			this.Table1P6MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
 			// Table1P7MenuItem
 			// 
-			this.Table1P7MenuItem.Name = "Table1P7MenuItem";
-			this.Table1P7MenuItem.Size = new System.Drawing.Size(92, 26);
 			this.Table1P7MenuItem.Text = "7";
 			this.Table1P7MenuItem.Click += new System.EventHandler(this.Palette_Click);
 			// 
@@ -744,31 +614,24 @@
 			// 
 			this.SettingsSubMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.cHRROMTileViewerToolStripMenuItem});
-			this.SettingsSubMenu.Name = "SettingsSubMenu";
-			this.SettingsSubMenu.Size = new System.Drawing.Size(74, 24);
 			this.SettingsSubMenu.Text = "&Settings";
 			this.SettingsSubMenu.DropDownOpened += new System.EventHandler(this.SettingsSubMenu_DropDownOpened);
 			// 
 			// cHRROMTileViewerToolStripMenuItem
 			// 
-			this.cHRROMTileViewerToolStripMenuItem.Name = "cHRROMTileViewerToolStripMenuItem";
-			this.cHRROMTileViewerToolStripMenuItem.Size = new System.Drawing.Size(227, 26);
 			this.cHRROMTileViewerToolStripMenuItem.Text = "CHR ROM Tile Viewer";
 			this.cHRROMTileViewerToolStripMenuItem.Click += new System.EventHandler(this.ChrROMTileViewerToolStripMenuItem_Click);
 			// 
 			// NesPPUStatusBar
 			// 
-			this.NesPPUStatusBar.ClickThrough = true;
 			this.NesPPUStatusBar.ImageScalingSize = new System.Drawing.Size(20, 20);
 			this.NesPPUStatusBar.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripStatusLabel1});
 			this.NesPPUStatusBar.Location = new System.Drawing.Point(0, 432);
 			this.NesPPUStatusBar.Name = "NesPPUStatusBar";
 			this.NesPPUStatusBar.Padding = new System.Windows.Forms.Padding(1, 0, 19, 0);
-			this.NesPPUStatusBar.Size = new System.Drawing.Size(1139, 25);
 			this.NesPPUStatusBar.SizingGrip = false;
 			this.NesPPUStatusBar.TabIndex = 11;
-			this.NesPPUStatusBar.Text = "statusStrip1";
 			// 
 			// toolStripStatusLabel1
 			// 
@@ -797,12 +660,9 @@
 			// 
 			// label5
 			// 
-			this.label5.AutoSize = true;
 			this.label5.Location = new System.Drawing.Point(8, 192);
 			this.label5.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.label5.Name = "label5";
-			this.label5.Size = new System.Drawing.Size(44, 17);
-			this.label5.TabIndex = 2;
 			this.label5.Text = "Bank:";
 			// 
 			// numericUpDownCHRROMBank
@@ -839,14 +699,12 @@
 			this.Controls.Add(this.PalettesGroup);
 			this.Controls.Add(this.PatternGroup);
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-			this.Icon = global::BizHawk.Client.EmuHawk.Properties.Resources.NESControllerIcon_MultiSize;
 			this.KeyPreview = true;
 			this.MainMenuStrip = this.NesPPUMenu;
 			this.Margin = new System.Windows.Forms.Padding(4);
 			this.MinimumSize = new System.Drawing.Size(767, 445);
 			this.Name = "NesPPU";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-			this.Text = "PPU Viewer";
 			this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.NesPPU_FormClosed);
 			this.Load += new System.EventHandler(this.NesPPU_Load);
 			this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.NesPPU_KeyDown);
@@ -884,76 +742,74 @@
 		private System.Windows.Forms.GroupBox PalettesGroup;
 		private PaletteViewer PaletteView;
 		private System.Windows.Forms.GroupBox DetailsBox;
-		private System.Windows.Forms.Label ValueLabel;
-		private System.Windows.Forms.Label AddressLabel;
+		private BizHawk.WinForms.Controls.LocLabelEx ValueLabel;
+		private BizHawk.WinForms.Controls.LocLabelEx AddressLabel;
 		private PatternViewer PatternView;
-		private System.Windows.Forms.Label Table1PaletteLabel;
-		private System.Windows.Forms.Label Table0PaletteLabel;
-		private System.Windows.Forms.Label Value2Label;
+		private BizHawk.WinForms.Controls.LocLabelEx Table1PaletteLabel;
+		private BizHawk.WinForms.Controls.LocLabelEx Table0PaletteLabel;
+		private BizHawk.WinForms.Controls.LocLabelEx Value2Label;
 		private System.Windows.Forms.GroupBox SpriteViewerBox;
 		private SpriteViewer SpriteView;
 		private System.Windows.Forms.TextBox txtScanline;
 		private System.Windows.Forms.GroupBox groupBox1;
-		private System.Windows.Forms.Label Value3Label;
+		private BizHawk.WinForms.Controls.LocLabelEx Value3Label;
 		private System.Windows.Forms.PictureBox ZoomBox;
-		private System.Windows.Forms.Label Value5Label;
-		private System.Windows.Forms.Label Value4Label;
-		private System.Windows.Forms.Label label1;
-		private System.Windows.Forms.Label label2;
+		private BizHawk.WinForms.Controls.LocLabelEx Value5Label;
+		private BizHawk.WinForms.Controls.LocLabelEx Value4Label;
+		private BizHawk.WinForms.Controls.LocLabelEx label1;
+		private BizHawk.WinForms.Controls.LocLabelEx label2;
 		private System.Windows.Forms.GroupBox groupBox2;
 		private System.Windows.Forms.TrackBar RefreshRate;
-		private System.Windows.Forms.Label label4;
-		private System.Windows.Forms.Label label3;
+		private BizHawk.WinForms.Controls.LocLabelEx label4;
+		private BizHawk.WinForms.Controls.LocLabelEx label3;
 		private MenuStripEx NesPPUMenu;
-		private System.Windows.Forms.ToolStripMenuItem SettingsSubMenu;
-		private System.Windows.Forms.ToolStripMenuItem PatternSubMenu;
-		private System.Windows.Forms.ToolStripMenuItem Table0PaletteSubMenu;
-		private System.Windows.Forms.ToolStripMenuItem Table0P0MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table0P1MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table0P2MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table0P3MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table0P4MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table0P5MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table0P6MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table0P7MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table1PaletteSubMenu;
-		private System.Windows.Forms.ToolStripMenuItem Table1P0MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table1P1MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table1P2MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table1P3MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table1P4MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table1P5MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table1P6MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem Table1P7MenuItem;
-		private System.Windows.Forms.ToolStripMenuItem FileSubMenu;
-		private System.Windows.Forms.ToolStripMenuItem SavePaletteScreenshotMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem SavePatternScreenshotMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem SaveSpriteScreenshotMenuItem;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-		private System.Windows.Forms.ToolStripMenuItem ExitMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx SettingsSubMenu;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx PatternSubMenu;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table0PaletteSubMenu;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table0P0MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table0P1MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table0P2MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table0P3MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table0P4MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table0P5MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table0P6MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table0P7MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table1PaletteSubMenu;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table1P0MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table1P1MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table1P2MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table1P3MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table1P4MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table1P5MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table1P6MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx Table1P7MenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx FileSubMenu;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx SavePaletteScreenshotMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx SavePatternScreenshotMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx SaveSpriteScreenshotMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripSeparatorEx toolStripSeparator1;
 		private System.Windows.Forms.ContextMenuStrip PaletteContext;
-		private System.Windows.Forms.ToolStripMenuItem PaletteSaveImageMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem PaletteRefreshMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx PaletteSaveImageMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx PaletteRefreshMenuItem;
 		private System.Windows.Forms.ContextMenuStrip PatternContext;
-		private System.Windows.Forms.ToolStripMenuItem PatternSaveImageMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem PatternRefreshMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx PatternSaveImageMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx PatternRefreshMenuItem;
 		private System.Windows.Forms.ContextMenuStrip SpriteContext;
-		private System.Windows.Forms.ToolStripMenuItem SpriteSaveImageMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem SpriteRefreshMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem SpriteImageToClipboardMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem PatternImageToClipboardMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem PaletteImageToClipboardMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem CopyPaletteToClipboardMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem CopyPatternToClipboardMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem CopySpriteToClipboardMenuItem;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx SpriteSaveImageMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx SpriteRefreshMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx SpriteImageToClipboardMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx PatternImageToClipboardMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx PaletteImageToClipboardMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx CopyPaletteToClipboardMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx CopyPatternToClipboardMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx CopySpriteToClipboardMenuItem;
 		private StatusStripEx NesPPUStatusBar;
 		private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
 		private System.Windows.Forms.Timer Messagetimer;
 		private System.Windows.Forms.GroupBox CHRROMGroup;
-		private System.Windows.Forms.Label label5;
+		private BizHawk.WinForms.Controls.LocLabelEx label5;
 		private System.Windows.Forms.NumericUpDown numericUpDownCHRROMBank;
 		private PatternViewer CHRROMView;
-		private System.Windows.Forms.ToolStripMenuItem cHRROMTileViewerToolStripMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx cHRROMTileViewerToolStripMenuItem;
 	}
 }

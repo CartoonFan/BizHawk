@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
 using BizHawk.BizInvoke;
 using BizHawk.Common;
@@ -14,7 +13,7 @@ using NymaTypes;
 
 namespace BizHawk.Emulation.Cores.Waterbox
 {
-	public unsafe abstract partial class NymaCore : WaterboxCore
+	public abstract unsafe partial class NymaCore : WaterboxCore
 	{
 		protected NymaCore(CoreComm comm,
 			string systemId, string controllerDeckName,
@@ -28,14 +27,55 @@ namespace BizHawk.Emulation.Cores.Waterbox
 		}
 
 		private LibNymaCore _nyma;
-		protected T DoInit<T>(GameInfo game, byte[] rom, Disc[] discs, string wbxFilename, string extension, bool deterministic,
-			IDictionary<string, ValueTuple<string, string>> firmwares = null)
+		protected T DoInit<T>(
+			CoreLoadParameters<NymaSettings, NymaSyncSettings> lp,
+			string wbxFilename,
+			IDictionary<string, FirmwareID> firmwares = null
+		)
 			where T : LibNymaCore
 		{
+			return DoInit<T>(
+				lp.Game,
+				lp.Roms.FirstOrDefault()?.RomData,
+				lp.Discs.Select(d => d.DiscData).ToArray(),
+				wbxFilename,
+				lp.Roms.FirstOrDefault()?.Extension,
+				lp.DeterministicEmulationRequested,
+				firmwares
+			);
+		}
+		protected T DoInit<T>(GameInfo game, byte[] rom, Disc[] discs, string wbxFilename, string extension, bool deterministic,
+			IDictionary<string, FirmwareID> firmwares = null)
+			where T : LibNymaCore
+		{
+			_settingsQueryDelegate = SettingsQuery;
+			_cdTocCallback = CDTOCCallback;
+			_cdSectorCallback = CDSectorCallback;
+
+			var filesToRemove = new List<string>();
+
+			var firmwareDelegate = new LibNymaCore.FrontendFirmwareNotify((name) =>
+			{
+				if (firmwares != null && firmwares.TryGetValue(name, out var id))
+				{
+					var data = CoreComm.CoreFileProvider.GetFirmware(id, true,
+						"Firmware files are usually required and may stop your game from loading");
+					if (data != null)
+					{
+						_exe.AddReadonlyFile(data, name);
+						filesToRemove.Add(name);
+					}
+				}
+				else
+				{
+					throw new InvalidOperationException($"Core asked for firmware `{name}`, but that was not understood by the system");
+				}
+			});
+
 			var t = PreInit<T>(new WaterboxOptions
 			{
 				Filename = wbxFilename,
-				// MemoryBlock understands reserve vs commit semantics, so nothing to be gained by making these precisely sized
+				// WaterboxHost only saves parts of memory that have changed, so not much to be gained by making these precisely sized
 				SbrkHeapSizeKB = 1024 * 16,
 				SealedHeapSizeKB = 1024 * 48,
 				InvisibleHeapSizeKB = 1024 * 48,
@@ -43,41 +83,21 @@ namespace BizHawk.Emulation.Cores.Waterbox
 				MmapHeapSizeKB = 1024 * 48,
 				SkipCoreConsistencyCheck = CoreComm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxCoreConsistencyCheck),
 				SkipMemoryConsistencyCheck = CoreComm.CorePreferences.HasFlag(CoreComm.CorePreferencesFlags.WaterboxMemoryConsistencyCheck),
-			});
+			}, new Delegate[] { _settingsQueryDelegate, _cdTocCallback, _cdSectorCallback, firmwareDelegate });
 			_nyma = t;
-			_settingsQueryDelegate = new LibNymaCore.FrontendSettingQuery(SettingsQuery);
 
 			using (_exe.EnterExit())
 			{
 				_nyma.PreInit();
+				_nyma.SetFrontendFirmwareNotify(firmwareDelegate);
 				var portData = GetInputPortsData();
-				InitSyncSettingsInfo(portData);
+				InitAllSettingsInfo(portData);
 				_nyma.SetFrontendSettingQuery(_settingsQueryDelegate);
-				var filesToRemove = new List<string>();
-				if (firmwares != null)
-				{
-					_exe.MissingFileCallback = s =>
-					{
-						if (firmwares.TryGetValue(s, out var tt))
-						{
-							var data = CoreComm.CoreFileProvider.GetFirmware(tt.Item1, tt.Item2, false,
-								"Firmware files are usually required and may stop your game from loading");
-							if (data != null)
-							{
-								_exe.AddReadonlyFile(data, s);
-								filesToRemove.Add(s);
-								return true;
-							}
-						}
-						return false;
-					};
-				}
+
 				if (discs?.Length > 0)
 				{
 					_disks = discs;
 					_diskReaders = _disks.Select(d => new DiscSectorReader(d) { Policy = _diskPolicy }).ToArray();
-					_cdTocCallback = CDTOCCallback;
-					_cdSectorCallback = CDSectorCallback;
 					_nyma.SetCDCallbacks(_cdTocCallback, _cdSectorCallback);
 					var didInit = _nyma.InitCd(_disks.Length);
 					if (!didInit)
@@ -101,19 +121,20 @@ namespace BizHawk.Emulation.Cores.Waterbox
 
 					_exe.RemoveReadonlyFile(fn);
 				}
-				if (firmwares != null)
+
+				foreach (var s in filesToRemove)
 				{
-					foreach (var s in filesToRemove)
-					{
-						_exe.RemoveReadonlyFile(s);
-					}
-					_exe.MissingFileCallback = null;
+					_exe.RemoveReadonlyFile(s);
 				}
+				// any later attempts to request a firmware will crash
+				_nyma.SetFrontendFirmwareNotify(null);
 
 				var info = *_nyma.GetSystemInfo();
 				_videoBuffer = new int[Math.Max(info.MaxWidth * info.MaxHeight, info.LcmWidth * info.LcmHeight)];
 				BufferWidth = info.NominalWidth;
 				BufferHeight = info.NominalHeight;
+				_mdfnNominalWidth = info.NominalWidth;
+				_mdfnNominalHeight = info.NominalHeight;
 				switch (info.VideoSystem)
 				{
 					// TODO: There seriously isn't any region besides these?
@@ -132,12 +153,11 @@ namespace BizHawk.Emulation.Cores.Waterbox
 				VsyncDenominator = 1 << 24;
 				_soundBuffer = new short[22050 * 2];
 
-				InitControls(portData, discs?.Length > 0);
-				_nyma.SetFrontendSettingQuery(null);
-				if (_disks != null)
-					_nyma.SetCDCallbacks(null, null);
+				InitControls(portData, discs?.Length > 0, ref info);
 				PostInit();
 				SettingsInfo.LayerNames = GetLayerData();
+				_settings.Normalize(SettingsInfo);
+				_syncSettings.Normalize(SettingsInfo);
 				_nyma.SetFrontendSettingQuery(_settingsQueryDelegate);
 				if (_disks != null)
 					_nyma.SetCDCallbacks(_cdTocCallback, _cdSectorCallback);
@@ -157,10 +177,11 @@ namespace BizHawk.Emulation.Cores.Waterbox
 				_frameThreadPtr = _nyma.GetFrameThreadProc();
 				if (_frameThreadPtr != IntPtr.Zero)
 				{
-					if (deterministic)
-						throw new InvalidOperationException("Internal error: Core set a frame thread proc in deterministic mode");
+					// This will probably be fine, right?  TODO: Revisit
+					// if (deterministic)
+					// 	throw new InvalidOperationException("Internal error: Core set a frame thread proc in deterministic mode");
 					Console.WriteLine($"Setting up waterbox thread for {_frameThreadPtr}");
-					_frameThreadStart = CallingConventionAdapters.Waterbox.GetDelegateForFunctionPointer<Action>(_frameThreadPtr);
+					_frameThreadStart = CallingConventionAdapters.GetWaterboxUnsafeUnwrapped().GetDelegateForFunctionPointer<Action>(_frameThreadPtr);
 				}
 			}
 
@@ -235,6 +256,11 @@ namespace BizHawk.Emulation.Cores.Waterbox
 				_frameThreadProcActive = null;
 			}
 		}
+
+		private int _mdfnNominalWidth;
+		private int _mdfnNominalHeight;
+		public override int VirtualWidth => _mdfnNominalWidth;
+		public override int VirtualHeight =>_mdfnNominalHeight;
 
 		public DisplayType Region { get; protected set; }
 

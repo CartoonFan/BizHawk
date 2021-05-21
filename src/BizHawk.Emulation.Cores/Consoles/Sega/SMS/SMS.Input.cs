@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-
+﻿
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Sega.MasterSystem
@@ -36,18 +35,9 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 				"Reset", "Pause",
 				"P1 Left", "P1 Right", "P1 B1",
 				"P2 Left", "P2 Right", "P2 B1",
-			},
-			AxisControls =
-			{
-				"P1 Paddle",
-				"P2 Paddle"
-			},
-			AxisRanges =
-			{
-				new ControllerDefinition.AxisRange(0, 128, 255),
-				new ControllerDefinition.AxisRange(0, 128, 255)
 			}
-		};
+		}.AddAxis("P1 Paddle", 0.RangeTo(255), 128)
+			.AddAxis("P2 Paddle", 0.RangeTo(255), 128);
 
 		public static readonly ControllerDefinition SMSLightPhaserController = new ControllerDefinition
 		{
@@ -55,21 +45,9 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 			BoolButtons =
 			{
 				"Reset", "Pause",
-				"P1 Trigger",
-			},
-			AxisControls =
-			{
-				"P1 X", "P1 Y",
-			},
-			AxisRanges =
-			{
-				new ControllerDefinition.AxisRange(0, 64, 127),
-				new ControllerDefinition.AxisRange(0, 500, 1000)
+				"P1 Trigger"
 			}
-		};
-
-		/// <remarks>TODO verify direction against hardware</remarks>
-		private static readonly List<ControllerDefinition.AxisRange> SportsPadTrackballRanges = ControllerDefinition.CreateAxisRangePair(-64, 0, 63, ControllerDefinition.AxisPairOrientation.RightAndUp);
+		}.AddXYPair("P1 {0}", AxisPairOrientation.RightAndUp, 0.RangeTo(127), 64, 0.RangeTo(1000), 500); //TODO verify direction against hardware
 
 		public static readonly ControllerDefinition SMSSportsPadController = new ControllerDefinition
 		{
@@ -79,14 +57,9 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 				"Reset", "Pause",
 				"P1 Left", "P1 Right", "P1 Up", "P1 Down", "P1 B1", "P1 B2",
 				"P2 Left", "P2 Right", "P2 Up", "P2 Down", "P2 B1", "P2 B2"
-			},
-			AxisControls =
-			{
-				"P1 X", "P1 Y",
-				"P2 X", "P2 Y"
-			},
-			AxisRanges = SportsPadTrackballRanges.Concat(SportsPadTrackballRanges).ToList()
-		};
+			}
+		}.AddXYPair("P1 {0}", AxisPairOrientation.RightAndUp, (-64).RangeTo(63), 0) //TODO verify direction against hardware
+			.AddXYPair("P2 {0}", AxisPairOrientation.RightAndUp, (-64).RangeTo(63), 0); //TODO ditto
 
 		public static readonly ControllerDefinition SMSKeyboardController = new ControllerDefinition
 		{
@@ -117,21 +90,21 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 			"P1 Up", "P1 Down", "P1 Left", "P1 Right", "P1 B1", "P1 B2", "P2 Up", "P2 Down", "P2 Left", "P2 Right", "P2 B1", "P2 B2"
 		};
 
-		const int PaddleMin = 0;
-		const int PaddleMax = 255;
-		const int SportsPadMin = -64;
-		const int SportsPadMax = 63;
+		private const int PaddleMin = 0;
+		private const int PaddleMax = 255;
+		private const int SportsPadMin = -64;
+		private const int SportsPadMax = 63;
 
 		// The paddles and sports pads have data select states
-		bool Controller1SelectHigh = true;
-		bool Controller2SelectHigh = true;
+		private bool Controller1SelectHigh = true;
+		private bool Controller2SelectHigh = true;
 
-		bool LatchLightPhaser = false;
+		private bool LatchLightPhaser = false;
 
 		// further state value for sports pad, may be useful for other controllers in future
-		int Controller1State = 3;
-		int Controller2State = 3;
-		int ControllerTick = 0; // for timing in japan
+		private int Controller1State = 3;
+		private int Controller2State = 3;
+		private int ControllerTick = 0; // for timing in japan
 
 		private byte ReadControls1()
 		{
@@ -583,7 +556,7 @@ namespace BizHawk.Emulation.Cores.Sega.MasterSystem
 			}
 		}
 
-		byte ReadPort0()
+		private byte ReadPort0()
 		{
 			if (IsGameGear_C == false)
 			{

@@ -1,24 +1,25 @@
-﻿using BizHawk.Emulation.Common;
+﻿using System;
+using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 {
-	[Core(
-		"DualGambatte",
-		"sinamas/natt",
-		isPorted: true,
-		isReleased: true)]
+	[PortedCore(CoreNames.DualGambatte, "sinamas/natt")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class GambatteLink : IEmulator, IVideoProvider, ISoundProvider, IInputPollable, ISaveRam, IStatable, ILinkable,
 		IBoardInfo, IRomInfo, IDebuggable, ISettable<GambatteLink.GambatteLinkSettings, GambatteLink.GambatteLinkSyncSettings>, ICodeDataLogger
 	{
-		public GambatteLink(CoreComm comm, GameInfo leftinfo, byte[] leftrom, GameInfo rightinfo, byte[] rightrom, object settings, object syncSettings, bool deterministic)
+		[CoreConstructor("DGB")]
+		public GambatteLink(CoreLoadParameters<GambatteLink.GambatteLinkSettings, GambatteLink.GambatteLinkSyncSettings> lp)
 		{
-			ServiceProvider = new BasicServiceProvider(this);
-			GambatteLinkSettings linkSettings = (GambatteLinkSettings)settings ?? new GambatteLinkSettings();
-			GambatteLinkSyncSettings linkSyncSettings = (GambatteLinkSyncSettings)syncSettings ?? new GambatteLinkSyncSettings();
+			if (lp.Roms.Count != 2)
+				throw new InvalidOperationException("Wrong number of roms");
 
-			L = new Gameboy(comm, leftinfo, leftrom, linkSettings.L, linkSyncSettings.L, deterministic);
-			R = new Gameboy(comm, rightinfo, rightrom, linkSettings.R, linkSyncSettings.R, deterministic);
+			ServiceProvider = new BasicServiceProvider(this);
+			GambatteLinkSettings linkSettings = (GambatteLinkSettings)lp.Settings ?? new GambatteLinkSettings();
+			GambatteLinkSyncSettings linkSyncSettings = (GambatteLinkSyncSettings)lp.SyncSettings ?? new GambatteLinkSyncSettings();
+
+			L = new Gameboy(lp.Comm, lp.Roms[0].Game, lp.Roms[0].RomData, linkSettings.L, linkSyncSettings.L, lp.DeterministicEmulationRequested);
+			R = new Gameboy(lp.Comm, lp.Roms[1].Game, lp.Roms[1].RomData, linkSettings.R, linkSyncSettings.R, lp.DeterministicEmulationRequested);
 
 			// connect link cable
 			LibGambatte.gambatte_linkstatus(L.GambatteState, 259);
@@ -68,7 +69,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.Gameboy
 		// if true, the link cable toggle signal is currently asserted
 		private bool _cablediscosignal = false;
 
-		const int SampPerFrame = 35112;
+		private const int SampPerFrame = 35112;
 
 		private readonly SaveController LCont = new SaveController(Gameboy.GbController);
 		private readonly SaveController RCont = new SaveController(Gameboy.GbController);

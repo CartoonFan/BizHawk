@@ -36,7 +36,7 @@ namespace BizHawk.Emulation.Cores.Computers.SinclairSpectrum
          * MK flag
          * SK flag
          * */
-        private string[] workingArr = new string[3];
+        private readonly string[] workingArr = new string[3];
 
         private void BuildCSVLine()
         {
@@ -44,19 +44,19 @@ namespace BizHawk.Emulation.Cores.Computers.SinclairSpectrum
             for (int i = 0; i < 3; i++)
             {
                 sb.Append(workingArr[i]);
-                sb.Append(",");
+                sb.Append(',');
                 workingArr[i] = "";
             }
 
-            sb.Append(ActiveCommand.CommandCode).Append(",");
+            sb.Append(ActiveCommand.CommandCode).Append(',');
 
-            sb.Append(CMD_FLAG_MT).Append(",");
-            sb.Append(CMD_FLAG_MF).Append(",");
-            sb.Append(CMD_FLAG_SK).Append(",");
+            sb.Append(CMD_FLAG_MT).Append(',');
+            sb.Append(CMD_FLAG_MF).Append(',');
+            sb.Append(CMD_FLAG_SK).Append(',');
 
-            sb.Append(CommCounter).Append(",");
-            sb.Append(ResCounter).Append(",");
-            sb.Append(ExecCounter).Append(",");
+            sb.Append(CommCounter).Append(',');
+            sb.Append(ResCounter).Append(',');
+            sb.Append(ExecCounter).Append(',');
             sb.Append(ExecLength);
 
             //sb.Append("\r\n");

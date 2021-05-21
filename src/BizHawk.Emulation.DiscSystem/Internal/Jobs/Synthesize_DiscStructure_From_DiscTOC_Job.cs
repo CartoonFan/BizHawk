@@ -4,9 +4,17 @@ namespace BizHawk.Emulation.DiscSystem
 {
 	internal class Synthesize_DiscStructure_From_DiscTOC_Job
 	{
-		public Disc IN_Disc { private get; set; }
-		public DiscTOC TOCRaw;
-		public DiscStructure Result;
+		private readonly Disc IN_Disc;
+
+		private readonly DiscTOC TOCRaw;
+
+		public Synthesize_DiscStructure_From_DiscTOC_Job(Disc disc, DiscTOC tocRaw)
+		{
+			IN_Disc = disc;
+			TOCRaw = tocRaw;
+		}
+
+		public DiscStructure Result { get; private set; }
 
 		/// <exception cref="InvalidOperationException">first track of <see cref="TOCRaw"/> is not <c>1</c></exception>
 		public void Run()
@@ -68,7 +76,7 @@ namespace BizHawk.Emulation.DiscSystem
 				LBA = TOCRaw.LeadoutLBA
 			});
 
-			//link track list 
+			//link track list
 			for (int i = 0; i < session.Tracks.Count - 1; i++)
 			{
 				session.Tracks[i].NextTrack = session.Tracks[i + 1];

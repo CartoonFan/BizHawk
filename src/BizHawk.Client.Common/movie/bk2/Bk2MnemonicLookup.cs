@@ -19,7 +19,6 @@ namespace BizHawk.Client.Common
 					key = key.Substring(3);
 				}
 			}
-			
 
 			if (SystemOverrides.ContainsKey(systemId) && SystemOverrides[systemId].ContainsKey(key))
 			{
@@ -61,7 +60,6 @@ namespace BizHawk.Client.Common
 			return button;
 		}
 
-
 		private static readonly Dictionary<string, char> BaseMnemonicLookupTable = new Dictionary<string, char>
 		{
 			["Power"] = 'P',
@@ -83,9 +81,14 @@ namespace BizHawk.Client.Common
 			["Z"] = 'Z',
 
 			["Select"] = 's',
+			["SELECT"] = 's',
 			["Start"] = 'S',
+			["START"] = 'S',
 			["Run"] = 'R',
+			["RUN"] = 'R',
 
+			["Left Shoulder"] = 'l',
+			["Right Shoulder"] = 'r',
 			["L"] = 'l',
 			["R"] = 'r',
 
@@ -119,6 +122,10 @@ namespace BizHawk.Client.Common
 			["Mouse Right"] = 'r',
 			["Mouse Center"] = 'c',
 			["Mouse Start"] = 's',
+
+			["Left Button"] = 'l',
+			["Middle Button"] = 'm',
+			["Right Button"] = 'r',
 
 			["Mode"] = 'M',
 			["MODE"] = 'M',
@@ -159,7 +166,18 @@ namespace BizHawk.Client.Common
 			["Pedal"] = 'P',
 
 			["Next Disk"] = '>',
-			["Previous Disk"] = '<'
+			["Previous Disk"] = '<',
+
+			["F1"] = '1',
+			["F2"] = '2',
+			["F3"] = '3',
+			["F4"] = '4',
+			["F5"] = '5',
+			["F6"] = '6',
+			["F7"] = '7',
+			["F8"] = '8',
+			["F9"] = '9',
+			["F10"] = '0'
 		};
 
 		private static readonly Dictionary<string, Dictionary<string, char>> SystemOverrides = new Dictionary<string, Dictionary<string, char>>
@@ -276,10 +294,6 @@ namespace BizHawk.Client.Common
 			{
 				["L"] = 'L',
 				["R"] = 'R',
-				["F1"] = '1',
-				["F3"] = '3',
-				["F5"] = '5',
-				["F7"] = '7',
 				["Left Arrow"] = 'l',
 				["Plus"] = '+',
 				["Minus"] = '-',
@@ -444,6 +458,21 @@ namespace BizHawk.Client.Common
 				["IV"] = '4',
 				["V"] = '5',
 				["VI"] = '6',
+				["Mode 1: Set A"] = 'a',
+				["Mode 1: Set B"] = 'b',
+				["Mode 2: Set A"] = 'A',
+				["Mode 2: Set B"] = 'B'
+			},
+			["PCE"] = new Dictionary<string, char>
+			{
+				["I"] = '1',
+				["II"] = '2',
+				["III"] = '3',
+				["IV"] = '4',
+				["V"] = '5',
+				["VI"] = '6',
+				["Mode: Set 2-button"] = 'm',
+				["Mode: Set 6-button"] = 'M'
 			},
 			["NDS"] = new Dictionary<string, char>
 			{
@@ -462,14 +491,18 @@ namespace BizHawk.Client.Common
 			},
 			["MAME"] = new Dictionary<string, char>
 			{
-				["Right Stick/Up"] = 'u',
-				["Right Stick/Down"] = 'd',
-				["Right Stick/Left"] = 'l',
-				["Right Stick/Right"] = 'r',
-				["Left Stick/Up"] = '^',
-				["Left Stick/Down"] = 'v',
-				["Left Stick/Left"] = '<',
-				["Left Stick/Right"] = '>',
+				["1 Player Start"] = '1',
+				["2 Players Start"] = '2',
+				["3 Players Start"] = '3',
+				["4 Players Start"] = '4',
+				["5 Players Start"] = '5',
+				["6 Players Start"] = '6',
+				["7 Players Start"] = '7',
+				["8 Players Start"] = '8',
+				["Board 0 (SW4)"] = '0',
+				["Board 1 (SW5)"] = '1',
+				["Board 2 (SW6)"] = '2',
+				["Board 3 (SW7)"] = '3',
 				["Coin 1"] = 'C',
 				["Coin 2"] = 'C',
 				["Coin 3"] = 'C',
@@ -479,14 +512,39 @@ namespace BizHawk.Client.Common
 				["Coin 7"] = 'C',
 				["Coin 8"] = 'C',
 				["Coin 9"] = 'C',
-				["1 Player Start"] = '1',
-				["2 Players Start"] = '2',
-				["3 Players Start"] = '3',
-				["4 Players Start"] = '4',
-				["5 Players Start"] = '5',
-				["6 Players Start"] = '6',
-				["7 Players Start"] = '7',
-				["8 Players Start"] = '8',
+				["Coinblock"] = 'C',
+				["Cup Select 1"] = '1',
+				["Cup Select 2"] = '2',
+				["Fierce Punch"] = 'F',
+				["Foot Pedal"] = 'P',
+				["Forward Kick"] = 'f',
+				["GEAR 1"] = '1',
+				["GEAR 2"] = '2',
+				["GEAR 3"] = '3',
+				["GEAR 4"] = '4',
+				["GEAR N"] = 'N',
+				["Gun Trigger"] = 'G',
+				["Handle A"] = 'A',
+				["Handle B"] = 'B',
+				["Jab Punch"] = 'J',
+				["Left Stick/Up"] = '^',
+				["Left Stick/Down"] = 'v',
+				["Left Stick/Left"] = '<',
+				["Left Stick/Right"] = '>',
+				["Light"] = 'l',
+				["Lightgun X"] = 'X',
+				["Lightgun Y"] = 'Y',
+				["Medium"] = 'm',
+				["Paddle"] = 'P',
+				["Pedal 1"] = '1',
+				["Pedal 2"] = '2',
+				["Relay"] = 'R',
+				["Right Stick/Up"] = 'u',
+				["Right Stick/Down"] = 'd',
+				["Right Stick/Left"] = 'l',
+				["Right Stick/Right"] = 'r',
+				["Roundhouse Kick"] = 'r',
+				["Sensor"] = 'S',
 				["Service"] = 'S',
 				["Service Mode"] = 'S',
 				["Service Button"] = 'S',
@@ -494,15 +552,40 @@ namespace BizHawk.Client.Common
 				["Service 2"] = 's',
 				["Service 3"] = 's',
 				["Service 4"] = 's',
+				["Short Kick"] = 's',
+				["Sold Out LED1"] = '1',
+				["Sold Out LED2"] = '2',
+				["Sold Out LED3"] = '3',
+				["Sold Out SW1"] = '1',
+				["Sold Out SW2"] = '2',
+				["Sold Out SW3"] = '3',
+				["Stand"] = 'S',
+				["Strong"] = 's',
+				["Strong Punch"] = 'S',
 				["Tilt"] = 'T',
 				["Tilt 1"] = 't',
 				["Tilt 2"] = 't',
 				["Tilt 3"] = 't',
 				["Tilt 4"] = 't',
-				["Foot Pedal"] = 'P',
-				["Gun Trigger"] = 'G',
-				["Lightgun X"] = 'X',
-				["Lightgun Y"] = 'Y',
+				["Volume Down"] = '-',
+				["Volume Up"] = '+',
+				["VR1 (Red)"] = 'R',
+				["VR2 (Blue)"] = 'B',
+				["VR3 (Yellow)"] = 'Y',
+				["VR4 (Green)"] = 'G',
+			},
+			["SAT"] = new Dictionary<string, char>
+			{
+				["Smpc Reset"] = 's',
+				["D-Pad Up"] = 'U',
+				["D-Pad Down"] = 'D',
+				["D-Pad Left"] = 'L',
+				["D-Pad Right"] = 'R',
+				["Mode: Set Digital(+)"] = '+',
+				["Mode: Set Analog(○)"] = 'o',
+				["L Gear Shift"] = 'L',
+				["R Gear Shift"] = 'R',
+				["Offscreen Shot"] = 'O'
 			}
 		};
 

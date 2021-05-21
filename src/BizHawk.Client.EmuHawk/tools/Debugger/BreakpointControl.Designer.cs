@@ -30,7 +30,7 @@
 		{
 			this.components = new System.ComponentModel.Container();
 			this.AddBreakpointButton = new System.Windows.Forms.Button();
-			this.BreakpointStatsLabel = new System.Windows.Forms.Label();
+			this.BreakpointStatsLabel = new BizHawk.WinForms.Controls.LocLabelEx();
 			this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
 			this.ToggleButton = new System.Windows.Forms.Button();
 			this.RemoveBreakpointButton = new System.Windows.Forms.Button();
@@ -46,7 +46,6 @@
 			// AddBreakpointButton
 			// 
 			this.AddBreakpointButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.AddBreakpointButton.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.add;
 			this.AddBreakpointButton.Location = new System.Drawing.Point(0, 387);
 			this.AddBreakpointButton.Name = "AddBreakpointButton";
 			this.AddBreakpointButton.Size = new System.Drawing.Size(23, 23);
@@ -57,17 +56,13 @@
 			// 
 			// BreakpointStatsLabel
 			// 
-			this.BreakpointStatsLabel.AutoSize = true;
 			this.BreakpointStatsLabel.Location = new System.Drawing.Point(3, 3);
 			this.BreakpointStatsLabel.Name = "BreakpointStatsLabel";
-			this.BreakpointStatsLabel.Size = new System.Drawing.Size(35, 13);
-			this.BreakpointStatsLabel.TabIndex = 8;
 			this.BreakpointStatsLabel.Text = "label1";
 			// 
 			// ToggleButton
 			// 
 			this.ToggleButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.ToggleButton.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.Refresh;
 			this.ToggleButton.Location = new System.Drawing.Point(311, 387);
 			this.ToggleButton.Name = "ToggleButton";
 			this.ToggleButton.Size = new System.Drawing.Size(23, 23);
@@ -79,7 +74,6 @@
 			// RemoveBreakpointButton
 			// 
 			this.RemoveBreakpointButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.RemoveBreakpointButton.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.Delete;
 			this.RemoveBreakpointButton.Location = new System.Drawing.Point(340, 387);
 			this.RemoveBreakpointButton.Name = "RemoveBreakpointButton";
 			this.RemoveBreakpointButton.Size = new System.Drawing.Size(23, 23);
@@ -91,7 +85,6 @@
 			// DuplicateBreakpointButton
 			// 
 			this.DuplicateBreakpointButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.DuplicateBreakpointButton.Image = global::BizHawk.Client.EmuHawk.Properties.Resources.Duplicate;
 			this.DuplicateBreakpointButton.Location = new System.Drawing.Point(282, 387);
 			this.DuplicateBreakpointButton.Name = "DuplicateBreakpointButton";
 			this.DuplicateBreakpointButton.Size = new System.Drawing.Size(23, 23);
@@ -103,7 +96,6 @@
 			// EditBreakpointButton
 			// 
 			this.EditBreakpointButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.EditBreakpointButton.BackgroundImage = global::BizHawk.Client.EmuHawk.Properties.Resources.pencil;
 			this.EditBreakpointButton.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
 			this.EditBreakpointButton.Location = new System.Drawing.Point(253, 387);
 			this.EditBreakpointButton.Name = "EditBreakpointButton";
@@ -186,7 +178,7 @@
 		private System.Windows.Forms.Button AddBreakpointButton;
 		private System.Windows.Forms.Button RemoveBreakpointButton;
 		private System.Windows.Forms.ColumnHeader columnHeader3;
-		private System.Windows.Forms.Label BreakpointStatsLabel;
+		private BizHawk.WinForms.Controls.LocLabelEx BreakpointStatsLabel;
 		private System.Windows.Forms.ToolTip toolTip1;
 		private System.Windows.Forms.Button ToggleButton;
 		private System.Windows.Forms.Button DuplicateBreakpointButton;

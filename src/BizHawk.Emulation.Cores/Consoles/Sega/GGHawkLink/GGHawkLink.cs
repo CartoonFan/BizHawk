@@ -1,16 +1,13 @@
-﻿using BizHawk.Emulation.Common;
+﻿using System;
+using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Sega.MasterSystem;
 
 namespace BizHawk.Emulation.Cores.Sega.GGHawkLink
 {
-	[Core(
-		"GGHawkLink",
-		"",
-		isPorted: false,
-		isReleased: false)]
+	[Core(CoreNames.GGHawkLink, "", isReleased: false)]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class GGHawkLink : IEmulator, ISaveRam, IDebuggable, IStatable, IInputPollable, IRegionable, ILinkable,
-	ISettable<GGHawkLink.GGLinkSettings, GGHawkLink.GGLinkSyncSettings>
+		ISettable<GGHawkLink.GGLinkSettings, GGHawkLink.GGLinkSyncSettings>
 	{
 		// we want to create two GG instances that we will run concurrently
 		public SMS L;
@@ -24,12 +21,16 @@ namespace BizHawk.Emulation.Cores.Sega.GGHawkLink
 
 		private bool do_r_next = false;
 
-		public GGHawkLink(CoreComm comm, GameInfo game_L, byte[] rom_L, GameInfo game_R, byte[] rom_R, /*string gameDbFn,*/ object settings, object syncSettings)
+		[CoreConstructor("GGL")]
+		public GGHawkLink(CoreLoadParameters<GGLinkSettings, GGLinkSyncSettings> lp)
 		{
+			if (lp.Roms.Count != 2)
+				throw new InvalidOperationException("Wrong number of roms");
+
 			var ser = new BasicServiceProvider(this);
 
-			linkSettings = (GGLinkSettings)settings ?? new GGLinkSettings();
-			linkSyncSettings = (GGLinkSyncSettings)syncSettings ?? new GGLinkSyncSettings();
+			linkSettings = (GGLinkSettings)lp.Settings ?? new GGLinkSettings();
+			linkSyncSettings = (GGLinkSyncSettings)lp.SyncSettings ?? new GGLinkSyncSettings();
 			_controllerDeck = new GGHawkLinkControllerDeck(GGHawkLinkControllerDeck.DefaultControllerName, GGHawkLinkControllerDeck.DefaultControllerName);
 
 			var temp_set_L = new SMS.SmsSettings();
@@ -38,8 +39,8 @@ namespace BizHawk.Emulation.Cores.Sega.GGHawkLink
 			var temp_sync_L = new SMS.SmsSyncSettings();
 			var temp_sync_R = new SMS.SmsSyncSettings();
 
-			L = new SMS(comm, game_L, rom_L, temp_set_L, temp_sync_L);
-			R = new SMS(comm, game_R, rom_R, temp_set_R, temp_sync_R);
+			L = new SMS(lp.Comm, lp.Roms[0].Game, lp.Roms[0].RomData, temp_set_L, temp_sync_L);
+			R = new SMS(lp.Comm, lp.Roms[1].Game, lp.Roms[1].RomData, temp_set_R, temp_sync_R);
 
 			ser.Register<IVideoProvider>(this);
 			ser.Register<ISoundProvider>(this); 

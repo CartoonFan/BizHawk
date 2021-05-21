@@ -48,12 +48,12 @@ namespace BizHawk.Bizware.BizwareGL
 			return LoadArtInternal(new BitmapBuffer(path, new BitmapLoadOptions()));
 		}
 
-		Art LoadArtInternal(BitmapBuffer tex)
+		private Art LoadArtInternal(BitmapBuffer tex)
 		{
 			AssertIsOpen(true);
 
 			Art a = new Art(this);
-			ArtLooseTextureAssociation[a] = tex;
+			ArtLooseTextureAssociation.Add((a, tex));
 			ManagedArts.Add(a);
 
 			return a;
@@ -62,9 +62,9 @@ namespace BizHawk.Bizware.BizwareGL
 		/// <summary>
 		/// Closes this instance for for further resource loading. Will result in a texture atlasing operation.
 		/// If the close operation is forever, then internal backup copies of resources will be freed, but it can never be reopened.
-		/// This function may take some time to run, as it is 
+		/// This function may take some time to run, as it is
 		/// </summary>
-		public unsafe void Close(bool forever = true)
+		public void Close(bool forever = true)
 		{
 			AssertIsOpen(true);
 			IsOpened = false;
@@ -79,24 +79,23 @@ namespace BizHawk.Bizware.BizwareGL
 			// add 2 extra pixels for padding on all sides
 			var atlasItems = new List<TexAtlas.RectItem>();
 			foreach (var kvp in ArtLooseTextureAssociation)
-				atlasItems.Add(new TexAtlas.RectItem(kvp.Value.Width+2, kvp.Value.Height+2, kvp));
+			{
+				atlasItems.Add(new TexAtlas.RectItem(kvp.Bitmap.Width + 2, kvp.Bitmap.Height + 2, kvp));
+			}
 			var results = TexAtlas.PackAtlas(atlasItems);
 
 			// this isn't supported yet:
-			if (results.Atlases.Count > 1)
+			if (results.Count > 1)
 				throw new InvalidOperationException("Art files too big for atlas");
 
 			// prepare the output buffer
-			BitmapBuffer bmpResult = new BitmapBuffer(results.Atlases[0].Size);
+			BitmapBuffer bmpResult = new BitmapBuffer(results[0].Size);
 
 			//for each item, copy it into the output buffer and set the tex parameters on them
 			for (int i = 0; i < atlasItems.Count; i++)
 			{
-				var item = results.Atlases[0].Items[i];
-				var artAndBitmap = (KeyValuePair<Art, BitmapBuffer>)item.Item;
-				var art = artAndBitmap.Key;
-				var bitmap = artAndBitmap.Value;
-
+				var item = results[0].Items[i];
+				var (art, bitmap) = ((Art, BitmapBuffer)) item.Item;
 				int w = bitmap.Width;
 				int h = bitmap.Height;
 				int dx = item.X + 1;
@@ -123,8 +122,7 @@ namespace BizHawk.Bizware.BizwareGL
 			//if we're closed forever, then forget all the original bitmaps
 			if (forever)
 			{
-				foreach (var kvp in ArtLooseTextureAssociation)
-					kvp.Value.Dispose();
+				foreach (var tuple in ArtLooseTextureAssociation) tuple.Bitmap.Dispose();
 				ArtLooseTextureAssociation.Clear();
 			}
 
@@ -150,16 +148,16 @@ namespace BizHawk.Bizware.BizwareGL
 		/// <summary>
 		/// This is used to remember the original bitmap sources for art files. Once the ArtManager is closed forever, this will be purged
 		/// </summary>
-		readonly Dictionary<Art, BitmapBuffer> ArtLooseTextureAssociation = new Dictionary<Art, BitmapBuffer>();
+		private readonly List<(Art Art, BitmapBuffer Bitmap)> ArtLooseTextureAssociation = new();
 
 		/// <summary>
 		/// Physical texture resources, which exist after this ArtManager has been closed
 		/// </summary>
-		readonly List<Texture2d> ManagedTextures = new List<Texture2d>();
+		private readonly List<Texture2d> ManagedTextures = new List<Texture2d>();
 
 		/// <summary>
 		/// All the Arts managed by this instance
 		/// </summary>
-		readonly List<Art> ManagedArts = new List<Art>();
+		private readonly List<Art> ManagedArts = new List<Art>();
 	}
 }

@@ -26,7 +26,7 @@ namespace BizHawk.Emulation.Common
 			get => _position;
 			set
 			{
-				if (value < 0 || value > _d.Size) 
+				if (value < 0 || value > _d.Size)
 					throw new IOException("Position out of range");
 				_position = value;
 			}
@@ -53,14 +53,14 @@ namespace BizHawk.Emulation.Common
 		public override int Read(byte[] buffer, int offset, int count)
 		{
 			if (offset < 0 || offset + count > buffer.Length)
-				throw new ArgumentOutOfRangeException("offset");
+				throw new ArgumentException("start or end not within bounds of buffer", nameof(offset));
 			count = (int)Math.Min(count, Length - Position);
 			if (count == 0)
 				return 0;
 			// TODO: Memory domain doesn't have the overload we need :(
 			var poop = new byte[count];
 			// TODO: Range has the wrong end value
-			_d.BulkPeekByte(new MutableRange<long>(Position, Position + count - 1), poop);
+			_d.BulkPeekByte(Position.RangeToExclusive(Position + count), poop);
 			Array.Copy(poop, 0, buffer, offset, count);
 			Position += count;
 			return count;
@@ -69,7 +69,7 @@ namespace BizHawk.Emulation.Common
 		public override void Write(byte[] buffer, int offset, int count)
 		{
 			if (offset < 0 || offset + count > buffer.Length)
-				throw new ArgumentOutOfRangeException("offset");
+				throw new ArgumentException("start or end not within bounds of buffer", nameof(offset));
 			for (var i = offset; i < offset + count; i++)
 				_d.PokeByte(Position++, buffer[i]);
 		}

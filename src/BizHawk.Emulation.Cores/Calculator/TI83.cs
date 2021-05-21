@@ -1,24 +1,21 @@
 using System;
+using System.IO;
 using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Components.Z80A;
 
 // http://www.ticalc.org/pub/text/calcinfo/
 namespace BizHawk.Emulation.Cores.Calculators
 {
-	[Core(
-		"TI83Hawk",
-		"zeromus",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.TI83Hawk, "zeromus")]
 	[ServiceNotApplicable(new[] { typeof(IBoardInfo), typeof(IDriveLight), typeof(IRegionable), typeof(ISaveRam), typeof(ISoundProvider) })]
 	public partial class TI83 : IEmulator, IVideoProvider, IDebuggable, IInputPollable, ISettable<TI83.TI83Settings, object>
 	{
-		[CoreConstructor("TI83")]
-		public TI83(GameInfo game, byte[] rom, object settings)
+		[CoreConstructor("83P")]
+		public TI83(CoreLoadParameters<TI83Settings, object> lp)
 		{
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;
-			PutSettings((TI83Settings)settings ?? new TI83Settings());
+			PutSettings(lp.Settings ?? new TI83Settings());
 
 			_cpu.FetchMemory = ReadMemory;
 			_cpu.ReadMemory = ReadMemory;
@@ -29,7 +26,7 @@ namespace BizHawk.Emulation.Cores.Calculators
 			_cpu.NMICallback = NMICallback;
 			_cpu.MemoryCallbacks = MemoryCallbacks;
 
-			_rom = rom;
+			_rom = lp.Comm.CoreFileProvider.GetFirmware("TI83", "Rom", true);
 			LinkPort = new TI83LinkPort(this);
 
 			HardReset();
@@ -40,6 +37,7 @@ namespace BizHawk.Emulation.Cores.Calculators
 			ser.Register<ITraceable>(_tracer);
 			ser.Register<IDisassemblable>(_cpu);
 			ser.Register<IStatable>(new StateSerializer(SyncState));
+			LinkPort.SendFileToCalc(new MemoryStream(lp.Roms[0].RomData, false), false);
 		}
 
 		private readonly TraceBuffer _tracer;

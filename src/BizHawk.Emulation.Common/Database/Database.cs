@@ -13,12 +13,12 @@ namespace BizHawk.Emulation.Common
 {
 	public static class Database
 	{
-		static Dictionary<string, CompactGameInfo> DB = new Dictionary<string, CompactGameInfo>();
+		private static readonly Dictionary<string, CompactGameInfo> DB = new Dictionary<string, CompactGameInfo>();
 
 		/// <summary>
 		/// blocks until the DB is done loading
 		/// </summary>
-		static EventWaitHandle acquire = new EventWaitHandle(false, EventResetMode.ManualReset);
+		private static readonly EventWaitHandle acquire = new EventWaitHandle(false, EventResetMode.ManualReset);
 
 		private static string RemoveHashType(string hash)
 		{
@@ -36,7 +36,7 @@ namespace BizHawk.Emulation.Common
 			return hash;
 		}
 
-		private static void LoadDatabase_Escape(string line, string path)
+		private static void LoadDatabase_Escape(string line, string path, bool warnForCollisions)
 		{
 			if (!line.ToUpperInvariant().StartsWith("#INCLUDE"))
 			{
@@ -48,7 +48,7 @@ namespace BizHawk.Emulation.Common
 			if (File.Exists(filename))
 			{
 				Debug.WriteLine("loading external game database {0}", line);
-				initializeWork(filename);
+				initializeWork(filename, warnForCollisions);
 			}
 			else
 			{
@@ -89,9 +89,9 @@ namespace BizHawk.Emulation.Common
 			File.AppendAllText(path, sb.ToString());
 		}
 
-		static bool initialized = false;
+		private static bool initialized = false;
 
-		static void initializeWork(string path)
+		private static void initializeWork(string path, bool warnForCollisions)
 		{
 			//reminder: this COULD be done on several threads, if it takes even longer
 			using var reader = new StreamReader(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read));
@@ -107,7 +107,7 @@ namespace BizHawk.Emulation.Common
 
 					if (line.StartsWith("#"))
 					{
-						LoadDatabase_Escape(line, Path.GetDirectoryName(path));
+						LoadDatabase_Escape(line, Path.GetDirectoryName(path), warnForCollisions);
 						continue;
 					}
 
@@ -142,12 +142,10 @@ namespace BizHawk.Emulation.Common
 						ForcedCore = items.Length >= 8 ? items[7].ToLowerInvariant() : ""
 					};
 
-#if DEBUG
-					if (DB.ContainsKey(game.Hash))
+					if (warnForCollisions && DB.ContainsKey(game.Hash))
 					{
 						Console.WriteLine("gamedb: Multiple hash entries {0}, duplicate detected on \"{1}\" and \"{2}\"", game.Hash, game.Name, DB[game.Hash].Name);
 					}
-#endif
 
 					DB[game.Hash] = game;
 				}
@@ -160,15 +158,15 @@ namespace BizHawk.Emulation.Common
 			acquire.Set();
 		}
 
-		public static void InitializeDatabase(string path)
+		public static void InitializeDatabase(string path, bool warnForCollisions)
 		{
 			if (initialized) throw new InvalidOperationException("Did not expect re-initialize of game Database");
 			initialized = true;
 
 			var stopwatch = Stopwatch.StartNew();
 			ThreadPool.QueueUserWorkItem(_=> {
-				initializeWork(path);
-				Console.WriteLine("GameDB load: " + stopwatch.Elapsed + " sec");
+				initializeWork(path, warnForCollisions);
+				Util.DebugWriteLine("GameDB load: " + stopwatch.Elapsed + " sec");
 			});
 		}
 
@@ -382,7 +380,7 @@ namespace BizHawk.Emulation.Common
 				// refactor to use mame db (output of "mame -listxml" command)
 				// there's no good definition for Arcade anymore, so we might limit to coin-based machines?
 				case ".ZIP":
-					game.System = "Arcade";
+					game.System = "MAME";
 					break;
 			}
 

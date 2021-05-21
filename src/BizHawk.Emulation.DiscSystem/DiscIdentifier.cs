@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using ISOParser;
+
 //disc type identification logic
 
 namespace BizHawk.Emulation.DiscSystem
@@ -97,7 +99,12 @@ namespace BizHawk.Emulation.DiscSystem
 		/// <summary>
 		/// Sega Dreamcast
 		/// </summary>
-		Dreamcast
+		Dreamcast,
+
+		/// <summary>
+		/// Yes, that one
+		/// </summary>
+		SonyPS2,
 	}
 
 	public class DiscIdentifier
@@ -185,6 +192,14 @@ namespace BizHawk.Emulation.DiscSystem
 			//its a cheap win for a lot of systems, but ONLY if the iso.Parse() method is quick running (might have to time it)
 			if (isIso)
 			{
+				if (iso.Root.Children.TryGetValue("SYSTEM.CNF;1", out var cnf))
+				{
+					if (SectorContains("BOOT2", (int)cnf.Offset))
+						return DiscType.SonyPS2;
+					else if (SectorContains("BOOT", (int)cnf.Offset))
+						return DiscType.SonyPSX;
+				}
+
 				var appId = Encoding.ASCII.GetString(iso.VolumeDescriptors[0].ApplicationIdentifier).TrimEnd('\0', ' ');
 				var sysId = Encoding.ASCII.GetString(iso.VolumeDescriptors[0].SystemIdentifier).TrimEnd('\0', ' ');
 
@@ -222,7 +237,7 @@ namespace BizHawk.Emulation.DiscSystem
 				if (absTxt != null && SectorContains("abstracted by snk", Convert.ToInt32(absTxt.Offset))) return DiscType.NeoGeoCD;
 
 				return DiscType.UnknownCDFS;
-			}                
+			}
 
 			return DiscType.UnknownFormat;
 		}
@@ -277,7 +292,7 @@ namespace BizHawk.Emulation.DiscSystem
 			if (toc.FirstRecordedTrackNumber != 1) return false;
 			if (!toc.TOCItems[1].IsData) return false;
 			
-			//some have a signature 
+			//some have a signature
 			if (StringAt("HACKER CD ROM SYSTEM", 0x8, 0x10))
 				return true;
 
@@ -352,7 +367,7 @@ namespace BizHawk.Emulation.DiscSystem
 			if (data == null) return false;
 			byte[] magic = data.Skip(28).Take(4).ToArray();
 			string hexString = "";
-			foreach (var b in magic)            
+			foreach (var b in magic)
 				hexString += b.ToString("X2");
 
 			return hexString == "C2339F3D";

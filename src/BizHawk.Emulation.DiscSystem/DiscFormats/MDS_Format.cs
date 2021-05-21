@@ -4,6 +4,8 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 
+using ISOParser;
+
 namespace BizHawk.Emulation.DiscSystem
 {
 	/// <summary>
@@ -33,12 +35,12 @@ namespace BizHawk.Emulation.DiscSystem
 			/// <summary>
 			/// List of MDS session blocks
 			/// </summary>
-			public List<ASession> Sessions = new List<ASession>();
+			public readonly IList<ASession> Sessions = new List<ASession>();
 
 			/// <summary>
 			/// List of track blocks
 			/// </summary>
-			public List<ATrack> Tracks = new List<ATrack>();
+			public readonly IList<ATrack> Tracks = new List<ATrack>();
 
 			/// <summary>
 			/// Current parsed session objects
@@ -48,7 +50,7 @@ namespace BizHawk.Emulation.DiscSystem
 			/// <summary>
 			/// Calculated MDS TOC entries (still to be parsed into BizHawk)
 			/// </summary>
-			public List<ATOCEntry> TOCEntries = new List<ATOCEntry>();
+			public readonly IList<ATOCEntry> TOCEntries = new List<ATOCEntry>();
 			
 		}
 
@@ -624,7 +626,7 @@ namespace BizHawk.Emulation.DiscSystem
 					//mount the file			
 					if (mdfBlob == null)
 					{
-						var mdfFile = new Disc.Blob_RawFile() { PhysicalPath = file };
+						var mdfFile = new Blob_RawFile() { PhysicalPath = file };
 						mdfLen = mdfFile.Length;
 						mdfBlob = mdfFile;
 					}
@@ -657,7 +659,7 @@ namespace BizHawk.Emulation.DiscSystem
 
 			//these are special values.. I think, taken from this:
 			//http://www.staff.uni-mainz.de/tacke/scsi/SCSI2-14.html
-			//the CCD will contain Points as decimal values except for these specially converted decimal values which should stay as BCD. 
+			//the CCD will contain Points as decimal values except for these specially converted decimal values which should stay as BCD.
 			//Why couldn't they all be BCD? I don't know. I guess because BCD is inconvenient, but only A0 and friends have special meaning. It's confusing.
 			ino = BCD2.FromDecimal(entry.Point);
 			if (entry.Point == 0xA0) ino.BCDValue = 0xA0;
@@ -709,7 +711,7 @@ namespace BizHawk.Emulation.DiscSystem
 			}
 
 			//analyze the RAWTocEntries to figure out what type of track track 1 is
-			var tocSynth = new Synthesize_DiscTOC_From_RawTOCEntries_Job() { Entries = disc.RawTOCEntries };
+			var tocSynth = new Synthesize_DiscTOC_From_RawTOCEntries_Job(disc.RawTOCEntries);
 			tocSynth.Run();
 
 			// now build the sectors
@@ -745,13 +747,12 @@ namespace BizHawk.Emulation.DiscSystem
 							blobstrings.Add(t);
 					}
 
-					var tBlobs = (from a in tr.ImageFileNamePaths
-									 select a).ToList();
+					var tBlobs = (from a in tr.ImageFileNamePaths select a).ToList();
 
 					if (tBlobs.Count < 1)
 						throw new MDSParseException("BLOB Error!");
 
-					// is the currBlob valid for this track, or do we need to increment?   
+					// is the currBlob valid for this track, or do we need to increment?
 					string bString = tBlobs.First();
 #endif
 
@@ -811,12 +812,12 @@ namespace BizHawk.Emulation.DiscSystem
 						CUE.SS_Base sBase = null;
 
 						// get the current blob from the BlobIndex
-						Disc.Blob_RawFile currBlob = (Disc.Blob_RawFile) BlobIndex[currBlobIndex];
+						Blob_RawFile currBlob = (Blob_RawFile) BlobIndex[currBlobIndex];
 						long currBlobLength = currBlob.Length;
 						long currBlobPosition = sector;
 						if (currBlobPosition == currBlobLength)
 							currBlobIndex++;
-						mdfBlob = disc.DisposableResources[currBlobIndex] as Disc.Blob_RawFile;
+						mdfBlob = disc.DisposableResources[currBlobIndex] as Blob_RawFile;
 
 						//int userSector = 2048;
 						switch (track.SectorSize)
@@ -824,9 +825,9 @@ namespace BizHawk.Emulation.DiscSystem
 							case 2448:
 								sBase = new CUE.SS_2352()
 								{
-									Policy = IN_DiscMountPolicy                                 
+									Policy = IN_DiscMountPolicy
 								};
-								//userSector = 2352;                          
+								//userSector = 2352;
 								break;
 							case 2048:
 							default:
@@ -855,7 +856,7 @@ namespace BizHawk.Emulation.DiscSystem
 
 						//these are special values.. I think, taken from this:
 						//http://www.staff.uni-mainz.de/tacke/scsi/SCSI2-14.html
-						//the CCD will contain Points as decimal values except for these specially converted decimal values which should stay as BCD. 
+						//the CCD will contain Points as decimal values except for these specially converted decimal values which should stay as BCD.
 						//Why couldn't they all be BCD? I don't know. I guess because BCD is inconvenient, but only A0 and friends have special meaning. It's confusing.
 						ino = BCD2.FromDecimal(track.Point);
 						if (track.Point == 0xA0) ino.BCDValue = 0xA0;

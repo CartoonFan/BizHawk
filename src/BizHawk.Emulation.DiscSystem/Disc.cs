@@ -16,15 +16,14 @@ using System.Collections.Generic;
 
 namespace BizHawk.Emulation.DiscSystem
 {
-	public partial class Disc : IDisposable
+	public sealed class Disc : IDisposable
 	{
 		/// <summary>
 		/// Automagically loads a disc, without any fine-tuned control at all
 		/// </summary>
 		public static Disc LoadAutomagic(string path)
 		{
-			var job = new DiscMountJob { IN_FromPath = path };
-			//job.IN_DiscInterface = DiscInterface.MednaDisc; //TEST
+			var job = new DiscMountJob(fromPath: path/*, discInterface: DiscInterface.MednaDisc <-- TEST*/);
 			job.Run();
 			return job.OUT_Disc;
 		}
@@ -47,7 +46,7 @@ namespace BizHawk.Emulation.DiscSystem
 		/// <summary>
 		/// The DiscTOCRaw corresponding to the RawTOCEntries.
 		/// TODO - there's one of these for every session, so... having one here doesn't make sense
-		/// so... 
+		/// so...
 		/// TODO - remove me
 		/// </summary>
 		public DiscTOC TOC;
@@ -61,7 +60,7 @@ namespace BizHawk.Emulation.DiscSystem
 		/// <summary>
 		/// Free-form optional memos about the disc
 		/// </summary>
-		public Dictionary<string, object> Memos = new Dictionary<string, object>();
+		public readonly IDictionary<string, object> Memos = new Dictionary<string, object>();
 
 		public void Dispose()
 		{
@@ -105,7 +104,7 @@ namespace BizHawk.Emulation.DiscSystem
 		/// <summary>
 		/// Disposable resources (blobs, mostly) referenced by this disc
 		/// </summary>
-		internal List<IDisposable> DisposableResources = new List<IDisposable>();
+		internal readonly IList<IDisposable> DisposableResources = new List<IDisposable>();
 
 		/// <summary>
 		/// The sectors on the disc. Don't use this directly! Use the SectorSynthProvider instead.

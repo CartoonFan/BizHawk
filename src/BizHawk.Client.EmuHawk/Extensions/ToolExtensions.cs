@@ -2,8 +2,6 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using System.Linq;
-
 using BizHawk.Common;
 using BizHawk.Emulation.Common;
 using BizHawk.Client.Common;
@@ -14,7 +12,7 @@ namespace BizHawk.Client.EmuHawk.ToolExtensions
 {
 	public static class ToolExtensions
 	{
-		public static ToolStripItem[] RecentMenu(this RecentFiles recent, Action<string> loadFileCallback, string entrySemantic, bool noAutoload = false, bool romLoading = false)
+		public static ToolStripItem[] RecentMenu(this RecentFiles recent, IMainFormForTools mainForm, Action<string> loadFileCallback, string entrySemantic, bool noAutoload = false, bool romLoading = false)
 		{
 			var items = new List<ToolStripItem>();
 
@@ -140,7 +138,7 @@ namespace BizHawk.Client.EmuHawk.ToolExtensions
 
 					//in any case, make a menuitem to let you remove the item
 					var tsmiRemovePath = new ToolStripMenuItem { Text = "&Remove" };
-					tsmiRemovePath.Click += (o, ev) => { 
+					tsmiRemovePath.Click += (o, ev) => {
 						recent.Remove(path);
 					};
 					tsdd.Items.Add(tsmiRemovePath);
@@ -201,7 +199,7 @@ namespace BizHawk.Client.EmuHawk.ToolExtensions
 					Message = "Number of recent files to track",
 					InitialValue = recent.MAX_RECENT_FILES.ToString()
 				};
-				var result = prompt.ShowDialog();
+				var result = mainForm.DoWithTempMute(() => prompt.ShowDialog());
 				if (result == DialogResult.OK)
 				{
 					int val = int.Parse(prompt.PromptText);
@@ -214,37 +212,24 @@ namespace BizHawk.Client.EmuHawk.ToolExtensions
 			return items.ToArray();
 		}
 
-		public static void HandleLoadError(this RecentFiles recent, string path, string encodedPath = null)
+		public static void HandleLoadError(this RecentFiles recent, IMainFormForTools mainForm, string path, string encodedPath = null)
 		{
-			GlobalWin.Sound.StopSound();
-			if (recent.Frozen)
+			mainForm.DoWithTempMute(() =>
 			{
-				MessageBox.Show($"Could not open {path}", "File not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
-			}
-			else
-			{
-				// ensure topmost, not to have to minimize everything to see and use our modal window, if it somehow got covered
-				var result = MessageBox.Show(new Form { TopMost = true }, $"Could not open {path}\nRemove from list?", "File not found", MessageBoxButtons.YesNo, MessageBoxIcon.Error);
-				if (result == DialogResult.Yes)
+				if (recent.Frozen)
 				{
-					recent.Remove(encodedPath ?? path);
+					mainForm.ShowMessageBox($"Could not open {path}", "File not found", EMsgBoxIcon.Error);
 				}
-			}
-
-			GlobalWin.Sound.StartSound();
-		}
-
-		public static void FreezeAll(this IEnumerable<Watch> watches)
-		{
-			GlobalWin.CheatList.AddRange(
-				watches
-				.Where(w => !w.IsSeparator)
-				.Select(w => new Cheat(w, w.Value)));
-		}
-
-		public static void UnfreezeAll(this IEnumerable<Watch> watches)
-		{
-			GlobalWin.CheatList.RemoveRange(watches.Where(watch => !watch.IsSeparator));
+				else
+				{
+					// ensure topmost, not to have to minimize everything to see and use our modal window, if it somehow got covered
+					var result = MessageBox.Show(new Form { TopMost = true }, $"Could not open {path}\nRemove from list?", "File not found", MessageBoxButtons.YesNo, MessageBoxIcon.Error);
+					if (result == DialogResult.Yes)
+					{
+						recent.Remove(encodedPath ?? path);
+					}
+				}
+			});
 		}
 
 		public static IEnumerable<ToolStripItem> MenuItems(this IMemoryDomains domains, Action<string> setCallback, string selected = "", int? maxSize = null)

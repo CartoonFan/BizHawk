@@ -30,8 +30,6 @@ namespace BizHawk.Emulation.Cores.Computers.MSX
 			if (_controller.IsPressed("P2 B2")) ctrl2_byte -= 0x20;
 
 			if (current_controller == MSXControllerKB) { kb_rows_check(controller); }		
-
-			_frame++;
 			
 			if (Tracer.Enabled)
 			{
@@ -45,7 +43,9 @@ namespace BizHawk.Emulation.Cores.Computers.MSX
 			LibMSX.MSX_settracecallback(MSX_Pntr, tracecb);
 			
 			LibMSX.MSX_frame_advance(MSX_Pntr, ctrl1_byte, ctrl2_byte, kb_rows, true, true);
-			
+
+			_frame++;
+
 			return true;
 		}
 
@@ -170,7 +170,7 @@ namespace BizHawk.Emulation.Cores.Computers.MSX
 		public int[] Aud = new int [9000];
 		public uint num_samp;
 
-		const int blipbuffsize = 4500;
+		private const int blipbuffsize = 4500;
 
 		public bool CanProvideAsync => false;
 

@@ -1,6 +1,4 @@
-﻿using BizHawk.Common;
-using BizHawk.BizInvoke;
-using BizHawk.Emulation.Common;
+﻿using BizHawk.BizInvoke;
 using System;
 using System.Runtime.InteropServices;
 
@@ -128,15 +126,5 @@ namespace BizHawk.Emulation.Cores.Waterbox
 
 		[BizImport(CC)]
 		public abstract void SetInputCallback(EmptyCallback callback);
-	}
-
-	/// <summary>
-	/// if a core implements this, it will be used for saveramming instead of memory domains
-	/// </summary>
-	interface ICustomSaveram
-	{
-		int GetSaveramSize();
-		void PutSaveram(byte[] data, int size);
-		void GetSaveram(byte[] data, int size);
 	}
 }

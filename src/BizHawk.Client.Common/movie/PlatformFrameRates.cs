@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace BizHawk.Client.Common
 {
-	public class PlatformFrameRates
+	public static class PlatformFrameRates
 	{
 		// these are political numbers, designed to be in accord with tasvideos.org tradition. they're not necessarily mathematical factualities (although they may be in some cases)
 		// it would be nice if we could turn this into a rational expression natively, and also, to write some comments about the derivation and ideal values (since this seems to be where they're all collected)
@@ -24,28 +23,32 @@ namespace BizHawk.Client.Common
 			["SNES_PAL"] = 21281370.0 / (4 * 341 * 312), // 50.0069789082
 			["SGB"] = 21477272.0 / (4 * 341 * 262), // 60.098475521
 			["SGB_PAL"] = 21281370.0 / (4 * 341 * 312), // 50.0069789082
-			["PCE"] = (7159090.90909090 / 455 / 263), // 59.8261054535
-			["PCECD"] = (7159090.90909090 / 455 / 263), // 59.8261054535
-			["SMS"] = (3579545 / 262.0 / 228.0), // 59.9227434043
-			["SMS_PAL"] = (3546893 / 313.0 / 228.0), // 49.7014320946
-			["GG"] = (3579545 / 262.0 / 228.0), // 59.9227434043
-			["GG_PAL"] = (3546893 / 313.0 / 228.0), // 49.7014320946
-			["SG"] = (3579545 / 262.0 / 228.0), // 59.9227434043
-			["SG_PAL"] = (3546893 / 313.0 / 228.0), // 49.7014320946
-			["NGP"] = (6144000.0 / (515 * 198)), // 60.2530155928
-			["VB"] = (20000000.0 / (259 * 384 * 4)),  // 50.2734877735
+			["PCE"] = 7159090.90909090 / 455 / 263, // 59.8261054535
+			["PCECD"] = 7159090.90909090 / 455 / 263, // 59.8261054535
+			["SMS"] = 3579545 / 262.0 / 228.0, // 59.9227434043
+			["SMS_PAL"] = 3546893 / 313.0 / 228.0, // 49.7014320946
+			["GG"] = 3579545 / 262.0 / 228.0, // 59.9227434043
+			["GG_PAL"] = 3546893 / 313.0 / 228.0, // 49.7014320946
+			["SG"] = 3579545 / 262.0 / 228.0, // 59.9227434043
+			["SG_PAL"] = 3546893 / 313.0 / 228.0, // 49.7014320946
+			["NGP"] = 6144000.0 / (515 * 198), // 60.2530155928
+			["VB"] = 20000000.0 / (259 * 384 * 4),  // 50.2734877735
 			["Lynx"] = 16000000.0 / (16 * 105 * 159), // 59.89817310572028
-			["WSWAN"] = (3072000.0 / (159 * 256)), // 75.4716981132
+			["WSWAN"] = 3072000.0 / (159 * 256), // 75.4716981132
 			["GB"] = 262144.0 / 4389.0, // 59.7275005696
 			["GBC"] = 262144.0 / 4389.0, // 59.7275005696
+
+			// RetroEdit: I don't like how this is cycles per second instead of FPS.
+			// It probably should be moved to a separate place.
 			["GB_Clock"] = 2097152.0,
-			["GBA"] = 262144.0 / 4389.0, // 59.7275005696 
+			["GBA"] = 262144.0 / 4389.0, // 59.7275005696
 			["GEN"] = 53693175 / (3420.0 * 262),
 			["GEN_PAL"] = 53203424 / (3420.0 * 313),
 
 			// while the number of scanlines per frame is software controlled and variable, we
 			// enforce exactly 262 (NTSC) 312 (PAL) per reference time frame
 			["A26"] = 315000000.0 / 88.0 / 262.0 / 228.0, // 59.922751013550531429197560173856
+
 			// this pal clock ref is exact
 			["A26_PAL"] = 3546895.0 / 312.0 / 228.0, // 49.860759671614934772829509671615
 
@@ -53,8 +56,11 @@ namespace BizHawk.Client.Common
 			["Coleco"] = 59.9227510135505,
 
 			// according to http://problemkaputt.de/psx-spx.htm
-			["PSX"] = 44100.0 * 768 * 11 / 7 / 263 / 3413, // 59.292862562
-			["PSX_PAL"] = 44100.0 * 768 * 11 / 7 / 314 / 3406, // 49.7645593576
+			//["PSX"] = 44100.0 * 768 * 11 / 7 / 263 / 3413, // 59.292862562
+			//["PSX_PAL"] = 44100.0 * 768 * 11 / 7 / 314 / 3406, // 49.7645593576
+			// according to https://github.com/TASVideos/mednafen/blob/740d63996fc7cebffd39ee253a29ee434965db21/src/psx/gpu.cpp
+			["PSX"] = 502813668.0 / 8388608, //59.940060138702392578125
+			["PSX_PAL"] = 419432765.0 / 8388608, //50.00028192996978759765625
 
 			["C64_PAL"] = PALCarrier * 2 / 9 / 312 / 63,
 			["C64_NTSC"] = NTSCCarrier * 2 / 7 / 263 / 65,
@@ -64,62 +70,16 @@ namespace BizHawk.Client.Common
 
 			["ZXSpectrum_PAL"] = 50.080128205,
 			["AmstradCPC_PAL"] = 50.08012820512821,
-
-			// according to ryphecha, using
-			// clocks[2] = { 53.693182e06, 53.203425e06 }; //ntsc console, pal console
-			// lpf[2][2] = { { 263, 262.5 }, { 314, 312.5 } }; //ntsc,pal; non-interlaced, interlaced
-			// cpl[2] = { 3412.5, 3405 }; //ntsc mode, pal mode
-			// PAL PS1: 0, PAL Mode: 0, Interlaced: 0 --- 59.826106 (53.693182e06/(263*3412.5))
-			// PAL PS1: 0, PAL Mode: 0, Interlaced: 1 --- 59.940060 (53.693182e06/(262.5*3412.5))
-			// PAL PS1: 1, PAL Mode: 1, Interlaced: 0 --- 49.761427 (53.203425e06/(314*3405))
-			// PAL PS1: 1, PAL Mode: 1, Interlaced: 1 --- 50.000282(53.203425e06/(312.5*3405))
+			["UZE"] = 60.016319939602,
+			["VEC"] = 50,
+			["O2"] = 60,
+			["O2_PAL"] = 50
 		};
 
-		public double this[string systemId, bool pal]
+		public static double GetFrameRate(string systemId, bool pal)
 		{
-			get
-			{
-				var key = systemId + (pal ? "_PAL" : "");
-				return Rates.ContainsKey(key) ? Rates[key] : 60.0;
-			}
-		}
-
-		public TimeSpan MovieTime(IMovie movie)
-		{
-			var dblSeconds = GetSeconds(movie);
-			var seconds = (int)(dblSeconds % 60);
-			var days = seconds / 86400;
-			var hours = seconds / 3600;
-			var minutes = (seconds / 60) % 60;
-			var milliseconds = (int)((dblSeconds - seconds) * 1000);
-			return new TimeSpan(days, hours, minutes, seconds, milliseconds);
-		}
-
-		private double Fps(IMovie movie)
-		{
-			var system = movie.HeaderEntries[HeaderKeys.Platform];
-			var core = movie.HeaderEntries[HeaderKeys.Core];
-			var pal = movie.HeaderEntries.ContainsKey(HeaderKeys.Pal)
-				&& movie.HeaderEntries[HeaderKeys.Pal] == "1";
-
-			if (movie.HeaderEntries.ContainsKey(HeaderKeys.CycleCount) && ((core == "Gambatte") || (core == "SubGBHawk")))
-			{
-				system = "GB_Clock";
-			}
-
-			return this[system, pal];
-		}
-
-		private double GetSeconds(IMovie movie)
-		{
-			double frames = movie.TimeLength;
-
-			if (frames < 1)
-			{
-				return 0;
-			}
-
-			return frames / Fps(movie);
+			var key = systemId + (pal ? "_PAL" : "");
+			return Rates.ContainsKey(key) ? Rates[key] : 60.0;
 		}
 	}
 }

@@ -191,7 +191,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 
 		public class BGInfos
 		{
-			BGInfo[] bgs = new BGInfo[4] { new BGInfo(1), new BGInfo(2), new BGInfo(3), new BGInfo(4) };
+			private readonly BGInfo[] bgs = new BGInfo[4] { new BGInfo(1), new BGInfo(2), new BGInfo(3), new BGInfo(4) };
 			public BGInfo BG1 => bgs[0];
 			public BGInfo BG2 => bgs[1];
 			public BGInfo BG3 => bgs[2];
@@ -271,44 +271,44 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 
 			public ModeInfo Mode = new ModeInfo();
 
-			public bool Mode1_BG3_Priority { private set; get; }
+			public bool Mode1_BG3_Priority { get; private set; }
 
-			public bool SETINI_Mode7ExtBG { private set; get; }
-			public bool SETINI_HiRes { private set; get; }
-			public bool SETINI_Overscan { private set; get; }
-			public bool SETINI_ObjInterlace { private set; get; }
-			public bool SETINI_ScreenInterlace { private set; get; }
+			public bool SETINI_Mode7ExtBG { get; private set; }
+			public bool SETINI_HiRes { get; private set; }
+			public bool SETINI_Overscan { get; private set; }
+			public bool SETINI_ObjInterlace { get; private set; }
+			public bool SETINI_ScreenInterlace { get; private set; }
 
-			public int CGWSEL_ColorMask { private set; get; }
-			public int CGWSEL_ColorSubMask { private set; get; }
-			public int CGWSEL_AddSubMode { private set; get; }
-			public bool CGWSEL_DirectColor { private set; get; }
-			public int CGADSUB_AddSub { private set; get; }
-			public bool CGADSUB_Half { private set; get; }
+			public int CGWSEL_ColorMask { get; private set; }
+			public int CGWSEL_ColorSubMask { get; private set; }
+			public int CGWSEL_AddSubMode { get; private set; }
+			public bool CGWSEL_DirectColor { get; private set; }
+			public int CGADSUB_AddSub { get; private set; }
+			public bool CGADSUB_Half { get; private set; }
 
-			public int OBSEL_Size { private set; get; }
-			public int OBSEL_NameSel { private set; get; }
-			public int OBSEL_NameBase { private set; get; }
+			public int OBSEL_Size { get; private set; }
+			public int OBSEL_NameSel { get; private set; }
+			public int OBSEL_NameBase { get; private set; }
 
-			public int OBJTable0Addr { private set; get; }
-			public int OBJTable1Addr { private set; get; }
+			public int OBJTable0Addr { get; private set; }
+			public int OBJTable1Addr { get; private set; }
 
-			public bool OBJ_MainEnabled { private set; get; }
-			public bool OBJ_SubEnabled { private set; get; }
-			public bool OBJ_MathEnabled { private set; get; }
-			public bool BK_MathEnabled { private set; get; }
+			public bool OBJ_MainEnabled { get; private set; }
+			public bool OBJ_SubEnabled { get; private set; }
+			public bool OBJ_MathEnabled { get; private set; }
+			public bool BK_MathEnabled { get; private set; }
 
-			public int M7HOFS { private set; get; }
-			public int M7VOFS { private set; get; }
-			public int M7A { private set; get; }
-			public int M7B { private set; get; }
-			public int M7C { private set; get; }
-			public int M7D { private set; get; }
-			public int M7X { private set; get; }
-			public int M7Y { private set; get; }
-			public int M7SEL_REPEAT { private set; get; }
-			public bool M7SEL_HFLIP { private set; get; }
-			public bool M7SEL_VFLIP { private set; get; }
+			public int M7HOFS { get; private set; }
+			public int M7VOFS { get; private set; }
+			public int M7A { get; private set; }
+			public int M7B { get; private set; }
+			public int M7C { get; private set; }
+			public int M7D { get; private set; }
+			public int M7X { get; private set; }
+			public int M7Y { get; private set; }
+			public int M7SEL_REPEAT { get; private set; }
+			public bool M7SEL_HFLIP { get; private set; }
+			public bool M7SEL_VFLIP { get; private set; }
 
 			public static ScreenInfo GetScreenInfo(LibsnesApi api)
 			{
@@ -497,7 +497,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			}
 		}
 
-		static int[,] ModeBpps = new[,] {
+		private static readonly int[,] ModeBpps = {
 				{2,2,2,2},
 				{4,4,2,0},
 				{4,4,0,0},
@@ -516,7 +516,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 		}
 
 		//the same basic color table that libsnes uses to convert from snes 555 to rgba32
-		static int[] directColorTable = new int[256]; //8bpp gfx -> rgb555
+		private static readonly int[] directColorTable = new int[256]; //8bpp gfx -> rgb555
 		static SNESGraphicsDecoder()
 		{
 			//make directColorTable
@@ -533,11 +533,11 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			}
 		}
 
-		int[] colortable;
+		private readonly int[] colortable;
 		public byte* vram, oam;
 		public ushort* cgram, vram16;
-		
-		LibsnesApi api;
+
+		private readonly LibsnesApi api;
 
 		public SNESGraphicsDecoder(LibsnesApi api, SnesColors.ColorType pal)
 		{
@@ -764,10 +764,10 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			}
 		}
 
-		int[][] _tileCache = new int[18][];
+		private readonly int[][] _tileCache = new int[18][];
 
-		bool usingUserBackColor = false;
-		int userBackColor;
+		private bool usingUserBackColor = false;
+		private int userBackColor;
 
 		public void SetBackColor(int snescol)
 		{
@@ -820,7 +820,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 			return ret;
 		}
 
-		void CacheTilesMode7ExtBg()
+		private void CacheTilesMode7ExtBg()
 		{
 			int numtiles = 256;
 			int[] tiles = new int[8 * 8 * numtiles];
@@ -836,7 +836,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNES
 		/// merges one type of tiles with another to create the higher-order bitdepth.
 		/// TODO - templateize this when we change it to c++
 		/// </summary>
-		void CacheTiles_Merge(int fromBpp)
+		private void CacheTiles_Merge(int fromBpp)
 		{
 			int toBpp = fromBpp * 2;
 			int shift = fromBpp;

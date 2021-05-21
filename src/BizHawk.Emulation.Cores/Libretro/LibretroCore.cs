@@ -7,19 +7,21 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Libretro
 {
-	[Core("Libretro", "zeromus", isPorted: false, isReleased: false)]
+	[Core(CoreNames.Libretro, "zeromus", isReleased: false)]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public unsafe partial class LibretroCore : IEmulator, ISettable<LibretroCore.Settings, LibretroCore.SyncSettings>,
 		ISaveRam, IStatable, IVideoProvider, IInputPollable
 	{
-		private LibretroApi api;
+		private readonly LibretroApi api;
 
 		// TODO: codepath just for introspection (lighter weight; no speex, no controls, etc.)
-		public LibretroCore(CoreComm nextComm, GameInfo game, string corePath)
+		public LibretroCore(CoreComm nextComm, IGameInfo game, string corePath)
 		{
 			ServiceProvider = new BasicServiceProvider(this);
 			_SyncSettings = new SyncSettings();
@@ -60,7 +62,7 @@ namespace BizHawk.Emulation.Cores.Libretro
 			ControllerDefinition = CreateControllerDefinition(_SyncSettings);
 		}
 
-		bool disposed = false;
+		private bool disposed = false;
 		public void Dispose()
 		{
 			if (disposed) return;
@@ -103,7 +105,7 @@ namespace BizHawk.Emulation.Cores.Libretro
 			return ret;
 		}
 
-		void LoadHandler()
+		private void LoadHandler()
 		{
 			//this stuff can only happen after the game is loaded
 
@@ -155,9 +157,9 @@ namespace BizHawk.Emulation.Cores.Libretro
 			return true;
 		}
 
-		GCHandle vidBufferHandle;
-		int[] vidBuffer;
-		int vidWidth = -1, vidHeight = -1;
+		private GCHandle vidBufferHandle;
+		private int[] vidBuffer;
+		private int vidWidth = -1, vidHeight = -1;
 
 		private void SetVideoBuffer(int width, int height)
 		{
@@ -207,14 +209,14 @@ namespace BizHawk.Emulation.Cores.Libretro
 		public int VsyncNumerator { get; private set; }
 		public int VsyncDenominator { get; private set; }
 
-		SpeexResampler resampler;
+		private SpeexResampler resampler;
 
-		short[] sampbuff = new short[0];
+		private short[] sampbuff = new short[0];
 
 		// debug
-		int nsamprecv = 0;
+		private int nsamprecv = 0;
 
-		void SetupResampler(double fps, double sps)
+		private void SetupResampler(double fps, double sps)
 		{
 			Console.WriteLine("FPS {0} SPS {1}", fps, sps);
 
@@ -253,9 +255,7 @@ namespace BizHawk.Emulation.Cores.Libretro
 				definition.BoolButtons.Add(string.Format(item,"RetroPad"));
 
 			definition.BoolButtons.Add("Pointer Pressed"); //TODO: this isnt showing up in the binding panel. I don't want to find out why.
-			definition.AxisControls.Add("Pointer X");
-			definition.AxisControls.Add("Pointer Y");
-			definition.AxisRanges.AddRange(ControllerDefinition.CreateAxisRangePair(-32767, 0, 32767, ControllerDefinition.AxisPairOrientation.RightAndUp));
+			definition.AddXYPair("Pointer {0}", AxisPairOrientation.RightAndUp, (-32767).RangeTo(32767), 0);
 
 			foreach (var key in new[]{
 				"Key Backspace", "Key Tab", "Key Clear", "Key Return", "Key Pause", "Key Escape",
@@ -281,7 +281,7 @@ namespace BizHawk.Emulation.Cores.Libretro
 
 		public ControllerDefinition ControllerDefinition { get; }
 
-		int timeFrameCounter;
+		private int timeFrameCounter;
 		public int Frame
 		{
 			get => timeFrameCounter;
@@ -294,7 +294,7 @@ namespace BizHawk.Emulation.Cores.Libretro
 
 		//TODO - terrible things will happen if this changes at runtime
 
-		byte[] saverambuff = new byte[0];
+		private byte[] saverambuff = new byte[0];
 
 		public byte[] CloneSaveRam()
 		{
@@ -342,7 +342,7 @@ namespace BizHawk.Emulation.Cores.Libretro
 			IsLagFrame = false;
 		}
 
-		private byte[] savebuff, savebuff2;
+		private byte[] savebuff;
 
 		public void SaveStateBinary(BinaryWriter writer)
 		{
@@ -350,7 +350,6 @@ namespace BizHawk.Emulation.Cores.Libretro
 			if (savebuff == null || savebuff.Length != (int)api.comm->env.retro_serialize_size)
 			{
 				savebuff = new byte[api.comm->env.retro_serialize_size];
-				savebuff2 = new byte[savebuff.Length + 13];
 			}
 
 			api.CMD_Serialize(savebuff);
@@ -374,24 +373,6 @@ namespace BizHawk.Emulation.Cores.Libretro
 			LagCount = reader.ReadInt32();
 			IsLagFrame = reader.ReadBoolean();
 		}
-
-		public byte[] SaveStateBinary()
-		{
-			api.CMD_UpdateSerializeSize();
-			if (savebuff == null || savebuff.Length != (int)api.comm->env.retro_serialize_size)
-			{
-				savebuff = new byte[api.comm->env.retro_serialize_size];
-				savebuff2 = new byte[savebuff.Length + 13];
-			}
-
-			var ms = new MemoryStream(savebuff2, true);
-			var bw = new BinaryWriter(ms);
-			SaveStateBinary(bw);
-			bw.Flush();
-			ms.Close();
-			return savebuff2;
-		}
-	} //class
-
-} //namespace
+	}
+}
  

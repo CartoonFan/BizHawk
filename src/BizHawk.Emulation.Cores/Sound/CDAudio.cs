@@ -21,7 +21,7 @@ namespace BizHawk.Emulation.Cores.Components
 		public const byte PlaybackMode_LoopOnCompletion = 2;
 		public const byte PlaybackMode_CallbackOnCompletion = 3;
 
-		public Action CallbackAction = delegate { };
+		public Action CallbackAction = () => {};
 
 		public Disc Disc;
 		public DiscSectorReader DiscSectorReader;
@@ -35,8 +35,8 @@ namespace BizHawk.Emulation.Cores.Components
 		public int PlayingTrack;
 
 		public int CurrentSector, SectorOffset; // Offset is in SAMPLES, not bytes. Sector is 588 samples long.
-		int CachedSector;
-		readonly byte[] SectorCache = new byte[2352];
+		private int CachedSector;
+		private readonly byte[] SectorCache = new byte[2352];
 
 		public int FadeOutOverFrames = 0;
 		public int FadeOutFramesRemaining = 0;
@@ -128,7 +128,7 @@ namespace BizHawk.Emulation.Cores.Components
 			FadeOutFramesRemaining = frames;
 		}
 
-		void EnsureSector()
+		private void EnsureSector()
 		{
 			if (CachedSector != CurrentSector)
 			{

@@ -1,96 +1,53 @@
 ﻿using System;
 using System.Windows.Forms;
 
-using BizHawk.Emulation.Common;
 using BizHawk.Client.Common;
-using BizHawk.Common.NumberExtensions;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class StateHistorySettingsForm : Form
+	public partial class GreenzoneSettings : Form
 	{
-		public IStatable Statable { get; set; }
+		private readonly Action<ZwinderStateManagerSettings, bool> _saveSettings;
+		private ZwinderStateManagerSettings _settings;
+		private readonly bool _isDefault;
 
-		private readonly TasStateManagerSettings _settings;
-		private decimal _stateSizeMb;
+		public IDialogController DialogController { get; }
 
-		public StateHistorySettingsForm(TasStateManagerSettings settings)
+		public GreenzoneSettings(IDialogController dialogController, ZwinderStateManagerSettings settings, Action<ZwinderStateManagerSettings, bool> saveSettings, bool isDefault)
 		{
-			_settings = settings;
+			DialogController = dialogController;
 			InitializeComponent();
+			Icon = Properties.Resources.TAStudioIcon;
+
+			_saveSettings = saveSettings;
+			_settings = settings;
+			_isDefault = isDefault;
+			if (!isDefault)
+				Text = "Savestate History Settings";
+			SettingsPropertyGrid.SelectedObject = _settings;
 		}
 
-		private void StateHistorySettings_Load(object sender, EventArgs e)
+		private void GreenzoneSettings_Load(object sender, EventArgs e)
 		{
-			var stateSize = Statable.SaveStateBinary().Length;
-			_stateSizeMb = stateSize / 1048576.0M;
-
-			MemCapacityNumeric.Maximum = 1024 * 8;
-			MemCapacityNumeric.Minimum = _stateSizeMb + 1;
-
-			MemStateGapDividerNumeric.Maximum = stateSize / 1024 / 2 + 1;
-			MemStateGapDividerNumeric.Minimum = Math.Max(stateSize / 1024 / 16, 1);
-
-			MemCapacityNumeric.Value = NumberExtensions.Clamp(_settings.CapacityMb, MemCapacityNumeric.Minimum, MemCapacityNumeric.Maximum);
-			DiskCapacityNumeric.Value = NumberExtensions.Clamp(_settings.DiskCapacityMb, MemCapacityNumeric.Minimum, MemCapacityNumeric.Maximum);
-			FileCapacityNumeric.Value = NumberExtensions.Clamp(_settings.DiskSaveCapacityMb, MemCapacityNumeric.Minimum, MemCapacityNumeric.Maximum);
-			MemStateGapDividerNumeric.Value = NumberExtensions.Clamp(_settings.MemStateGapDivider, MemStateGapDividerNumeric.Minimum, MemStateGapDividerNumeric.Maximum);
-
-			FileStateGapNumeric.Value = _settings.FileStateGap;
-			SavestateSizeLabel.Text = $"{Math.Round(_stateSizeMb, 2)} MB";
-			CapacityNumeric_ValueChanged(null, null);
-			SaveCapacityNumeric_ValueChanged(null, null);
+			SettingsPropertyGrid.AdjustDescriptionHeightToFit();
 		}
-
-		private int MaxStatesInCapacity => (int)Math.Floor(MemCapacityNumeric.Value / _stateSizeMb)
-			+ (int)Math.Floor(DiskCapacityNumeric.Value / _stateSizeMb);
 
 		private void OkBtn_Click(object sender, EventArgs e)
 		{
-			_settings.CapacityMb = (int)MemCapacityNumeric.Value;
-			_settings.DiskCapacityMb = (int)DiskCapacityNumeric.Value;
-			_settings.DiskSaveCapacityMb = (int)FileCapacityNumeric.Value;
-			_settings.MemStateGapDivider = (int)MemStateGapDividerNumeric.Value;
-			_settings.FileStateGap = (int)FileStateGapNumeric.Value;
-			DialogResult = DialogResult.OK;
+			var keep = !_isDefault && DialogController.ShowMessageBox2("Attempt to keep old states?", "Keep old states?");
+			_saveSettings(_settings, keep);
 			Close();
 		}
 
 		private void CancelBtn_Click(object sender, EventArgs e)
 		{
-			DialogResult = DialogResult.Cancel;
 			Close();
 		}
 
-		private void CapacityNumeric_ValueChanged(object sender, EventArgs e)
+		private void DefaultsButton_Click(object sender, EventArgs e)
 		{
-			// TODO: Setting space for 2.6 (2) states in memory and 2.6 (2) on disk results in 5 total.
-			// Easy to fix the display, but the way TasStateManager works the total used actually is 5.
-			NumStatesLabel.Text = MaxStatesInCapacity.ToString();
-		}
-
-		private void SaveCapacityNumeric_ValueChanged(object sender, EventArgs e)
-		{
-			NumSaveStatesLabel.Text = ((int)Math.Floor(FileCapacityNumeric.Value / _stateSizeMb)).ToString();
-		}
-
-		private void FileStateGap_ValueChanged(object sender, EventArgs e)
-		{
-			FileNumFramesLabel.Text = FileStateGapNumeric.Value == 0
-				? "frame"
-				: $"{1 << (int)FileStateGapNumeric.Value} frames";
-		}
-
-		private void MemStateGapDivider_ValueChanged(object sender, EventArgs e)
-		{
-			int val = (int)(Statable.CloneSavestate().Length / MemStateGapDividerNumeric.Value / 1024);
-
-			if (val <= 1)
-				MemStateGapDividerNumeric.Maximum = MemStateGapDividerNumeric.Value;
-
-			MemFramesLabel.Text = val <= 1
-				? "frame"
-				: $"{val} frames";
+			_settings = new ZwinderStateManagerSettings();
+			SettingsPropertyGrid.SelectedObject = _settings;
 		}
 	}
 }

@@ -15,7 +15,7 @@ namespace BizHawk.Client.EmuHawk
 	{
 		// Input Painting
 		private string _startBoolDrawColumn = "";
-		private string _startFloatDrawColumn = "";
+		private string _startAxisDrawColumn = "";
 		private bool _boolPaintState;
 		private int _axisPaintState;
 		private int _axisBackupState;
@@ -26,6 +26,7 @@ namespace BizHawk.Client.EmuHawk
 		private bool _suppressContextMenu;
 		private int _startRow;
 		private int _paintingMinFrame = -1;
+		private bool _playbackInterrupted; // Occurs when the emulator is unpaused and the user click and holds mouse down to begin delivering input
 
 		// Editing analog input
 		private string _axisEditColumn = "";
@@ -155,6 +156,11 @@ namespace BizHawk.Client.EmuHawk
 
 		private void TasView_QueryItemIcon(int index, RollColumn column, ref Bitmap bitmap, ref int offsetX, ref int offsetY)
 		{
+			if (!_engaged || _initializing)
+			{
+				return;
+			}
+
 			var overrideIcon = QueryItemIconCallback?.Invoke(index, column.Name);
 
 			if (overrideIcon != null)
@@ -218,6 +224,11 @@ namespace BizHawk.Client.EmuHawk
 
 		private void TasView_QueryItemBkColor(int index, RollColumn column, ref Color color)
 		{
+			if (!_engaged || _initializing)
+			{
+				return;
+			}
+
 			Color? overrideColor = QueryItemBgColorCallback?.Invoke(index, column.Name);
 
 			if (overrideColor.HasValue)
@@ -260,6 +271,11 @@ namespace BizHawk.Client.EmuHawk
 
 		private void TasView_QueryRowBkColor(int index, ref Color color)
 		{
+			if (!_engaged || _initializing)
+			{
+				return;
+			}
+
 			var record = CurrentTasMovie[index];
 
 			if (MainForm.IsSeeking && MainForm.PauseOnFrame == index)
@@ -299,6 +315,12 @@ namespace BizHawk.Client.EmuHawk
 
 		private void TasView_QueryItemText(int index, RollColumn column, out string text, ref int offsetX, ref int offsetY)
 		{
+			if (!_engaged || _initializing)
+			{
+				text = "";
+				return;
+			}
+
 			var overrideText = QueryItemTextCallback?.Invoke(index, column.Name);
 			if (overrideText != null)
 			{
@@ -334,12 +356,10 @@ namespace BizHawk.Client.EmuHawk
 					else if (index < CurrentTasMovie.InputLogLength)
 					{
 						text = CurrentTasMovie.DisplayValue(index, columnName);
-						if (column.Type == ColumnType.Float)
+						if (column.Type == ColumnType.Axis)
 						{
 							// feos: this could be cached, but I don't notice any slowdown this way either
-							ControllerDefinition.AxisRange range = ControllerType.AxisRanges
-								[ControllerType.AxisControls.IndexOf(columnName)];
-							if (text == ((float) range.Mid).ToString())
+							if (text == ((float) ControllerType.Axes[columnName].Neutral).ToString())
 							{
 								text = "";
 							}
@@ -350,7 +370,7 @@ namespace BizHawk.Client.EmuHawk
 			catch (Exception ex)
 			{
 				text = "";
-				MessageBox.Show($"oops\n{ex}");
+				DialogController.ShowMessageBox($"oops\n{ex}");
 			}
 		}
 
@@ -403,7 +423,7 @@ namespace BizHawk.Client.EmuHawk
 					}
 					else
 					{
-						// feos: there's no default value other than mid, and we can't go arbitrary here, so do nothing for now
+						// feos: there's no default value other than neutral, and we can't go arbitrary here, so do nothing for now
 						// autohold is ignored for axes too for the same reasons: lack of demand + ambiguity
 					}
 
@@ -459,18 +479,23 @@ namespace BizHawk.Client.EmuHawk
 					index += ControllerType.BoolButtons.Count - 1;
 				}
 
-				AutoPatternBool p = BoolPatterns[index];
-				GlobalWin.InputManager.AutofireStickyXorAdapter.SetSticky(button, isOn.Value, p);
+				// Fixes auto-loading, but why is this code like this? The code above suggests we have a BoolPattern for every  bool button? But we don't
+				// This is a sign of a deeper problem, but this fixes some basic functionality at least
+				if (index < BoolPatterns.Length)
+				{
+					AutoPatternBool p = BoolPatterns[index];
+					InputManager.AutofireStickyXorAdapter.SetSticky(button, isOn.Value, p);
+				}
 			}
 			else
 			{
 				if (index == 0)
 				{
-					index = ControllerType.AxisControls.IndexOf(button);
+					index = ControllerType.Axes.IndexOf(button);
 				}
 				else
 				{
-					index += ControllerType.AxisControls.Count - 1;
+					index += ControllerType.Axes.Count - 1;
 				}
 
 				int? value = null;
@@ -479,8 +504,13 @@ namespace BizHawk.Client.EmuHawk
 					value = 0;
 				}
 
-				AutoPatternAxis p = AxisPatterns[index];
-				GlobalWin.InputManager.AutofireStickyXorAdapter.SetAxis(button, value, p);
+				// Fixes auto-loading, but why is this code like this? The code above suggests we have a AxisPattern for every axis button? But we don't
+				// This is a sign of a deeper problem, but this fixes some basic functionality at least
+				if (index < BoolPatterns.Length)
+				{
+					AutoPatternAxis p = AxisPatterns[index];
+					InputManager.AutofireStickyXorAdapter.SetAxis(button, value, p);
+				}
 			}
 		}
 
@@ -513,17 +543,11 @@ namespace BizHawk.Client.EmuHawk
 					if (!record.Lagged.HasValue && LastPositionFrame > Emulator.Frame)
 					{
 						StartSeeking(LastPositionFrame, true);
+						return;
 					}
-					else
-					{
-						MainForm.UnpauseEmulator();
-					}
-				}
-				else
-				{
-					MainForm.PauseEmulator();
 				}
 
+				MainForm.TogglePause();
 				return;
 			}
 
@@ -572,8 +596,6 @@ namespace BizHawk.Client.EmuHawk
 						_axisPaintState = CurrentTasMovie.GetAxisState(frame, buttonName);
 						
 						_triggerAutoRestore = true;
-						JumpToGreenzone();
-
 						return;
 					}
 				}
@@ -598,7 +620,13 @@ namespace BizHawk.Client.EmuHawk
 				}
 				else if (TasView.CurrentCell.Column.Type != ColumnType.Text) // User changed input
 				{
-					bool wasPaused = MainForm.EmulatorPaused;
+					_playbackInterrupted = !MainForm.EmulatorPaused;
+					MainForm.PauseEmulator();
+
+					// Pausing the emulator is insufficient to actually stop frame advancing as the frame advance hotkey can
+					// still take effect. This can lead to desyncs by simultaneously changing input and frame advancing.
+					// So we want to block all frame advance operations while the user is changing input in the piano roll
+					MainForm.BlockFrameAdvance = true;
 
 					if (ControllerType.BoolButtons.Contains(buttonName))
 					{
@@ -663,14 +691,12 @@ namespace BizHawk.Client.EmuHawk
 							RefreshDialog();
 						}
 
-						JumpToGreenzone();
-
 						_axisPaintState = CurrentTasMovie.GetAxisState(frame, buttonName);
 						if (applyPatternToPaintedInputToolStripMenuItem.Checked && (!onlyOnAutoFireColumnsToolStripMenuItem.Checked
 							|| TasView.CurrentCell.Column.Emphasis))
 						{
-							AxisPatterns[ControllerType.AxisControls.IndexOf(buttonName)].Reset();
-							CurrentTasMovie.SetAxisState(frame, buttonName, AxisPatterns[ControllerType.AxisControls.IndexOf(buttonName)].GetNextValue());
+							AxisPatterns[ControllerType.Axes.IndexOf(buttonName)].Reset();
+							CurrentTasMovie.SetAxisState(frame, buttonName, AxisPatterns[ControllerType.Axes.IndexOf(buttonName)].GetNextValue());
 							_patternPaint = true;
 						}
 						else
@@ -679,10 +705,10 @@ namespace BizHawk.Client.EmuHawk
 						}
 
 
-						if (e.Clicks != 2 && !Settings.SingleClickFloatEdit)
+						if (e.Clicks != 2 && !Settings.SingleClickAxisEdit)
 						{
-							CurrentTasMovie.ChangeLog.BeginNewBatch($"Paint Float {buttonName} from frame {frame}");
-							_startFloatDrawColumn = buttonName;
+							CurrentTasMovie.ChangeLog.BeginNewBatch($"Paint Axis {buttonName} from frame {frame}");
+							_startAxisDrawColumn = buttonName;
 						}
 						else // Double-click enters axis editing mode
 						{
@@ -692,7 +718,7 @@ namespace BizHawk.Client.EmuHawk
 							}
 							else
 							{
-								CurrentTasMovie.ChangeLog.BeginNewBatch($"Float Edit: {frame}");
+								CurrentTasMovie.ChangeLog.BeginNewBatch($"Axis Edit: {frame}");
 								_axisEditColumn = buttonName;
 								AxisEditRow = frame;
 								_axisTypedValue = "";
@@ -702,12 +728,6 @@ namespace BizHawk.Client.EmuHawk
 
 							RefreshDialog();
 						}
-					}
-
-					// taseditor behavior
-					if (!wasPaused)
-					{
-						MainForm.UnpauseEmulator();
 					}
 				}
 			}
@@ -778,7 +798,7 @@ namespace BizHawk.Client.EmuHawk
 			_startCursorDrag = false;
 			_startSelectionDrag = false;
 			_startBoolDrawColumn = "";
-			_startFloatDrawColumn = "";
+			_startAxisDrawColumn = "";
 			_paintingMinFrame = -1;
 			TasView.ReleaseCurrentCell();
 
@@ -799,6 +819,8 @@ namespace BizHawk.Client.EmuHawk
 			{
 				CurrentTasMovie.ChangeLog?.EndBatch();
 			}
+
+			MainForm.BlockFrameAdvance = false;
 		}
 
 		private void TasView_MouseUp(object sender, MouseEventArgs e)
@@ -832,7 +854,7 @@ namespace BizHawk.Client.EmuHawk
 					{
 						// If painting up, we have altered frames without loading states (for smoothness)
 						// So now we have to ensure that all the edited frames are invalidated
-						if (CurrentTasMovie.LastEditedFrame < Emulator.Frame)
+						if (_paintingMinFrame < Emulator.Frame)
 						{
 							GoToFrame(_paintingMinFrame);
 						}
@@ -921,7 +943,7 @@ namespace BizHawk.Client.EmuHawk
 						else
 						{
 							ClearLeftMouseStates();
-							MarkerControl.AddMarker(false, TasView.CurrentCell.RowIndex.Value);
+							MarkerControl.AddMarker(TasView.CurrentCell.RowIndex.Value, false);
 						}
 					}
 				}
@@ -1012,7 +1034,7 @@ namespace BizHawk.Client.EmuHawk
 						// If going backwards, delete!
 						bool shouldInsert = true;
 						if (startVal < _rightClickFrame)
-						{ 
+						{
 							// Cloning to a previous frame makes no sense.
 							startVal = _rightClickFrame - 1;
 						}
@@ -1137,7 +1159,7 @@ namespace BizHawk.Client.EmuHawk
 				}
 			}
 
-			else if (TasView.IsPaintDown && !string.IsNullOrEmpty(_startFloatDrawColumn))
+			else if (TasView.IsPaintDown && !string.IsNullOrEmpty(_startAxisDrawColumn))
 			{
 				CurrentTasMovie.IsCountingRerecords = false;
 
@@ -1148,17 +1170,19 @@ namespace BizHawk.Client.EmuHawk
 					{
 						if (CurrentTasMovie[frame].Lagged.HasValue && CurrentTasMovie[frame].Lagged.Value)
 						{
-							setVal = CurrentTasMovie.GetAxisState(i - 1, _startFloatDrawColumn);
+							setVal = CurrentTasMovie.GetAxisState(i - 1, _startAxisDrawColumn);
 						}
 						else
 						{
-							setVal = AxisPatterns[ControllerType.AxisControls.IndexOf(_startFloatDrawColumn)].GetNextValue();
+							setVal = AxisPatterns[ControllerType.Axes.IndexOf(_startAxisDrawColumn)].GetNextValue();
 						}
 					}
 
-					CurrentTasMovie.SetAxisState(i, _startFloatDrawColumn, setVal); // Notice it uses new row, old column, you can only paint across a single column
-					JumpToGreenzone();
-				}
+					var getVal = (i < CurrentTasMovie.InputLogLength) ? CurrentTasMovie.GetAxisState(i, _startAxisDrawColumn) : setVal;
+					CurrentTasMovie.SetAxisState(i, _startAxisDrawColumn, setVal); // Notice it uses new row, old column, you can only paint across a single column
+
+					if (getVal != setVal) { JumpToGreenzone(); }
+				}				
 			}
 
 			CurrentTasMovie.IsCountingRerecords = wasCountingRerecords;
@@ -1182,11 +1206,9 @@ namespace BizHawk.Client.EmuHawk
 					return;
 				}
 
-				var value = (_axisPaintState + increment).ConstrainWithin(ControllerType.AxisRanges[ControllerType.AxisControls.IndexOf(_axisEditColumn)].Range);
+				var value = (_axisPaintState + increment).ConstrainWithin(ControllerType.Axes[_axisEditColumn].Range);
 				CurrentTasMovie.SetAxisState(_axisEditRow, _axisEditColumn, value);
 				_axisTypedValue = value.ToString();
-
-				JumpToGreenzone();
 				RefreshDialog();
 			}
 		}
@@ -1255,8 +1277,9 @@ namespace BizHawk.Client.EmuHawk
 			float prev = value;
 			string prevTyped = _axisTypedValue;
 
-			var range = ControllerType.AxisRanges[ControllerType.AxisControls.IndexOf(_axisEditColumn)];
-			var (rMin, rMax) = range.FloatRange;
+			var range = ControllerType.Axes[_axisEditColumn];
+			float rMin = range.Min;
+			float rMax = range.Max;
 
 			// feos: typing past max digits overwrites existing value, not touching the sign
 			// but doesn't handle situations where the range is like -50 through 100, where minimum is negative and has less digits
@@ -1422,19 +1445,19 @@ namespace BizHawk.Client.EmuHawk
 		private void TasView_KeyDown(object sender, KeyEventArgs e)
 		{
 			// taseditor uses Ctrl for selection and Shift for frame cursor
-			if (!e.Control && e.Shift && !e.Alt && e.KeyCode == Keys.PageUp) // Shift + Page Up
+			if (e.IsShift(Keys.PageUp))
 			{
 				GoToPreviousMarker();
 			}
-			else if (!e.Control && e.Shift && !e.Alt && e.KeyCode == Keys.PageDown) // Shift + Page Down
+			else if (e.IsShift(Keys.PageDown))
 			{
 				GoToNextMarker();
 			}
-			else if (!e.Control && e.Shift && !e.Alt && e.KeyCode == Keys.Home) // Shift + Home
+			else if (e.IsShift(Keys.Home))
 			{
 				GoToFrame(0);
 			}
-			else if (!e.Control && e.Shift && !e.Alt && e.KeyCode == Keys.End) // Shift + End
+			else if (e.IsShift(Keys.End))
 			{
 				GoToFrame(CurrentTasMovie.InputLogLength-1);
 			}
@@ -1446,10 +1469,6 @@ namespace BizHawk.Client.EmuHawk
 				&& e.KeyCode != Keys.Down)
 			{
 				EditAnalogProgrammatically(e);
-			}
-			else if (!e.Control && !e.Shift && !e.Alt)
-			{
-				
 			}
 
 			RefreshDialog();

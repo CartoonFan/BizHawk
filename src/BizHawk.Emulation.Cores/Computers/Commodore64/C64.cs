@@ -9,23 +9,20 @@ using BizHawk.Emulation.Cores.Computers.Commodore64.Media;
 
 namespace BizHawk.Emulation.Cores.Computers.Commodore64
 {
-	[Core(
-		"C64Hawk",
-		"SaxxonPike",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.C64Hawk, "SaxxonPike")]
 	public sealed partial class C64 : IEmulator, IRegionable, IBoardInfo, IRomInfo
 	{
-		public C64(CoreComm comm, IEnumerable<byte[]> roms, GameInfo game, object settings, object syncSettings)
+		[CoreConstructor("C64")]
+		public C64(CoreLoadParameters<C64Settings, C64SyncSettings> lp)
 		{
-			PutSyncSettings((C64SyncSettings)syncSettings ?? new C64SyncSettings());
-			PutSettings((C64Settings)settings ?? new C64Settings());
+			PutSyncSettings((C64SyncSettings)lp.SyncSettings ?? new C64SyncSettings());
+			PutSettings((C64Settings)lp.Settings ?? new C64Settings());
 
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;
 
-			CoreComm = comm;
-			_roms = roms?.ToList() ?? new List<byte[]>();
+			CoreComm = lp.Comm;
+			_roms = lp.Roms.Select(r => r.RomData).ToList();
 			_currentDisk = 0;
 			RomSanityCheck();
 
@@ -64,10 +61,19 @@ namespace BizHawk.Emulation.Cores.Computers.Commodore64
 			if (_board.CartPort.IsConnected)
 			{
 				// There are no multi-cart cart games, so just hardcode .First()
-				RomDetails = $"{game.Name}\r\nSHA1:{_roms.First().HashSHA1()}\r\nMD5:{roms.First().HashMD5()}\r\nMapper Impl \"{_board.CartPort.CartridgeType}\"";
+				RomDetails = $"{lp.Game.Name}\r\nSHA1:{_roms.First().HashSHA1()}\r\nMD5:{_roms.First().HashMD5()}\r\nMapper Impl \"{_board.CartPort.CartridgeType}\"";
 			}
 
 			SetupMemoryDomains();
+		}
+
+		public void ExecFetch(ushort addr)
+		{
+			if (_memoryCallbacks.HasExecutes)
+			{
+				uint flags = (uint)(MemoryCallbackFlags.CPUZero | MemoryCallbackFlags.AccessExecute);
+				_memoryCallbacks.CallMemoryCallbacks(addr, 0, flags, "System Bus");
+			}
 		}
 
 		private CoreComm CoreComm { get; }

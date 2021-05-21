@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+
+using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
@@ -14,7 +17,7 @@ namespace BizHawk.Client.EmuHawk
 		/// <summary>
 		/// sets to a default video codec token without calling any UI - for automated dumping
 		/// </summary>
-		void SetDefaultVideoCodecToken();
+		void SetDefaultVideoCodecToken(Config config);
 
 		/// <summary>
 		/// Returns whether this VideoWriter dumps audio
@@ -60,9 +63,8 @@ namespace BizHawk.Client.EmuHawk
 		/// obtain a set of recording compression parameters
 		/// return null on user cancel
 		/// </summary>
-		/// <param name="hwnd">hwnd to attach to if the user is shown config dialog</param>
 		/// <returns>codec token, dispose of it when you're done with it</returns>
-		IDisposable AcquireVideoCodecToken(System.Windows.Forms.IWin32Window hwnd);
+		IDisposable AcquireVideoCodecToken(Config config);
 
 		/// <summary>
 		/// set framerate to fpsNum/fpsDen (assumed to be unchanging over the life of the stream)
@@ -113,13 +115,10 @@ namespace BizHawk.Client.EmuHawk
 		}
 	}
 
-	[AttributeUsage(AttributeTargets.Class)]
-	public sealed class VideoWriterIgnoreAttribute : Attribute
-	{
-	}
-
 	public class VideoWriterInfo
 	{
+		private static readonly Type[] CTOR_TYPES_A = { typeof(IDialogParent) };
+
 		public VideoWriterAttribute Attribs { get; }
 		private readonly Type _type;
 
@@ -129,7 +128,11 @@ namespace BizHawk.Client.EmuHawk
 			Attribs = attribs;
 		}
 
-		public IVideoWriter Create() => (IVideoWriter)Activator.CreateInstance(_type);
+		/// <param name="dialogParent">parent for if the user is shown config dialog</param>
+		public IVideoWriter Create(IDialogParent dialogParent) => (IVideoWriter) (
+			_type.GetConstructor(CTOR_TYPES_A)
+				?.Invoke(new object[] { dialogParent })
+				?? Activator.CreateInstance(_type));
 
 		public override string ToString() => Attribs.Name;
 	}
@@ -143,14 +146,14 @@ namespace BizHawk.Client.EmuHawk
 
 		static VideoWriterInventory()
 		{
-			foreach (Type t in typeof(VideoWriterInventory).Assembly.GetTypes())
+			foreach (var t in EmuHawk.ReflectionCache.Types)
 			{
 				if (!t.IsInterface
 					&& typeof(IVideoWriter).IsAssignableFrom(t)
-					&& !t.IsAbstract
-					&& t.GetCustomAttributes(typeof(VideoWriterIgnoreAttribute), false).Length == 0)
+					&& !t.IsAbstract)
 				{
-					var a = (VideoWriterAttribute)t.GetCustomAttributes(typeof(VideoWriterAttribute), false)[0];
+					var a = t.GetCustomAttributes(typeof(VideoWriterAttribute), false).Cast<VideoWriterAttribute>().FirstOrDefault();
+					if (a == null) continue;
 					VideoWriters.Add(a.ShortName, new VideoWriterInfo(a, t));
 				}
 			}
@@ -161,10 +164,11 @@ namespace BizHawk.Client.EmuHawk
 		/// <summary>
 		/// find an IVideoWriter by its short name
 		/// </summary>
-		public static IVideoWriter GetVideoWriter(string name)
+		/// <param name="dialogParent">parent for if the user is shown config dialog</param>
+		public static IVideoWriter GetVideoWriter(string name, IDialogParent dialogParent)
 		{
 			return VideoWriters.TryGetValue(name, out var ret)
-				? ret.Create()
+				? ret.Create(dialogParent)
 				: null;
 		}
 	}

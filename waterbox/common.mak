@@ -2,7 +2,8 @@
 
 WATERBOX_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(filter-out $(lastword $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))))
-OUTPUTDLL_DIR := $(realpath $(WATERBOX_DIR)/../output/dll)
+OUTPUTDLL_DIR := $(realpath $(WATERBOX_DIR)/../Assets/dll)
+OUTPUTDLLCOPY_DIR := $(realpath $(WATERBOX_DIR)/../output/dll)
 ifeq ($(OUT_DIR),)
 OUT_DIR := $(ROOT_DIR)/obj
 endif
@@ -23,7 +24,7 @@ print-%: ;
 #LD_PLUGIN := $(shell gcc --print-file-name=liblto_plugin.so)
 
 CC := $(SYSROOT)/bin/musl-gcc
-COMMONFLAGS := -mabi=ms -fvisibility=hidden -I$(WATERBOX_DIR)/emulibc -Wall -mcmodel=large \
+COMMONFLAGS := -fvisibility=hidden -I$(WATERBOX_DIR)/emulibc -Wall -mcmodel=large \
 	-mstack-protector-guard=global -no-pie -fno-pic -fno-pie -fcf-protection=none \
 	-MD -MP
 CCFLAGS := $(CCFLAGS) $(COMMONFLAGS)
@@ -94,18 +95,23 @@ $(TARGET_DEBUG): $(DOBJS) $(EMULIBC_DOBJS) $(LINKSCRIPT)
 install: $(TARGET_RELEASE)
 	@cp -f $< $(OUTPUTDLL_DIR)
 	@gzip --stdout --best $< > $(OUTPUTDLL_DIR)/$(TARGET).gz
+	@cp $(OUTPUTDLL_DIR)/$(TARGET).gz $(OUTPUTDLLCOPY_DIR)/$(TARGET).gz || true
 	@echo Release build of $(TARGET) installed.
 
 install-debug: $(TARGET_DEBUG)
 	@cp -f $< $(OUTPUTDLL_DIR)
 	@gzip --stdout --best $< > $(OUTPUTDLL_DIR)/$(TARGET).gz
+	@cp $(OUTPUTDLL_DIR)/$(TARGET).gz $(OUTPUTDLLCOPY_DIR)/$(TARGET).gz || true
 	@echo Debug build of $(TARGET) installed.
 
 else
 
+# add fake rules that match the WBX_TARGETS case to ease use of all-cores.mak
+
 .DEFAULT_GOAL = all
 
-.PHONY: all
+.PHONY: all release debug install install-debug
+release debug install install-debug: all
 
 all: $(OBJS) $(DOBJS)
 

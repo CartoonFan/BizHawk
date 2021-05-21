@@ -5,15 +5,25 @@ using System.Windows.Forms;
 using System.IO;
 
 using BizHawk.Client.Common;
+using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Nintendo.Gameboy;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class ColorChooserForm : Form
+	public partial class ColorChooserForm : Form, IDialogParent
 	{
-		private ColorChooserForm()
+		private readonly Config _config;
+		private readonly IGameInfo _game;
+
+		public IDialogController DialogController { get; }
+
+		private ColorChooserForm(IDialogController dialogController, Config config, IGameInfo game)
 		{
+			_config = config;
+			_game = game;
+			DialogController = dialogController;
 			InitializeComponent();
+			Icon = Properties.Resources.GambatteIcon;
 		}
 
 		private readonly Color[] _colors = new Color[12];
@@ -88,32 +98,32 @@ namespace BizHawk.Client.EmuHawk
 
 		private void Panel12_DoubleClick(object sender, EventArgs e)
 		{
-			Panel psender = (Panel)sender;
+			Panel panel = (Panel)sender;
 
 			int i;
-			if (psender == panel1)
+			if (panel == panel1)
 				i = 0;
-			else if (psender == panel2)
+			else if (panel == panel2)
 				i = 1;
-			else if (psender == panel3)
+			else if (panel == panel3)
 				i = 2;
-			else if (psender == panel4)
+			else if (panel == panel4)
 				i = 3;
-			else if (psender == panel5)
+			else if (panel == panel5)
 				i = 4;
-			else if (psender == panel6)
+			else if (panel == panel6)
 				i = 5;
-			else if (psender == panel7)
+			else if (panel == panel7)
 				i = 6;
-			else if (psender == panel8)
+			else if (panel == panel8)
 				i = 7;
-			else if (psender == panel9)
+			else if (panel == panel9)
 				i = 8;
-			else if (psender == panel10)
+			else if (panel == panel10)
 				i = 9;
-			else if (psender == panel11)
+			else if (panel == panel11)
 				i = 10;
-			else if (psender == panel12)
+			else if (panel == panel12)
 				i = 11;
 			else
 				return; // i = -1;
@@ -144,7 +154,7 @@ namespace BizHawk.Client.EmuHawk
 				if (_colors[i] != dlg.Color)
 				{
 					_colors[i] = dlg.Color;
-					psender.BackColor = _colors[i];
+					panel.BackColor = _colors[i];
 				}
 			}
 		}
@@ -229,19 +239,14 @@ namespace BizHawk.Client.EmuHawk
 			RefreshAllBackdrops();
 		}
 
-		private static void DoColorChooserFormDialog(IWin32Window parent, Gameboy.GambatteSettings s, bool fromMenu)
+		public static void DoColorChooserFormDialog(IDialogParent parent, Config config, IGameInfo game, Gameboy.GambatteSettings s)
 		{
-			using var dlg = new ColorChooserForm();
-			var gb = GlobalWin.Emulator as Gameboy;
-			if (fromMenu)
-			{
-				s = gb.GetSettings();
-			}
+			using var dlg = new ColorChooserForm(parent.DialogController, config, game);
 
 			dlg.SetAllColors(s.GBPalette);
 
-			var result = dlg.ShowDialog(parent);
-			if (result == DialogResult.OK)
+			var result = parent.ShowDialogAsChild(dlg);
+			if (result.IsOk())
 			{
 				int[] colors = new int[12];
 				for (int i = 0; i < 12; i++)
@@ -250,16 +255,7 @@ namespace BizHawk.Client.EmuHawk
 				}
 
 				s.GBPalette = colors;
-				if (fromMenu)
-				{
-					gb.PutSettings(s);
-				}
 			}
-		}
-
-		public static void DoColorChooserFormDialog(IWin32Window parent, Gameboy.GambatteSettings s)
-		{
-			DoColorChooserFormDialog(parent, s, false);
 		}
 
 		private void LoadColorFile(string filename, bool alert)
@@ -279,7 +275,7 @@ namespace BizHawk.Client.EmuHawk
 			{
 				if (alert)
 				{
-					MessageBox.Show(this, "Error loading .pal file!");
+					this.ModalMessageBox("Error loading .pal file!");
 				}
 			}
 		}
@@ -300,7 +296,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			catch
 			{
-				MessageBox.Show(this, "Error saving .pal file!");
+				this.ModalMessageBox("Error saving .pal file!");
 			}
 		}
 
@@ -308,13 +304,13 @@ namespace BizHawk.Client.EmuHawk
 		{
 			using var ofd = new OpenFileDialog
 			{
-				InitialDirectory = GlobalWin.Config.PathEntries.ScreenshotAbsolutePathFor("GB"),
+				InitialDirectory = _config.PathEntries.ScreenshotAbsolutePathFor("GB"),
 				Filter = new FilesystemFilterSet(FilesystemFilter.Palettes).ToString(),
 				RestoreDirectory = true
 			};
 
 			var result = ofd.ShowDialog(this);
-			if (result == DialogResult.OK)
+			if (result.IsOk())
 			{
 				LoadColorFile(ofd.FileName, true);
 			}
@@ -344,8 +340,8 @@ namespace BizHawk.Client.EmuHawk
 		{
 			using var sfd = new SaveFileDialog
 			{
-				InitialDirectory = GlobalWin.Config.PathEntries.PalettesAbsolutePathFor("GB"),
-				FileName = $"{GlobalWin.Game.Name}.pal",
+				InitialDirectory = _config.PathEntries.PalettesAbsolutePathFor("GB"),
+				FileName = $"{_game.Name}.pal",
 				Filter = new FilesystemFilterSet(FilesystemFilter.Palettes).ToString(),
 				RestoreDirectory = true
 			};
@@ -355,10 +351,6 @@ namespace BizHawk.Client.EmuHawk
 			{
 				SaveColorFile(sfd.FileName);
 			}
-		}
-
-		private void Ok_Click(object sender, EventArgs e)
-		{
 		}
 
 		private void DefaultButton_Click(object sender, EventArgs e)

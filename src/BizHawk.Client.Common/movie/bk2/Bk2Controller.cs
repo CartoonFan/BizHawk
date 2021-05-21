@@ -36,7 +36,7 @@ namespace BizHawk.Client.Common
 				{
 					Name = c,
 					IsBool = _type.BoolButtons.Contains(c),
-					IsAxis = _type.AxisControls.Contains(c)
+					IsAxis = _type.Axes.ContainsKey(c)
 				})
 				.ToList();
 		}
@@ -46,6 +46,10 @@ namespace BizHawk.Client.Common
 		public bool IsPressed(string button) => _myBoolButtons[button];
 		public int AxisValue(string name) => _myAxisControls[name];
 
+		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => throw new NotImplementedException(); // no idea --yoshi
+
+		public void SetHapticChannelStrength(string name, int strength) => throw new NotImplementedException(); // no idea --yoshi
+
 		public void SetFrom(IController source)
 		{
 			foreach (var button in Definition.BoolButtons)
@@ -53,53 +57,23 @@ namespace BizHawk.Client.Common
 				_myBoolButtons[button] = source.IsPressed(button);
 			}
 
-			foreach (var name in Definition.AxisControls)
+			foreach (var name in Definition.Axes.Keys)
 			{
 				_myAxisControls[name] = source.AxisValue(name);
 			}
 		}
 
-		public void SetPlayerFrom(IController playerSource, int controllerNum)
-		{
-			foreach (var button in playerSource.Definition.BoolButtons)
-			{
-				var bnp = ButtonNameParser.Parse(button);
-
-				if (bnp?.PlayerNum != controllerNum)
-				{
-					continue;
-				}
-
-				var val = playerSource.IsPressed(button);
-				_myBoolButtons[button] = val;
-			}
-
-			foreach (var button in Definition.AxisControls)
-			{
-				var bnp = ButtonNameParser.Parse(button);
-
-				if (bnp?.PlayerNum != controllerNum)
-				{
-					continue;
-				}
-
-				var val = playerSource.AxisValue(button);
-
-				_myAxisControls[button] = val;
-			}
-		}
-
-		public void SetFromSticky(IStickyController controller)
+		public void SetFromSticky(IStickyAdapter controller)
 		{
 			foreach (var button in Definition.BoolButtons)
 			{
 				_myBoolButtons[button] = controller.IsSticky(button);
 			}
 
-			// float controls don't have sticky logic, so latch default value
-			for (int i = 0; i < Definition.AxisControls.Count; i++)
+			// axes don't have sticky logic, so latch default value
+			foreach (var kvp in Definition.Axes)
 			{
-				_myAxisControls[Definition.AxisControls[i]] = Definition.AxisRanges[i].Mid;
+				_myAxisControls[kvp.Key] = kvp.Value.Neutral;
 			}
 		}
 

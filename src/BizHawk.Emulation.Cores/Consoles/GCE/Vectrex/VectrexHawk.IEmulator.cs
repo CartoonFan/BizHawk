@@ -8,7 +8,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 
 		public ControllerDefinition ControllerDefinition => _controllerDeck.Definition;
 
-		byte joy1_LR, joy2_LR, joy1_UD, joy2_UD;
+		private byte joy1_LR, joy2_LR, joy1_UD, joy2_UD;
 
 		public bool FrameAdvance(IController controller, bool render, bool rendersound)
 		{
@@ -20,8 +20,6 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 			{
 				cpu.TraceCallback = null;
 			}
-
-			_frame++;
 
 			if (controller.IsPressed("Power"))
 			{
@@ -42,10 +40,10 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 			if (ControllerDefinition.Name == "Vectrex Analog Controller")
 			{
 				// joystick position is based on pot reading
-				joy1_LR = (byte)(255 - (controller.AxisValue("P1 Stick X") + 128));
-				joy1_UD = (byte)(controller.AxisValue("P1 Stick Y") + 128);
-				joy2_LR = (byte)(255 - (controller.AxisValue("P2 Stick X") + 128));
-				joy2_UD = (byte)(controller.AxisValue("P2 Stick Y") + 128);
+				joy1_LR = (byte)(controller.AxisValue("P1 Stick X") + 128);
+				joy1_UD = (byte)(-(controller.AxisValue("P1 Stick Y") + 1) + 128);
+				joy2_LR = (byte)(controller.AxisValue("P2 Stick X") + 128);
+				joy2_UD = (byte)(-(controller.AxisValue("P2 Stick Y") + 1) + 128);
 			}
 			else
 			{
@@ -54,15 +52,15 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 				// so convention will be up and right dominate
 				joy1_UD = joy1_LR = joy2_UD = joy2_LR = 128;
 
-				if (controller.IsPressed("P1 Down")) { joy1_UD = 0xFF; }
-				if (controller.IsPressed("P1 Up")) { joy1_UD = 0; }
-				if (controller.IsPressed("P1 Left")) { joy1_LR = 0xFF; }
-				if (controller.IsPressed("P1 Right")) { joy1_LR = 0; }
+				if (controller.IsPressed("P1 Down")) { joy1_UD = 0; }
+				if (controller.IsPressed("P1 Up")) { joy1_UD = 0xFF; }
+				if (controller.IsPressed("P1 Left")) { joy1_LR = 0; }
+				if (controller.IsPressed("P1 Right")) { joy1_LR = 0xFF; }
 
-				if (controller.IsPressed("P2 Down")) { joy2_UD = 0xFF; }
-				if (controller.IsPressed("P2 Up")) { joy2_UD = 0; }
-				if (controller.IsPressed("P2 Left")) { joy2_LR = 0xFF; }
-				if (controller.IsPressed("P2 Right")) { joy2_LR = 0; }
+				if (controller.IsPressed("P2 Down")) { joy2_UD = 0; }
+				if (controller.IsPressed("P2 Up")) { joy2_UD = 0xFF; }
+				if (controller.IsPressed("P2 Left")) { joy2_LR = 0; }
+				if (controller.IsPressed("P2 Right")) { joy2_LR = 0xFF; }
 			}
 
 			frame_end = false;
@@ -73,6 +71,8 @@ namespace BizHawk.Emulation.Cores.Consoles.Vectrex
 			{
 				_lagcount++;
 			}
+
+			_frame++;
 
 			return true;
 		}

@@ -11,42 +11,44 @@ using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.EmuHawk
 {
-	public partial class ControllerConfig : Form
+	public partial class ControllerConfig : Form, IDialogParent
 	{
 		private static readonly Dictionary<string, Lazy<Bitmap>> ControllerImages = new Dictionary<string, Lazy<Bitmap>>();
 		private readonly IEmulator _emulator;
 		private readonly Config _config;
 
+		public IDialogController DialogController { get; }
+
 		static ControllerConfig()
 		{
-			ControllerImages.Add("NES Controller", Properties.Resources.NES_Controller);
-			ControllerImages.Add("SNES Controller", Properties.Resources.SNES_Controller);
+			ControllerImages.Add("NES Controller", Properties.Resources.NesController);
+			ControllerImages.Add("SNES Controller", Properties.Resources.SnesController);
 			ControllerImages.Add("Nintendo 64 Controller", Properties.Resources.N64);
-			ControllerImages.Add("Gameboy Controller", Properties.Resources.GBController);
-			ControllerImages.Add("Gameboy Controller H", Properties.Resources.GBController);
-			ControllerImages.Add("Gameboy Controller + Tilt", Properties.Resources.GBController);
-			ControllerImages.Add("GBA Controller", Properties.Resources.GBA_Controller);
-			ControllerImages.Add("Dual Gameboy Controller", Properties.Resources.GBController);
+			ControllerImages.Add("Gameboy Controller", Properties.Resources.GbController);
+			ControllerImages.Add("Gameboy Controller H", Properties.Resources.GbController);
+			ControllerImages.Add("Gameboy Controller + Tilt", Properties.Resources.GbController);
+			ControllerImages.Add("GBA Controller", Properties.Resources.GbaController);
+			ControllerImages.Add("Dual Gameboy Controller", Properties.Resources.GbController);
 
-			ControllerImages.Add("SMS Controller", Properties.Resources.SMSController);
-			ControllerImages.Add("GPGX Genesis Controller", Properties.Resources.GENController);
+			ControllerImages.Add("SMS Controller", Properties.Resources.SmsController);
+			ControllerImages.Add("GPGX Genesis Controller", Properties.Resources.GenesisController);
 			ControllerImages.Add("Saturn Controller", Properties.Resources.SaturnController);
 
 			ControllerImages.Add("Intellivision Controller", Properties.Resources.IntVController);
-			ControllerImages.Add("ColecoVision Basic Controller", Properties.Resources.colecovisioncontroller);
-			ControllerImages.Add("Atari 2600 Basic Controller", Properties.Resources.atari_controller);
+			ControllerImages.Add("ColecoVision Basic Controller", Properties.Resources.ColecoVisionController);
+			ControllerImages.Add("Atari 2600 Basic Controller", Properties.Resources.AtariController);
 			ControllerImages.Add("Atari 7800 ProLine Joystick Controller", Properties.Resources.A78Joystick);
 
-			ControllerImages.Add("PC Engine Controller", Properties.Resources.PCEngineController);
+			ControllerImages.Add("PC Engine Controller", Properties.Resources.PceController);
 			ControllerImages.Add("Commodore 64 Controller", Properties.Resources.C64Joystick);
-			ControllerImages.Add("TI83 Controller", Properties.Resources.TI83_Controller);
+			ControllerImages.Add("TI83 Controller", Properties.Resources.TI83Controller);
 
 			ControllerImages.Add("WonderSwan Controller", Properties.Resources.WonderSwanColor);
 			ControllerImages.Add("Lynx Controller", Properties.Resources.Lynx);
-			ControllerImages.Add("PSX Front Panel", Properties.Resources.psx_dualshock);
+			ControllerImages.Add("PSX Front Panel", Properties.Resources.PsxDualShockController);
 			ControllerImages.Add("Apple IIe Keyboard", Properties.Resources.AppleIIKeyboard);
 			ControllerImages.Add("VirtualBoy Controller", Properties.Resources.VBoyController);
-			ControllerImages.Add("NeoGeo Portable Controller", Properties.Resources.NGPController);
+			ControllerImages.Add("NeoGeo Portable Controller", Properties.Resources.NgpController);
 			ControllerImages.Add("MAME Controller", Properties.Resources.ArcadeController);
 			ControllerImages.Add("NDS Controller", Properties.Resources.DSController);
 		}
@@ -54,18 +56,18 @@ namespace BizHawk.Client.EmuHawk
 		protected override void OnActivated(EventArgs e)
 		{
 			base.OnActivated(e);
-			Input.Instance.ControlInputFocus(this, Input.InputFocus.Mouse, true);
+			Input.Instance.ControlInputFocus(this, ClientInputFocus.Mouse, true);
 		}
 
 		protected override void OnDeactivate(EventArgs e)
 		{
 			base.OnDeactivate(e);
-			Input.Instance.ControlInputFocus(this, Input.InputFocus.Mouse, false);
+			Input.Instance.ControlInputFocus(this, ClientInputFocus.Mouse, false);
 		}
 
 		private void ControllerConfig_Load(object sender, EventArgs e)
 		{
-			Icon = Properties.Resources.GameController_MultiSize;
+			Icon = Properties.Resources.GameControllerIcon;
 			Text = $"{_emulator.ControllerDefinition.Name} Configuration";
 		}
 
@@ -74,7 +76,7 @@ namespace BizHawk.Client.EmuHawk
 			Input.Instance.ClearEvents();
 		}
 
-		private delegate Control PanelCreator<T>(Dictionary<string, T> settings, List<string> buttons, Size size);
+		private delegate Control PanelCreator<TBindValue>(Dictionary<string, TBindValue> settings, List<string> buttons, Size size);
 
 		private Control CreateNormalPanel(Dictionary<string, string> settings, List<string> buttons, Size size)
 		{
@@ -88,13 +90,26 @@ namespace BizHawk.Client.EmuHawk
 			return new AnalogBindPanel(settings, buttons) { Dock = DockStyle.Fill, AutoScroll = true };
 		}
 
-		private static Regex ButtonMatchesPlayer = new Regex("^P(\\d+)\\s");
+		private static Control CreateFeedbacksPanel(Dictionary<string, FeedbackBind> settings, List<string> buttons, Size size)
+		{
+			return new FeedbacksBindPanel(settings, buttons) { Dock = DockStyle.Fill, AutoScroll = true };
+		}
 
-		private void LoadToPanel<T>(Control dest, string controllerName, IList<string> controllerButtons, Dictionary<string,string> categoryLabels, IDictionary<string, Dictionary<string, T>> settingsBlock, T defaultValue, PanelCreator<T> createPanel)
+		private static readonly Regex ButtonMatchesPlayer = new Regex("^P(\\d+)\\s");
+
+		private void LoadToPanel<TBindValue>(
+			Control dest,
+			string controllerName,
+			IReadOnlyCollection<string> controllerButtons,
+			Dictionary<string,string> categoryLabels,
+			IDictionary<string, Dictionary<string, TBindValue>> settingsBlock,
+			TBindValue defaultValue,
+			PanelCreator<TBindValue> createPanel
+		)
 		{
 			if (!settingsBlock.TryGetValue(controllerName, out var settings))
 			{
-				settings = new Dictionary<string, T>();
+				settings = new Dictionary<string, TBindValue>();
 				settingsBlock[controllerName] = settings;
 			}
 
@@ -123,7 +138,7 @@ namespace BizHawk.Client.EmuHawk
 			foreach (var button in controllerButtons)
 			{
 				Match m;
-				string categoryLabel; // = "Console"; // anything that wants not console can set it in the categorylabels
+				string categoryLabel;
 				if (categoryLabels.ContainsKey(button))
 				{
 					categoryLabel = categoryLabels[button];
@@ -168,11 +183,13 @@ namespace BizHawk.Client.EmuHawk
 		}
 
 		public ControllerConfig(
+			IDialogController dialogController,
 			IEmulator emulator,
 			Config config)
 		{
 			_emulator = emulator;
 			_config = config;
+			DialogController = dialogController;
 			
 			InitializeComponent();
 
@@ -189,26 +206,62 @@ namespace BizHawk.Client.EmuHawk
 		private void LoadPanels(
 			IDictionary<string, Dictionary<string, string>> normal,
 			IDictionary<string, Dictionary<string, string>> autofire,
-			IDictionary<string, Dictionary<string, AnalogBind>> analog)
+			IDictionary<string, Dictionary<string, AnalogBind>> analog,
+			IDictionary<string, Dictionary<string, FeedbackBind>> haptics)
 		{
-			LoadToPanel(NormalControlsTab, _emulator.ControllerDefinition.Name, _emulator.ControllerDefinition.BoolButtons, _emulator.ControllerDefinition.CategoryLabels, normal, "", CreateNormalPanel);
-			LoadToPanel(AutofireControlsTab, _emulator.ControllerDefinition.Name, _emulator.ControllerDefinition.BoolButtons, _emulator.ControllerDefinition.CategoryLabels, autofire, "", CreateNormalPanel);
-			LoadToPanel(AnalogControlsTab, _emulator.ControllerDefinition.Name, _emulator.ControllerDefinition.AxisControls, _emulator.ControllerDefinition.CategoryLabels, analog, new AnalogBind("", 1.0f, 0.1f), CreateAnalogPanel);
+			LoadToPanel(
+				NormalControlsTab,
+				_emulator.ControllerDefinition.Name,
+				_emulator.ControllerDefinition.BoolButtons,
+				_emulator.ControllerDefinition.CategoryLabels,
+				normal,
+				"",
+				CreateNormalPanel
+			);
+			LoadToPanel(
+				AutofireControlsTab,
+				_emulator.ControllerDefinition.Name,
+				_emulator.ControllerDefinition.BoolButtons,
+				_emulator.ControllerDefinition.CategoryLabels,
+				autofire,
+				"",
+				CreateNormalPanel
+			);
+			LoadToPanel(
+				AnalogControlsTab,
+				_emulator.ControllerDefinition.Name,
+				_emulator.ControllerDefinition.Axes.Keys.ToList(),
+				_emulator.ControllerDefinition.CategoryLabels,
+				analog,
+				new AnalogBind("", 1.0f, 0.1f),
+				CreateAnalogPanel
+			);
+#if false // waiting on https://github.com/TASVideos/BizHawk/pull/2683
+			LoadToPanel(
+				FeedbacksTab,
+				_emulator.ControllerDefinition.Name,
+				_emulator.ControllerDefinition.HapticsChannels,
+				_emulator.ControllerDefinition.CategoryLabels,
+				haptics,
+				new(string.Empty, string.Empty, 1.0f),
+				CreateFeedbacksPanel);
+#endif
 
 			if (AnalogControlsTab.Controls.Count == 0)
 			{
 				tabControl1.TabPages.Remove(AnalogControlsTab);
 			}
+			if (FeedbacksTab.Controls.Count == 0) tabControl1.TabPages.Remove(FeedbacksTab);
 		}
 
 		private void LoadPanels(DefaultControls cd)
 		{
-			LoadPanels(cd.AllTrollers, cd.AllTrollersAutoFire, cd.AllTrollersAnalog);
+			LoadPanels(cd.AllTrollers, cd.AllTrollersAutoFire, cd.AllTrollersAnalog, cd.AllTrollersFeedbacks);
 		}
 
 		private void LoadPanels(Config c)
 		{
-			LoadPanels(c.AllTrollers, c.AllTrollersAutoFire, c.AllTrollersAnalog);
+			LoadPanels(c.AllTrollers, c.AllTrollersAutoFire, c.AllTrollersAnalog, c.AllTrollersFeedbacks);
 		}
 
 		private void SetControllerPicture(string controlName)
@@ -292,6 +345,7 @@ namespace BizHawk.Client.EmuHawk
 			ActOnControlCollection<ControllerConfigPanel>(NormalControlsTab, c => c.Save(_config.AllTrollers[_emulator.ControllerDefinition.Name]));
 			ActOnControlCollection<ControllerConfigPanel>(AutofireControlsTab, c => c.Save(_config.AllTrollersAutoFire[_emulator.ControllerDefinition.Name]));
 			ActOnControlCollection<AnalogBindPanel>(AnalogControlsTab, c => c.Save(_config.AllTrollersAnalog[_emulator.ControllerDefinition.Name]));
+			ActOnControlCollection<FeedbacksBindPanel>(FeedbacksTab, c => c.Save(_config.AllTrollersFeedbacks[_emulator.ControllerDefinition.Name]));
 		}
 
 		private void SaveToDefaults(DefaultControls cd)
@@ -299,6 +353,7 @@ namespace BizHawk.Client.EmuHawk
 			ActOnControlCollection<ControllerConfigPanel>(NormalControlsTab, c => c.Save(cd.AllTrollers[_emulator.ControllerDefinition.Name]));
 			ActOnControlCollection<ControllerConfigPanel>(AutofireControlsTab, c => c.Save(cd.AllTrollersAutoFire[_emulator.ControllerDefinition.Name]));
 			ActOnControlCollection<AnalogBindPanel>(AnalogControlsTab, c => c.Save(cd.AllTrollersAnalog[_emulator.ControllerDefinition.Name]));
+			ActOnControlCollection<FeedbacksBindPanel>(FeedbacksTab, c => c.Save(cd.AllTrollersFeedbacks[_emulator.ControllerDefinition.Name]));
 		}
 
 		private static void ActOnControlCollection<T>(Control c, Action<T> proc)
@@ -353,17 +408,21 @@ namespace BizHawk.Client.EmuHawk
 			var tb1 = GetTabControl(NormalControlsTab.Controls);
 			var tb2 = GetTabControl(AutofireControlsTab.Controls);
 			var tb3 = GetTabControl(AnalogControlsTab.Controls);
+			var tb4 = GetTabControl(FeedbacksTab.Controls);
 			int? wasTabbedPage1 = null;
 			int? wasTabbedPage2 = null;
 			int? wasTabbedPage3 = null;
+			int? wasTabbedPage4 = null;
 
 			if (tb1?.SelectedTab != null) { wasTabbedPage1 = tb1.SelectedIndex; }
 			if (tb2?.SelectedTab != null) { wasTabbedPage2 = tb2.SelectedIndex; }
 			if (tb3?.SelectedTab != null) { wasTabbedPage3 = tb3.SelectedIndex; }
+			if (tb4?.SelectedTab != null) { wasTabbedPage4 = tb4.SelectedIndex; }
 
 			NormalControlsTab.Controls.Clear();
 			AutofireControlsTab.Controls.Clear();
 			AnalogControlsTab.Controls.Clear();
+			FeedbacksTab.Controls.Clear();
 
 			// load panels directly from the default config.
 			// this means that the changes are NOT committed.  so "Cancel" works right and you
@@ -391,6 +450,12 @@ namespace BizHawk.Client.EmuHawk
 				newTb3?.SelectTab(wasTabbedPage3.Value);
 			}
 
+			if (wasTabbedPage4.HasValue)
+			{
+				var newTb4 = GetTabControl(FeedbacksTab.Controls);
+				newTb4?.SelectTab(wasTabbedPage4.Value);
+			}
+
 			tabControl1.ResumeLayout();
 		}
 
@@ -398,8 +463,8 @@ namespace BizHawk.Client.EmuHawk
 		{
 			// this doesn't work anymore, as it stomps out any defaults for buttons that aren't currently active on the console
 			// there are various ways to fix it, each with its own semantic problems
-			var result = MessageBox.Show(this, "OK to overwrite defaults for current control scheme?", "Save Defaults", MessageBoxButtons.YesNo);
-			if (result == DialogResult.Yes)
+			var result = this.ModalMessageBox2("OK to overwrite defaults for current control scheme?", "Save Defaults");
+			if (result)
 			{
 				var cd = ConfigService.Load<DefaultControls>(Config.ControlDefaultPath);
 				cd.AllTrollers[_emulator.ControllerDefinition.Name] = new Dictionary<string, string>();
@@ -414,27 +479,23 @@ namespace BizHawk.Client.EmuHawk
 
 		private void ClearWidgetAndChildren(Control c)
 		{
-			if (c is InputCompositeWidget widget)
+			switch (c)
 			{
-				widget.Clear();
+				case InputCompositeWidget widget:
+					widget.Clear();
+					break;
+				case InputWidget inputWidget:
+					inputWidget.ClearAll();
+					break;
+				case AnalogBindControl control:
+					control.Unbind_Click(null, null);
+					break;
 			}
 
-			if (c is InputWidget inputWidget)
+			var children = c.Controls().ToList();
+			if (children.Count != 0)
 			{
-				inputWidget.ClearAll();
-			}
-
-			if (c is AnalogBindControl control)
-			{
-				control.Unbind_Click(null, null);
-			}
-
-			if (c.Controls().Any())
-			{
-				foreach (Control child in c.Controls())
-				{
-					ClearWidgetAndChildren(child);
-				}
+				foreach (var child in children) ClearWidgetAndChildren(child);
 			}
 		}
 

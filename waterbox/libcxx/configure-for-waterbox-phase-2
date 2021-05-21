@@ -1,7 +1,7 @@
 #!/bin/sh
-MYPATH="`dirname \"$0\"`"
-SYSROOT="`realpath \"$MYPATH/../sysroot\"`"
-LLVMDIR="`realpath \"$MYPATH/../../../llvm-project\"`"
+set -e
+if [ -z "$SYSROOT" ]; then export SYSROOT="$(realpath "$(dirname "$0")/../sysroot")"; fi
+if [ -z "$LLVMDIR" ]; then export LLVMDIR="$(realpath "$(dirname "$0")/../llvm-project")"; fi
 
 #libcxx needs this one trivial file to autodetect sendfile(2), which musl does support
 mkdir -p "$SYSROOT/include/linux"
@@ -10,8 +10,8 @@ cp -n "/usr/include/linux/version.h" "$SYSROOT/include/linux"
 rm -rf build2
 mkdir build2
 cd build2
-export CFLAGS="-mabi=ms -mcmodel=large -mstack-protector-guard=global -fno-use-cxa-atexit -no-pie -fno-pic -fno-pie"
-export CXXFLAGS="-mabi=ms -mcmodel=large -mstack-protector-guard=global -fno-use-cxa-atexit -no-pie -fno-pic -fno-pie"
+export CFLAGS="-mcmodel=large -mstack-protector-guard=global -fno-use-cxa-atexit -no-pie -fno-pic -fno-pie"
+export CXXFLAGS="-mcmodel=large -mstack-protector-guard=global -fno-use-cxa-atexit -no-pie -fno-pic -fno-pie"
 cmake \
 	-DCMAKE_C_COMPILER="$SYSROOT/bin/musl-gcc" \
 	-DCMAKE_CXX_COMPILER="$SYSROOT/bin/musl-gcc" \
@@ -22,7 +22,6 @@ cmake \
 	-DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=ON \
 	-DLIBCXX_ENABLE_EXCEPTIONS=ON \
 	-DLIBCXX_ENABLE_RTTI=ON \
-	-DLIBCXX_ENABLE_THREADS=OFF \
 	-DLIBCXX_HAS_MUSL_LIBC=ON \
 	-DLIBCXX_USE_COMPILER_RT=ON \
 	-DLIBCXX_INCLUDE_TESTS=OFF \
@@ -31,4 +30,4 @@ cmake \
 	-DCMAKE_INSTALL_PREFIX="$SYSROOT" \
 	-DCMAKE_AR="/usr/bin/gcc-ar" \
 	-DCMAKE_RANLIB="/usr/bin/gcc-ranlib" \
-	../../../../llvm-project/libcxx
+	$LLVMDIR/libcxx

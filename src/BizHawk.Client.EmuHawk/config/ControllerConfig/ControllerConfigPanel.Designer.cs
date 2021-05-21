@@ -30,7 +30,7 @@
 		{
 			this.components = new System.ComponentModel.Container();
 			this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
-			this.clearToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.clearToolStripMenuItem = new BizHawk.WinForms.Controls.ToolStripMenuItemEx();
 			this.contextMenuStrip1.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -43,8 +43,6 @@
 			// 
 			// clearToolStripMenuItem
 			// 
-			this.clearToolStripMenuItem.Name = "clearToolStripMenuItem";
-			this.clearToolStripMenuItem.Size = new System.Drawing.Size(99, 22);
 			this.clearToolStripMenuItem.Text = "&Clear";
 			this.clearToolStripMenuItem.Click += new System.EventHandler(this.ClearToolStripMenuItem_Click);
 			// 
@@ -55,15 +53,13 @@
 			this.ContextMenuStrip = this.contextMenuStrip1;
 			this.Name = "ControllerConfigPanel";
 			this.Size = new System.Drawing.Size(203, 292);
-			this.Load += new System.EventHandler(this.ControllerConfigPanel_Load);
 			this.contextMenuStrip1.ResumeLayout(false);
 			this.ResumeLayout(false);
-
 		}
 
 		#endregion
 
 		private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
-		private System.Windows.Forms.ToolStripMenuItem clearToolStripMenuItem;
+		private BizHawk.WinForms.Controls.ToolStripMenuItemEx clearToolStripMenuItem;
 	}
 }

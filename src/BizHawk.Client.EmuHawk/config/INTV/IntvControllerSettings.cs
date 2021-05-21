@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Windows.Forms;
 using BizHawk.Emulation.Cores.Intellivision;
 
@@ -7,23 +6,22 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class IntvControllerSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly Intellivision.IntvSyncSettings _syncSettings;
 
 		public IntvControllerSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			Intellivision.IntvSyncSettings syncSettings)
 		{
 			_mainForm = mainForm;
 			_syncSettings = syncSettings;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void IntvControllerSettings_Load(object sender, EventArgs e)
 		{
-			var possibleControllers = IntellivisionControllerDeck.ValidControllerTypes.Select(t => t.Key);
-
-			foreach (var val in possibleControllers)
+			foreach (var val in IntellivisionControllerDeck.ControllerCtors.Keys)
 			{
 				Port1ComboBox.Items.Add(val);
 				Port2ComboBox.Items.Add(val);

@@ -234,7 +234,7 @@ namespace BizHawk.Emulation.Cores.Computers.SinclairSpectrum
 		public string Media { get; set; }
 		public string OtherMisc { get; set; }
 
-		private Dictionary<string, string> Data = new Dictionary<string, string>();
+		private readonly Dictionary<string, string> Data = new Dictionary<string, string>();
 
 		/// <summary>
 		/// Detailed info to be displayed within the settings UIs
@@ -369,11 +369,11 @@ namespace BizHawk.Emulation.Cores.Computers.SinclairSpectrum
 				for (int i = 0; i < makeup; i++)
 				{
 					if (tLen > 4)
-						sb.Append("\t");
+						sb.Append('\t');
 					else
 					{
 						makeup--;
-						sb.Append("\t");
+						sb.Append('\t');
 					}
 				}
 
@@ -402,8 +402,8 @@ namespace BizHawk.Emulation.Cores.Computers.SinclairSpectrum
 				{
 					if (i != 0)
 					{
-						sb.Append("\t");
-						sb.Append("\t");
+						sb.Append('\t');
+						sb.Append('\t');
 					}
 
 					sb.Append(builder[i]);

@@ -2,39 +2,29 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
 using BizHawk.Client.Common;
 using NLua;
-using System.IO;
 
 namespace BizHawk.Client.EmuHawk
 {
 	[Description("A library for creating and managing custom dialogs")]
 	public sealed class FormsLuaLibrary : LuaLibraryBase
 	{
-		public FormsLuaLibrary(Lua lua)
-			: base(lua) { }
+		public FormsLuaLibrary(IPlatformLuaLibEnv luaLibsImpl, ApiContainer apiContainer, Action<string> logOutputCallback)
+			: base(luaLibsImpl, apiContainer, logOutputCallback) {}
 
-		public FormsLuaLibrary(Lua lua, Action<string> logOutputCallback)
-			: base(lua, logOutputCallback) { }
-
-		// TODO: replace references to ConsoleLuaLibrary.Log with a callback that is passed in
 		public override string Name => "forms";
 
 		private readonly List<LuaWinform> _luaForms = new List<LuaWinform>();
 
 		public void WindowClosed(IntPtr handle)
 		{
-			foreach (var form in _luaForms)
-			{
-				if (form.Handle == handle)
-				{
-					_luaForms.Remove(form);
-					return;
-				}
-			}
+			var form = _luaForms.FirstOrDefault(form => form.Handle == handle);
+			if (form != null) _luaForms.Remove(form);
 		}
 
 		private LuaWinform GetForm(int formHandle)
@@ -44,14 +34,10 @@ namespace BizHawk.Client.EmuHawk
 		}
 
 		private static void SetLocation(Control control, int x, int y)
-		{
-			control.Location = new Point(x, y);
-		}
+			=> control.Location = UIHelper.Scale(new Point(x, y));
 
 		private static void SetSize(Control control, int width, int height)
-		{
-			control.Size = new Size(width, height);
-		}
+			=> control.Size = UIHelper.Scale(new Size(width, height));
 
 		private static void SetText(Control control, string caption)
 		{
@@ -196,7 +182,7 @@ namespace BizHawk.Client.EmuHawk
 				return 0;
 			}
 
-			var dropdownItems = items.Values.Cast<string>().ToList();
+			var dropdownItems = _th.EnumerateValues<string>(items).ToList();
 			dropdownItems.Sort();
 
 			var dropdown = new LuaDropDown(dropdownItems);
@@ -240,7 +226,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 
 			return "";
@@ -276,7 +262,7 @@ namespace BizHawk.Client.EmuHawk
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 
 			return "";
@@ -356,11 +342,11 @@ namespace BizHawk.Client.EmuHawk
 			"newform", "creates a new default dialog, if both width and height are specified it will create a dialog of the specified size. If title is specified it will be the caption of the dialog, else the dialog caption will be 'Lua Dialog'. The function will return an int representing the handle of the dialog created.")]
 		public int NewForm(int? width = null, int? height = null, string title = null, LuaFunction onClose = null)
 		{
-			var form = new LuaWinform(CurrentFile, GlobalWin.Tools.LuaConsole.LuaImp);
+			var form = new LuaWinform(CurrentFile, WindowClosed);
 			_luaForms.Add(form);
 			if (width.HasValue && height.HasValue)
 			{
-				form.Size = new Size(width.Value, height.Value);
+				form.Size = UIHelper.Scale(new Size(width.Value, height.Value));
 			}
 
 			form.Text = title;
@@ -426,7 +412,7 @@ namespace BizHawk.Client.EmuHawk
 				return 0;
 			}
 
-			var pictureBox = new LuaPictureBox();
+			var pictureBox = new LuaPictureBox { TableHelper = _th };
 			form.Controls.Add(pictureBox);
 
 			if (x.HasValue && y.HasValue)
@@ -448,31 +434,29 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"clear",
 			"Clears the canvas")]
-		public void Clear(int componentHandle, Color color)
+		public void Clear(int componentHandle, [LuaColorParam] object color)
 		{
 			try
 			{
+				var color1 = _th.ParseColor(color);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).Clear(color);
-						}
+						control.Clear(color1);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -489,22 +473,19 @@ namespace BizHawk.Client.EmuHawk
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).Refresh();
-						}
+						control.Refresh();
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -512,31 +493,29 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"setDefaultForegroundColor",
 			"Sets the default foreground color to use in drawing methods, white by default")]
-		public void SetDefaultForegroundColor(int componentHandle, Color color)
+		public void SetDefaultForegroundColor(int componentHandle, [LuaColorParam] object color)
 		{
 			try
 			{
+				var color1 = _th.ParseColor(color);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).SetDefaultForegroundColor(color);
-						}
+						control.SetDefaultForegroundColor(color1);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -544,31 +523,29 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"setDefaultBackgroundColor",
 			"Sets the default background color to use in drawing methods, transparent by default")]
-		public void SetDefaultBackgroundColor(int componentHandle, Color color)
+		public void SetDefaultBackgroundColor(int componentHandle, [LuaColorParam] object color)
 		{
 			try
 			{
+				var color1 = _th.ParseColor(color);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).SetDefaultBackgroundColor(color);
-						}
+						control.SetDefaultBackgroundColor(color1);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -576,31 +553,29 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"setDefaultTextBackground",
 			"Sets the default backgroiund color to use in text drawing methods, half-transparent black by default")]
-		public void SetDefaultTextBackground(int componentHandle, Color color)
+		public void SetDefaultTextBackground(int componentHandle, [LuaColorParam] object color)
 		{
 			try
 			{
+				var color1 = _th.ParseColor(color);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).SetDefaultTextBackground(color);
-						}
+						control.SetDefaultTextBackground(color1);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -608,31 +583,29 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"drawBezier",
 			"Draws a Bezier curve using the table of coordinates provided in the given color")]
-		public void DrawBezier(int componentHandle, LuaTable points, Color color)
+		public void DrawBezier(int componentHandle, LuaTable points, [LuaColorParam] object color)
 		{
 			try
 			{
+				var color1 = _th.ParseColor(color);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawBezier(points, color);
-						}
+						control.DrawBezier(points, color1);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -640,31 +613,30 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"drawBox",
 			"Draws a rectangle on screen from x1/y1 to x2/y2. Same as drawRectangle except it receives two points intead of a point and width/height")]
-		public void DrawBox(int componentHandle, int x, int y, int x2, int y2, Color? line = null, Color? background = null)
+		public void DrawBox(int componentHandle, int x, int y, int x2, int y2, [LuaColorParam] object line = null, [LuaColorParam] object background = null)
 		{
 			try
 			{
+				var strokeColor = _th.SafeParseColor(line);
+				var fillColor = _th.SafeParseColor(background);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawBox(x, y, x2, y2, line, background);
-						}
+						control.DrawBox(x, y, x2, y2, strokeColor, fillColor);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -672,31 +644,30 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"drawEllipse",
 			"Draws an ellipse at the given coordinates and the given width and height. Line is the color of the ellipse. Background is the optional fill color")]
-		public void DrawEllipse(int componentHandle, int x, int y, int width, int height, Color? line = null, Color? background = null)
+		public void DrawEllipse(int componentHandle, int x, int y, int width, int height, [LuaColorParam] object line = null, [LuaColorParam] object background = null)
 		{
 			try
 			{
+				var strokeColor = _th.SafeParseColor(line);
+				var fillColor = _th.SafeParseColor(background);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawEllipse(x, y, width, height, line, background);
-						}
+						control.DrawEllipse(x, y, width, height, strokeColor, fillColor);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -713,22 +684,19 @@ namespace BizHawk.Client.EmuHawk
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawIcon(path, x, y, width, height);
-						}
+						control.DrawIcon(path, x, y, width, height);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -740,7 +708,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (!File.Exists(path))
 			{
-				ConsoleLuaLibrary.Log($"File not found: {path}\nScript Terminated");
+				LogOutputCallback($"File not found: {path}\nScript Terminated");
 				return;
 			}
 			try
@@ -750,22 +718,19 @@ namespace BizHawk.Client.EmuHawk
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawImage(path, x, y, width, height, cache);
-						}
+						control.DrawImage(path, x, y, width, height, cache);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -782,22 +747,19 @@ namespace BizHawk.Client.EmuHawk
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).ClearImageCache();
-						}
+						control.ClearImageCache();
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -809,7 +771,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			if (!File.Exists(path))
 			{
-				ConsoleLuaLibrary.Log($"File not found: {path}\nScript Terminated");
+				LogOutputCallback($"File not found: {path}\nScript Terminated");
 				return;
 			}
 			try
@@ -819,22 +781,19 @@ namespace BizHawk.Client.EmuHawk
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawImageRegion(path, source_x, source_y, source_width, source_height, dest_x, dest_y, dest_width, dest_height);
-						}
+						control.DrawImageRegion(path, source_x, source_y, source_width, source_height, dest_x, dest_y, dest_width, dest_height);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -842,31 +801,29 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"drawLine",
 			"Draws a line from the first coordinate pair to the 2nd. Color is optional (if not specified it will be drawn black)")]
-		public void DrawLine(int componentHandle, int x1, int y1, int x2, int y2, Color? color = null)
+		public void DrawLine(int componentHandle, int x1, int y1, int x2, int y2, [LuaColorParam] object color = null)
 		{
 			try
 			{
+				var color1 = _th.SafeParseColor(color);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawLine(x1, y1, x2, y2, color);
-						}
+						control.DrawLine(x1, y1, x2, y2, color1);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -874,31 +831,29 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"drawAxis",
 			"Draws an axis of the specified size at the coordinate pair.)")]
-		public void DrawAxis(int componentHandle, int x, int y, int size, Color? color = null)
+		public void DrawAxis(int componentHandle, int x, int y, int size, [LuaColorParam] object color = null)
 		{
 			try
 			{
+				var color1 = _th.SafeParseColor(color);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawAxis(x, y, size, color);
-						}
+						control.DrawAxis(x, y, size, color1);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -907,31 +862,29 @@ namespace BizHawk.Client.EmuHawk
 			"drawArc",
 			"draws a Arc shape at the given coordinates and the given width and height"
 		)]
-		public void DrawArc(int componentHandle, int x, int y, int width, int height, int startangle, int sweepangle, Color? line = null)
+		public void DrawArc(int componentHandle, int x, int y, int width, int height, int startangle, int sweepangle, [LuaColorParam] object line = null)
 		{
 			try
 			{
+				var strokeColor = _th.SafeParseColor(line);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawArc(x, y, width, height, startangle, sweepangle, line);
-						}
+						control.DrawArc(x, y, width, height, startangle, sweepangle, strokeColor);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -947,32 +900,31 @@ namespace BizHawk.Client.EmuHawk
 			int height,
 			int startangle,
 			int sweepangle,
-			Color? line = null,
-			Color? background = null)
+			[LuaColorParam] object line = null,
+			[LuaColorParam] object background = null)
 		{
 			try
 			{
+				var strokeColor = _th.SafeParseColor(line);
+				var fillColor = _th.SafeParseColor(background);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawPie(x, y, width, height, startangle, sweepangle, line, background);
-						}
+						control.DrawPie(x, y, width, height, startangle, sweepangle, strokeColor, fillColor);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -980,31 +932,29 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"drawPixel",
 			"Draws a single pixel at the given coordinates in the given color. Color is optional (if not specified it will be drawn black)")]
-		public void DrawPixel(int componentHandle, int x, int y, Color? color = null)
+		public void DrawPixel(int componentHandle, int x, int y, [LuaColorParam] object color = null)
 		{
 			try
 			{
+				var color1 = _th.SafeParseColor(color);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawPixel(x, y, color);
-						}
+						control.DrawPixel(x, y, color1);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -1012,31 +962,30 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"drawPolygon",
 			"Draws a polygon using the table of coordinates specified in points. This should be a table of tables(each of size 2). If x or y is passed, the polygon will be translated by the passed coordinate pair. Line is the color of the polygon. Background is the optional fill color")]
-		public void DrawPolygon(int componentHandle, LuaTable points, int? x = null, int? y = null, Color? line = null, Color? background = null)
+		public void DrawPolygon(int componentHandle, LuaTable points, int? x = null, int? y = null, [LuaColorParam] object line = null, [LuaColorParam] object background = null)
 		{
 			try
 			{
+				var strokeColor = _th.SafeParseColor(line);
+				var fillColor = _th.SafeParseColor(background);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawPolygon(points, x, y, line, background);
-						}
+						control.DrawPolygon(points, x, y, strokeColor, fillColor);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -1045,31 +994,30 @@ namespace BizHawk.Client.EmuHawk
 		[LuaMethod(
 			"drawRectangle",
 			"Draws a rectangle at the given coordinate and the given width and height. Line is the color of the box. Background is the optional fill color")]
-		public void DrawRectangle(int componentHandle, int x, int y, int width, int height, Color? line = null, Color? background = null)
+		public void DrawRectangle(int componentHandle, int x, int y, int width, int height, [LuaColorParam] object line = null, [LuaColorParam] object background = null)
 		{
 			try
 			{
+				var strokeColor = _th.SafeParseColor(line);
+				var fillColor = _th.SafeParseColor(background);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawRectangle(x, y, width, height, line, background);
-						}
+						control.DrawRectangle(x, y, width, height, strokeColor, fillColor);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -1082,8 +1030,8 @@ namespace BizHawk.Client.EmuHawk
 			int x,
 			int y,
 			string message,
-			Color? forecolor = null,
-			Color? backcolor = null,
+			[LuaColorParam] object forecolor = null,
+			[LuaColorParam] object backcolor = null,
 			int? fontsize = null,
 			string fontfamily = null,
 			string fontstyle = null,
@@ -1092,27 +1040,26 @@ namespace BizHawk.Client.EmuHawk
 		{
 			try
 			{
+				var fgColor = _th.SafeParseColor(forecolor);
+				var bgColor = _th.SafeParseColor(backcolor);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawText(x, y, message, forecolor, backcolor, fontsize, fontfamily, fontstyle, horizalign, vertalign);
-						}
+						control.DrawText(x, y, message, fgColor, bgColor, fontsize, fontfamily, fontstyle, horizalign, vertalign);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -1125,8 +1072,8 @@ namespace BizHawk.Client.EmuHawk
 			int x,
 			int y,
 			string message,
-			Color? forecolor = null,
-			Color? backcolor = null,
+			[LuaColorParam] object forecolor = null,
+			[LuaColorParam] object backcolor = null,
 			int? fontsize = null,
 			string fontfamily = null,
 			string fontstyle = null,
@@ -1135,27 +1082,26 @@ namespace BizHawk.Client.EmuHawk
 		{
 			try
 			{
+				var fgColor = _th.SafeParseColor(forecolor);
+				var bgColor = _th.SafeParseColor(backcolor);
 				var ptr = new IntPtr(componentHandle);
 				foreach (var form in _luaForms)
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							(control as LuaPictureBox).DrawText(x, y, message, forecolor, backcolor, fontsize, fontfamily, fontstyle, horizalign, vertalign);
-						}
+						control.DrawText(x, y, message, fgColor, bgColor, fontsize, fontfamily, fontstyle, horizalign, vertalign);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 		}
 
@@ -1173,23 +1119,19 @@ namespace BizHawk.Client.EmuHawk
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return 0;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							var position = (control as LuaPictureBox).GetMouse();
-							return position.X;
-						}
+						return control.GetMouse().X;
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 
 			return 0;
@@ -1208,23 +1150,19 @@ namespace BizHawk.Client.EmuHawk
 				{
 					if (form.Handle == ptr)
 					{
-						ConsoleLuaLibrary.Log("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
+						LogOutputCallback("Drawing functions cannot be used on forms directly. Use them on a PictureBox component.");
 						return 0;
 					}
 
-					foreach (Control control in form.Controls)
+					foreach (var control in form.Controls.OfType<LuaPictureBox>())
 					{
-						if (control is LuaPictureBox)
-						{
-							var position = (control as LuaPictureBox).GetMouse();
-							return position.Y;
-						}
+						return control.GetMouse().Y;
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				ConsoleLuaLibrary.Log(ex.Message);
+				LogOutputCallback(ex.Message);
 			}
 
 			return 0;
@@ -1250,7 +1188,7 @@ namespace BizHawk.Client.EmuHawk
 						{
 							if (control is LuaDropDown)
 							{
-								var dropdownItems = items.Values.Cast<string>().ToList();
+								var dropdownItems = _th.EnumerateValues<string>(items).ToList();
 								dropdownItems.Sort();
 								(control as LuaDropDown).SetItems(dropdownItems);
 							}
@@ -1290,58 +1228,41 @@ namespace BizHawk.Client.EmuHawk
 			}
 		}
 
-		/// <exception cref="Exception">misformatted colour</exception>
+		/// <exception cref="Exception">
+		/// identifier doesn't match any prop of referenced <see cref="Form"/>/<see cref="Control"/>; or
+		/// property is of type <see cref="Color"/> and a string was passed with the wrong format
+		/// </exception>
 		[LuaMethodExample("forms.setproperty( 332, \"Property\", \"Property value\" );")]
 		[LuaMethod("setproperty", "Attempts to set the given property of the widget with the given value.  Note: not all properties will be able to be represented for the control to accept")]
 		public void SetProperty(int handle, string property, object value)
 		{
+			// relying on exceptions for error handling here
+			void ParseAndSet(Control c)
+			{
+				var pi = c.GetType().GetProperty(property) ?? throw new Exception($"no property with the identifier {property}");
+				var pt = pi.PropertyType;
+				var o = pt.IsEnum
+					? Enum.Parse(pt, value.ToString(), true)
+					: pt == typeof(Color)
+						? _th.ParseColor(value)
+						: Convert.ChangeType(value, pt);
+				pi.SetValue(c, o, null);
+			}
+
 			var ptr = new IntPtr(handle);
 			foreach (var form in _luaForms)
 			{
 				if (form.Handle == ptr)
 				{
-					var pt = form.GetType().GetProperty(property).PropertyType;
-					if (pt.IsEnum)
-					{
-						value = Enum.Parse(form.GetType().GetProperty(property).PropertyType, value.ToString(), true);
-					}
-
-					if (pt == typeof(Color))
-					{
-						// relying on exceptions for error handling here
-						var sval = (string)value;
-						if (sval[0] != '#')
-						{
-							throw new Exception("Invalid #aarrggbb color");
-						}
-
-						if (sval.Length != 9)
-						{
-							throw new Exception("Invalid #aarrggbb color");
-						}
-
-						value = Color.FromArgb(int.Parse(sval.Substring(1), System.Globalization.NumberStyles.HexNumber));
-					}
-
-					form.GetType()
-						.GetProperty(property)
-						.SetValue(form, Convert.ChangeType(value, form.GetType().GetProperty(property).PropertyType), null);
+					ParseAndSet(form);
+					return;
 				}
-				else
+				foreach (Control control in form.Controls)
 				{
-					foreach (Control control in form.Controls)
+					if (control.Handle == ptr)
 					{
-						if (control.Handle == ptr)
-						{
-							if (control.GetType().GetProperty(property).PropertyType.IsEnum)
-							{
-								value = Enum.Parse(control.GetType().GetProperty(property).PropertyType, value.ToString(), true);
-							}
-
-							control.GetType()
-								.GetProperty(property)
-								.SetValue(control, Convert.ChangeType(value, control.GetType().GetProperty(property).PropertyType), null);
-						}
+						ParseAndSet(control);
+						return;
 					}
 				}
 			}

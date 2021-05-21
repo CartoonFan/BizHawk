@@ -5,8 +5,6 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 {
 	public partial class GPGX : IStatable
 	{
-		private byte[] _stateBuffer;
-
 		public void LoadStateBinary(BinaryReader reader)
 		{
 			_elf.LoadStateBinary(reader);
@@ -35,16 +33,6 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 			writer.Write(_discIndex);
 			writer.Write(_prevDiskPressed);
 			writer.Write(_nextDiskPressed);
-		}
-
-		public byte[] SaveStateBinary()
-		{
-			using var ms = new MemoryStream();
-			using var bw = new BinaryWriter(ms);
-			SaveStateBinary(bw);
-			bw.Flush();
-			ms.Close();
-			return ms.ToArray();
 		}
 	}
 }

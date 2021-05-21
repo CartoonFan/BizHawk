@@ -6,17 +6,18 @@ namespace BizHawk.Client.EmuHawk
 {
 	public partial class ZxSpectrumNonSyncSettings : Form
 	{
-		private readonly MainForm _mainForm;
+		private readonly IMainFormForConfig _mainForm;
 		private readonly ZXSpectrum.ZXSpectrumSettings _settings;
 		private int _bgColor;
 
 		public ZxSpectrumNonSyncSettings(
-			MainForm mainForm,
+			IMainFormForConfig mainForm,
 			ZXSpectrum.ZXSpectrumSettings settings)
 		{
 			_mainForm = mainForm;
 			_settings = settings;
 			InitializeComponent();
+			Icon = Properties.Resources.GameControllerIcon;
 		}
 
 		private void IntvControllerSettings_Load(object sender, EventArgs e)
@@ -28,7 +29,7 @@ namespace BizHawk.Client.EmuHawk
 			checkBoxShowCoreBrdColor.Checked = _settings.UseCoreBorderForBackground;
 
 			// OSD Message Verbosity
-			var osdTypes = Enum.GetNames(typeof(ZXSpectrum.OSDVerbosity));     
+			var osdTypes = Enum.GetNames(typeof(ZXSpectrum.OSDVerbosity));
 			foreach (var val in osdTypes)
 			{
 				osdMessageVerbositycomboBox1.Items.Add(val);

@@ -40,7 +40,7 @@
 			this.Export = new System.Windows.Forms.Button();
 			this.ConcatMultilines = new System.Windows.Forms.CheckBox();
 			this.AddColorTag = new System.Windows.Forms.CheckBox();
-			this.label1 = new System.Windows.Forms.Label();
+			this.label1 = new BizHawk.WinForms.Controls.LocLabelEx();
 			((System.ComponentModel.ISupportInitialize)(this.SubGrid)).BeginInit();
 			this.SuspendLayout();
 			// 
@@ -85,6 +85,7 @@
 			this.SubGrid.Name = "SubGrid";
 			this.SubGrid.Size = new System.Drawing.Size(548, 198);
 			this.SubGrid.TabIndex = 2;
+			this.SubGrid.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.SubGrid_CellContentClick);
 			this.SubGrid.DefaultValuesNeeded += new System.Windows.Forms.DataGridViewRowEventHandler(this.SubGrid_DefaultValuesNeeded);
 			this.SubGrid.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.SubGrid_MouseDoubleClick);
 			// 
@@ -176,11 +177,8 @@
 			// label1
 			// 
 			this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(120, 221);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(56, 13);
-			this.label1.TabIndex = 6;
 			this.label1.Text = "On export:";
 			// 
 			// EditSubtitlesForm
@@ -197,7 +195,6 @@
 			this.Controls.Add(this.SubGrid);
 			this.Controls.Add(this.OK);
 			this.Controls.Add(this.Cancel);
-			this.Icon = global::BizHawk.Client.EmuHawk.Properties.Resources.TAStudio_MultiSize;
 			this.MinimumSize = new System.Drawing.Size(188, 121);
 			this.Name = "EditSubtitlesForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
@@ -223,6 +220,6 @@
 		private System.Windows.Forms.DataGridViewTextBoxColumn Message;
 		private System.Windows.Forms.CheckBox ConcatMultilines;
 		private System.Windows.Forms.CheckBox AddColorTag;
-		private System.Windows.Forms.Label label1;
+		private BizHawk.WinForms.Controls.LocLabelEx label1;
 	}
 }

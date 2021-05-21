@@ -143,19 +143,19 @@ namespace BizHawk.Client.EmuHawk
 			{
 				default:
 				case 0:
-					foreach (DisplayType t in ByteWatch.ValidTypes)
+					foreach (WatchDisplayType t in ByteWatch.ValidTypes)
 					{
 						DisplayTypeDropDown.Items.Add(Watch.DisplayTypeToString(t));
 					}
 					break;
 				case 1:
-					foreach (DisplayType t in WordWatch.ValidTypes)
+					foreach (WatchDisplayType t in WordWatch.ValidTypes)
 					{
 						DisplayTypeDropDown.Items.Add(Watch.DisplayTypeToString(t));
 					}
 					break;
 				case 2:
-					foreach (DisplayType t in DWordWatch.ValidTypes)
+					foreach (WatchDisplayType t in DWordWatch.ValidTypes)
 					{
 						DisplayTypeDropDown.Items.Add(Watch.DisplayTypeToString(t));
 					}
@@ -276,19 +276,16 @@ namespace BizHawk.Client.EmuHawk
 						_ => WatchSize.Byte
 					};
 
+					var displayType = Watch.StringToDisplayType(DisplayTypeDropDown.SelectedItem.ToString());
+
 					Watches[i] = Watch.GenerateWatch(
 						Watches[i].Domain,
 						Watches.Count == 1 ? AddressBox.ToRawInt() ?? 0 : Watches[i].Address,
 						size,
-						Watches[i].Type,
+						_changedDisplayType ? displayType : Watches[i].Type,
 						Watches[i].BigEndian,
 						Watches[i].Notes);
 				}
-			}
-
-			if (_changedDisplayType)
-			{
-				Watches.ForEach(x => x.Type = Watch.StringToDisplayType(DisplayTypeDropDown.SelectedItem.ToString()));
 			}
 
 			if (BigEndianCheckBox.CheckState != CheckState.Indeterminate)

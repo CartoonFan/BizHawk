@@ -1,12 +1,9 @@
-﻿using BizHawk.Emulation.Common;
+﻿using System;
+using BizHawk.Emulation.Common;
 
 namespace BizHawk.Emulation.Cores.Nintendo.GBHawkLink3x
 {
-	[Core(
-		"GBHawkLink3x",
-		"",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.GBHawkLink3x, "")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight) })]
 	public partial class GBHawkLink3x : IEmulator, ISaveRam, IDebuggable, IStatable, IInputPollable, IRegionable,
 	ISettable<GBHawkLink3x.GBLink3xSettings, GBHawkLink3x.GBLink3xSyncSettings>
@@ -28,14 +25,17 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawkLink3x
 
 		public bool do_frame_fill;
 
-		//[CoreConstructor("GB", "GBC")]
-		public GBHawkLink3x(CoreComm comm, GameInfo game_L, byte[] rom_L, GameInfo game_C, byte[] rom_C, GameInfo game_R, byte[] rom_R, /*string gameDbFn,*/ object settings, object syncSettings)
+		[CoreConstructor("GB3x")]
+		public GBHawkLink3x(CoreLoadParameters<GBLink3xSettings, GBLink3xSyncSettings> lp)
 		{
+			if (lp.Roms.Count != 3)
+				throw new InvalidOperationException("Wrong number of roms");
+
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;
 
-			Link3xSettings = (GBLink3xSettings)settings ?? new GBLink3xSettings();
-			Link3xSyncSettings = (GBLink3xSyncSettings)syncSettings ?? new GBLink3xSyncSettings();
+			Link3xSettings = (GBLink3xSettings)lp.Settings ?? new GBLink3xSettings();
+			Link3xSyncSettings = (GBLink3xSyncSettings)lp.SyncSettings ?? new GBLink3xSyncSettings();
 			_controllerDeck = new GBHawkLink3xControllerDeck(GBHawkLink3xControllerDeck.DefaultControllerName, GBHawkLink3xControllerDeck.DefaultControllerName, GBHawkLink3xControllerDeck.DefaultControllerName);
 
 			var tempSetL = new GBHawk.GBHawk.GBSettings();
@@ -61,9 +61,9 @@ namespace BizHawk.Emulation.Cores.Nintendo.GBHawkLink3x
 			tempSyncC.RTCOffset = Link3xSyncSettings.RTCOffset_C;
 			tempSyncR.RTCOffset = Link3xSyncSettings.RTCOffset_R;
 
-			L = new GBHawk.GBHawk(comm, game_L, rom_L, tempSetL, tempSyncL);
-			C = new GBHawk.GBHawk(comm, game_C, rom_C, tempSetC, tempSyncC);
-			R = new GBHawk.GBHawk(comm, game_R, rom_R, tempSetR, tempSyncR);
+			L = new GBHawk.GBHawk(lp.Comm, lp.Roms[0].Game, lp.Roms[0].RomData, tempSetL, tempSyncL);
+			C = new GBHawk.GBHawk(lp.Comm, lp.Roms[1].Game, lp.Roms[1].RomData, tempSetC, tempSyncC);
+			R = new GBHawk.GBHawk(lp.Comm, lp.Roms[2].Game, lp.Roms[2].RomData, tempSetR, tempSyncR);
 
 			ser.Register<IVideoProvider>(this);
 			ser.Register<ISoundProvider>(this); 

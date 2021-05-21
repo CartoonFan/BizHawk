@@ -4,16 +4,14 @@ using System;
 
 namespace BizHawk.Emulation.Cores.ColecoVision
 {
-	[Core(
-		"ColecoHawk",
-		"Vecna",
-		isPorted: false,
-		isReleased: true)]
+	[Core(CoreNames.ColecoHawk, "Vecna")]
 	[ServiceNotApplicable(new[] { typeof(IDriveLight), typeof(ISaveRam) })]
 	public sealed partial class ColecoVision : IEmulator, IDebuggable, IInputPollable, ISettable<ColecoVision.ColecoSettings, ColecoVision.ColecoSyncSettings>
 	{
 		[CoreConstructor("Coleco")]
-		public ColecoVision(CoreComm comm, GameInfo game, byte[] rom, object syncSettings)
+		public ColecoVision(CoreComm comm, GameInfo game, byte[] rom,
+			ColecoSettings settings,
+			ColecoSyncSettings syncSettings)
 		{
 			var ser = new BasicServiceProvider(this);
 			ServiceProvider = ser;

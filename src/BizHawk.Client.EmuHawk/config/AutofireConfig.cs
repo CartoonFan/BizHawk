@@ -19,6 +19,7 @@ namespace BizHawk.Client.EmuHawk
 			_autoFireController = autoFireController;
 			_stickyXorAdapter = stickyXorAdapter;
 			InitializeComponent();
+			Icon = Properties.Resources.LightningIcon;
 		}
 
 		private void AutofireConfig_Load(object sender, EventArgs e)
@@ -59,11 +60,13 @@ namespace BizHawk.Client.EmuHawk
 			_config.AutofireLagFrames = cbConsiderLag.Checked;
 			_stickyXorAdapter.SetOnOffPatternFromConfig(_config.AutofireOn, _config.AutofireOff);
 
+			DialogResult = DialogResult.OK;
 			Close();
 		}
 
 		private void btnDialogCancel_Click(object sender, EventArgs e)
 		{
+			DialogResult = DialogResult.Cancel;
 			Close();
 		}
 	}
