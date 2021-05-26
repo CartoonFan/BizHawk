@@ -25,6 +25,7 @@
 			Gamepad,
 			Mouse,
 			SuperMultitap,
+			Payload,
 			SuperScope,
 			Justifier,
 			Justifiers

@@ -73,37 +73,35 @@ made that way to make the buffer persist actoss C API calls.
 */
 
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Diagnostics;
-using System.Dynamic;
+using System.Linq;
 using BizHawk.Common;
 using BizHawk.Emulation.Common;
+using System.Collections.Generic;
 
 namespace BizHawk.Emulation.Cores.Arcades.MAME
 {
 	[PortedCore(CoreNames.MAME, "MAMEDev", "0.231", "https://github.com/mamedev/mame.git", isReleased: false)]
-	public partial class MAME : IEmulator, IVideoProvider, ISoundProvider, ISettable<object, MAME.SyncSettings>, IStatable, IInputPollable
+	public partial class MAME : IEmulator, IVideoProvider, ISoundProvider, ISettable<object, MAME.MAMESyncSettings>, IStatable, IInputPollable
 	{
-		public MAME(string dir, string file, MAME.SyncSettings syncSettings, out string gamename)
+		public MAME(string dir, string file, MAME.MAMESyncSettings syncSettings, out string gamename)
 		{
 			OSTailoredCode.LinkedLibManager.FreeByPtr(OSTailoredCode.LinkedLibManager.LoadOrThrow(LibMAME.dll)); // don't bother if the library is missing
 
+			_gameDirectory = dir;
+			_gameFileName = file;
+
 			ServiceProvider = new BasicServiceProvider(this);
 
-			_gameDirectory = dir;
-			_gameFilename = file;
+			_syncSettings = syncSettings ?? new MAMESyncSettings();
 
 			_mameThread = new Thread(ExecuteMAMEThread);
 			_mameThread.Start();
 			_mameStartupComplete.WaitOne();
 
-			_syncSettings = (SyncSettings)syncSettings ?? new SyncSettings();
-			_syncSettings.ExpandoSettings = new ExpandoObject();
-			var dynamicObject = (IDictionary<string, object>)_syncSettings.ExpandoSettings;
-			dynamicObject.Add("OKAY", 1);
-			gamename = _gameName;
+			gamename = _gameFullName;
 
 			if (_loadFailure != "")
 			{
@@ -112,9 +110,10 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 			}
 		}
 
-		private string _gameName = "Arcade";
+		private string _gameFullName = "Arcade";
+		private string _gameShortName = "arcade";
 		private readonly string _gameDirectory;
-		private readonly string _gameFilename;
+		private readonly string _gameFileName;
 		private string _loadFailure = "";
 		private readonly Thread _mameThread;
 		private readonly ManualResetEvent _mameStartupComplete = new ManualResetEvent(false);
@@ -128,7 +127,6 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 
 		private void ExecuteMAMEThread()
 		{
-			// dodge GC
 			_periodicCallback = MAMEPeriodicCallback;
 			_soundCallback = MAMESoundCallback;
 			_bootCallback = MAMEBootCallback;
@@ -140,10 +138,10 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 			LibMAME.mame_set_log_callback(_logCallback);
 
 			// https://docs.mamedev.org/commandline/commandline-index.html
-			string[] args =
+			List<string> args = new List<string>
 			{
 				 "mame"                                 // dummy, internally discarded by index, so has to go first
-				, _gameFilename                         // no dash for rom names
+				, _gameFileName                         // no dash for rom names
 				, "-noreadconfig"                       // forbid reading ini files
 				, "-nowriteconfig"                      // forbid writing ini files
 				, "-norewind"                           // forbid rewind savestates (captured upon frame advance)
@@ -155,7 +153,7 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 				, "-nonvram_save"                       // prevent dumping non-volatile ram to disk
 				, "-artpath",          "mame\\artwork"  // path to load artowrk from
 				, "-diff_directory",      "mame\\diff"  // hdd diffs, whenever stuff is written back to an image
-				, "-cfg_directory",                ":"  // send invalid path to prevent cfg handling
+				, "-cfg_directory",                "?"  // send invalid path to prevent cfg handling
 				, "-volume",                     "-32"  // lowest attenuation means mame osd remains silent
 				, "-output",                 "console"  // print everything to hawk console
 				, "-samplerate", _sampleRate.ToString() // match hawk samplerate
@@ -167,7 +165,14 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 			//	, "-debug"                              // launch mame debugger (because we can)
 			};
 
-			LibMAME.mame_launch(args.Length, args);
+			if (_syncSettings.DriverSettings.TryGetValue(
+				MAMELuaCommand.MakeLookupKey(_gameFileName.Split('.')[0], LibMAME.BIOS_LUA_CODE),
+				out string value))
+			{
+				args.AddRange(new List<string>{ "-bios", value });
+			}
+
+			LibMAME.mame_launch(args.Count, args.ToArray());
 		}
 
 		private static string MameGetString(string command)
@@ -192,7 +197,8 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 
 		private void UpdateGameName()
 		{
-			_gameName = MameGetString(MAMELuaCommand.GetGameName);
+			_gameFullName = MameGetString(MAMELuaCommand.GetGameFullName);
+			_gameShortName = MameGetString(MAMELuaCommand.GetGameShortName);
 		}
 
 		private void CheckVersions()
@@ -275,13 +281,15 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 			LibMAME.mame_lua_execute(MAMELuaCommand.Pause);
 
 			CheckVersions();
-			GetInputFields();
-			GetROMsInfo();
+			UpdateGameName();
 			UpdateVideo();
 			UpdateAspect();
 			UpdateFramerate();
-			UpdateGameName();
 			InitMemoryDomains();
+			GetInputFields();
+			GetROMsInfo();
+			FetchDefaultGameSettings();
+			OverrideGameSettings();
 
 			int length = LibMAME.mame_lua_get_int("return string.len(manager.machine:buffer_save())");
 			_mameSaveBuffer = new byte[length];
@@ -312,25 +320,6 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 			}
 		}
 
-		private void GetROMsInfo()
-		{
-			string ROMsInfo = MameGetString(MAMELuaCommand.GetROMsInfo);
-			string[] ROMs = ROMsInfo.Split(';');
-
-			foreach (string ROM in ROMs)
-			{
-				if (ROM != string.Empty)
-				{
-					string[] substrings = ROM.Split(',');
-					string name = substrings[0];
-					string hashdata = substrings[1].Replace("R", " CRC:").Replace("S", " SHA:");
-					string flags = substrings[2];
-
-					_romHashes.Add(name, hashdata);
-				}
-			}
-		}
-
 		private class MAMELuaCommand
 		{
 			// commands
@@ -341,21 +330,22 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 
 			// getters
 			public const string GetVersion = "return emu.app_version()";
-			public const string GetGameName = "return manager.machine.system.description";
-			public const string GetPixels = "return manager.machine.video:snapshot_pixels()";
-			public const string GetSamples = "return manager.machine.sound:get_samples()";
+			public const string GetGameShortName = "return manager.machine.system.name";
+			public const string GetGameFullName = "return manager.machine.system.description";
 			public const string GetWidth = "return (select(1, manager.machine.video:snapshot_size()))";
 			public const string GetHeight = "return (select(2, manager.machine.video:snapshot_size()))";
+			public const string GetPixels = "return manager.machine.video:snapshot_pixels()";
+			public const string GetSamples = "return manager.machine.sound:get_samples()";
 			public const string GetMainCPUName = "return manager.machine.devices[\":maincpu\"].shortname";
 
 			// memory space
 			public const string GetSpace = "return manager.machine.devices[\":maincpu\"].spaces[\"program\"]";
-			public const string GetSpaceMapCount = "return #manager.machine.devices[\":maincpu\"].spaces[\"program\"].map.entries";
-			public const string SpaceMap = "manager.machine.devices[\":maincpu\"].spaces[\"program\"].map.entries";
 			public const string GetSpaceAddressMask = "return manager.machine.devices[\":maincpu\"].spaces[\"program\"].address_mask";
 			public const string GetSpaceAddressShift = "return manager.machine.devices[\":maincpu\"].spaces[\"program\"].shift";
 			public const string GetSpaceDataWidth = "return manager.machine.devices[\":maincpu\"].spaces[\"program\"].data_width";
 			public const string GetSpaceEndianness = "return manager.machine.devices[\":maincpu\"].spaces[\"program\"].endianness";
+			public const string GetSpaceMapCount = "return #manager.machine.devices[\":maincpu\"].spaces[\"program\"].map.entries";
+			public const string SpaceMap = "manager.machine.devices[\":maincpu\"].spaces[\"program\"].map.entries";
 
 			// complex stuff
 			public const string GetFrameNumber =
@@ -372,8 +362,17 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 			public const string GetBoundY =
 				"local b = manager.machine.render.ui_target.current_view.bounds " +
 				"return b.y1-b.y0";
+			public const string GetROMsInfo =
+				"local final = {} " +
+				"for __, r in pairs(manager.machine.devices[\":\"].roms) do " +
+					"if (r:hashdata() ~= \"\") then " +
+						"table.insert(final, string.format(\"%s~%s~%s;\", r:name(), r:hashdata(), r:flags())) " +
+					"end " +
+				"end " +
+				"table.sort(final) " +
+				"return table.concat(final)";
 			public const string GetInputFields =
-				"final = {} " +
+				"local final = {} " +
 				"for tag, _ in pairs(manager.machine.ioport.ports) do " +
 					"for name, field in pairs(manager.machine.ioport.ports[tag].fields) do " +
 						"if field.type_class ~= \"dipswitch\" then " +
@@ -383,12 +382,36 @@ namespace BizHawk.Emulation.Cores.Arcades.MAME
 				"end " +
 				"table.sort(final) " +
 				"return table.concat(final)";
-			public const string GetROMsInfo =
-				"final = {} " +
-				"for __, r in pairs(manager.machine.devices[\":\"].roms) do " +
-					"if (r:hashdata() ~= \"\") then " +
-						"table.insert(final, string.format(\"%s,%s,%s;\", r:name(), r:hashdata(), r:flags())) " +
+			public const string GetDIPSwitchTags =
+				"local final = {} " +
+				"for tag, _ in pairs(manager.machine.ioport.ports) do " +
+					"for name, field in pairs(manager.machine.ioport.ports[tag].fields) do " +
+						"if field.type_class == \"dipswitch\" then " +
+							"table.insert(final, tag..\";\") " +
+							"break " +
+						"end " +
 					"end " +
+				"end " +
+				"table.sort(final) " +
+				"return table.concat(final)";
+
+			public static string MakeLookupKey(string gameName, string luaCode) =>
+				$"[{ gameName }] { luaCode }";
+			public static string InputField(string tag, string fieldName) =>
+				$"manager.machine.ioport.ports[\"{ tag }\"].fields[\"{ fieldName }\"]";
+			public static string GetDIPSwitchFields(string tag) =>
+				"local final = { } " +
+				$"for name, field in pairs(manager.machine.ioport.ports[\"{ tag }\"].fields) do " +
+					"if field.type_class == \"dipswitch\" then " +
+						"table.insert(final, field.name..\"^\") " +
+					 "end " +
+				"end " +
+				"table.sort(final) " +
+				"return table.concat(final)";
+			public static string GetDIPSwitchOptions(string tag, string fieldName) =>
+				"local final = { } " +
+				$"for value, description in pairs(manager.machine.ioport.ports[\"{ tag }\"].fields[\"{ fieldName }\"].settings) do " +
+					"table.insert(final, string.format(\"%d~%s@\", value, description)) " +
 				"end " +
 				"table.sort(final) " +
 				"return table.concat(final)";
