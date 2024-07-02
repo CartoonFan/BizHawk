@@ -29,7 +29,7 @@ namespace BizHawk.Emulation.Cores
 		public const string GBHawkLink3x = "GBHawkLink3x";
 		public const string GBHawkLink4x = "GBHawkLink4x";
 		public const string GGHawkLink = "GGHawkLink";
-		public const string Gpgx = "GenesisPlusGX";
+		public const string Gpgx = "Genplus-gx";
 		public const string Handy = "Handy";
 		public const string HyperNyma = "HyperNyma";
 		public const string IntelliHawk = "IntelliHawk";
@@ -46,6 +46,7 @@ namespace BizHawk.Emulation.Cores
 		public const string Octoshock = "Octoshock";
 		public const string PceHawk = "PCEHawk";
 		public const string PicoDrive = "PicoDrive";
+		public const string PUAE = "PUAE";
 		public const string QuickNes = "quickerNES";
 		public const string Sameboy = "SameBoy";
 		public const string Saturnus = "Saturnus";

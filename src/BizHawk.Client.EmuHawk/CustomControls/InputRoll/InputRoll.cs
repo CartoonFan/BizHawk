@@ -57,8 +57,9 @@ namespace BizHawk.Client.EmuHawk
 
 		private int[] _horizontalColumnTops; // Updated on paint, contains one extra item to allow inference of last column height
 
-		private RollColumn _columnDown;
-		private RollColumn _columnResizing;
+		private RollColumn/*?*/ _columnDown;
+
+		private RollColumn/*?*/ _columnResizing;
 
 		private int? _currentX;
 		private int? _currentY;
@@ -81,12 +82,14 @@ namespace BizHawk.Client.EmuHawk
 		/// Gets or sets a value indicating whether or not the control will respond to right-click events with a context menu
 		/// </summary>
 		[Category("Behavior")]
+		[DefaultValue(true)]
 		public bool AllowRightClickSelection { get; set; } = true;
 
 		/// <summary>
 		/// Gets or sets a value indicating whether or not Home and End will navigate to the beginning or end of the list
 		/// </summary>
 		[Category("Behavior")]
+		[DefaultValue(true)]
 		public bool AllowMassNavigationShortcuts { get; set; } = true;
 
 		[Category("Behavior")]
@@ -177,13 +180,14 @@ namespace BizHawk.Client.EmuHawk
 				}
 				else
 				{
-					var maxLength = CurrentCell.Column.Text?.Length ?? 0;
+					var col = CurrentCell.Column!;
+					var maxLength = col.Text.Length;
 
 					for (int i = 0; i < RowCount; i++)
 					{
 						string text = "";
 						int offSetX = 0, offSetY = 0;
-						QueryItemText?.Invoke(i, CurrentCell.Column, out text, ref offSetX, ref offSetY);
+						QueryItemText?.Invoke(i, col, out text, ref offSetX, ref offSetY);
 						if (text.Length > maxLength)
 						{
 							maxLength = text.Length;
@@ -191,7 +195,7 @@ namespace BizHawk.Client.EmuHawk
 					}
 
 					var newWidth = (maxLength * _charSize.Width) + (CellWidthPadding * 2);
-					CurrentCell.Column.Width = (int)newWidth;
+					col.Width = (int) newWidth;
 					_columns.ColumnsChanged();
 					Refresh();
 				}
@@ -206,14 +210,14 @@ namespace BizHawk.Client.EmuHawk
 		/// </summary>
 		[DefaultValue(3)]
 		[Category("Behavior")]
-		public int CellWidthPadding { get; set; }
+		public int CellWidthPadding { get; set; } = 3;
 
 		/// <summary>
 		/// Gets or sets the amount of top and bottom padding on the text inside a cell
 		/// </summary>
 		[DefaultValue(1)]
 		[Category("Behavior")]
-		public int CellHeightPadding { get; set; }
+		public int CellHeightPadding { get; set; } = 1;
 
 		/// <summary>
 		/// Gets or sets a value indicating whether grid lines are displayed around cells
@@ -379,7 +383,7 @@ namespace BizHawk.Client.EmuHawk
 		/// Gets or sets a value indicating whether pressing page up/down will cause
 		/// the current selection to change
 		/// </summary>
-		[DefaultValue(false)]
+		[DefaultValue(true)]
 		[Category("Behavior")]
 		public bool ChangeSelectionWhenPaging { get; set; } = true;
 
@@ -535,24 +539,26 @@ namespace BizHawk.Client.EmuHawk
 
 		public class ColumnClickEventArgs
 		{
-			public ColumnClickEventArgs(RollColumn column)
+			public ColumnClickEventArgs(RollColumn/*?*/ column)
 			{
 				Column = column;
 			}
 
-			public RollColumn Column { get; }
+			public RollColumn/*?*/ Column { get; }
 		}
 
+		/// <remarks>this is only used in TAStudio, which ignores the args param completely</remarks>
 		public class ColumnReorderedEventArgs
 		{
-			public ColumnReorderedEventArgs(int oldDisplayIndex, int newDisplayIndex, RollColumn column)
+			public ColumnReorderedEventArgs(int oldDisplayIndex, int newDisplayIndex, RollColumn/*?*/ column)
 			{
 				Column = column;
 				OldDisplayIndex = oldDisplayIndex;
 				NewDisplayIndex = newDisplayIndex;
 			}
 
-			public RollColumn Column { get; }
+			public RollColumn/*?*/ Column { get; }
+
 			public int OldDisplayIndex { get; }
 			public int NewDisplayIndex { get; }
 		}
@@ -1156,7 +1162,7 @@ namespace BizHawk.Client.EmuHawk
 					{
 						// do marker drag here
 					}
-					else if (ModifierKeys == Keys.Shift && CurrentCell.Column.Type == ColumnType.Text)
+					else if (ModifierKeys is Keys.Shift && CurrentCell.Column! is { Type: ColumnType.Text } col)
 					{
 						if (_selectedItems.Count is not 0)
 						{
@@ -1188,7 +1194,6 @@ namespace BizHawk.Client.EmuHawk
 											additionEndExcl = targetRow + 1;
 										}
 									}
-									var col = CurrentCell.Column;
 									for (var i = additionStart; i < additionEndExcl; i++) SelectCell(new() { RowIndex = i, Column = col });
 								}
 							}
@@ -1202,7 +1207,7 @@ namespace BizHawk.Client.EmuHawk
 							SelectCell(CurrentCell);
 						}
 					}
-					else if (ModifierKeys == Keys.Control && CurrentCell.Column.Type == ColumnType.Text)
+					else if (ModifierKeys is Keys.Control && CurrentCell.Column!.Type is ColumnType.Text)
 					{
 						SelectCell(CurrentCell, toggle: true);
 					}
@@ -1336,12 +1341,12 @@ namespace BizHawk.Client.EmuHawk
 			RightMouseScrolled?.Invoke(sender, e);
 		}
 
-		private void ColumnClickEvent(RollColumn column)
+		private void ColumnClickEvent(RollColumn/*?*/ column)
 		{
 			ColumnClick?.Invoke(this, new ColumnClickEventArgs(column));
 		}
 
-		private void ColumnRightClickEvent(RollColumn column)
+		private void ColumnRightClickEvent(RollColumn/*?*/ column)
 		{
 			ColumnRightClick?.Invoke(this, new ColumnClickEventArgs(column));
 		}
@@ -1599,7 +1604,7 @@ namespace BizHawk.Client.EmuHawk
 				PointedCellChanged(this, new CellEventArgs(_lastCell, CurrentCell));
 			}
 
-			if (CurrentCell?.Column != null && CurrentCell.RowIndex.HasValue)
+			if (CurrentCell?.Column is not null)
 			{
 				_hoverTimer.Start();
 			}
@@ -1654,13 +1659,15 @@ namespace BizHawk.Client.EmuHawk
 
 		private void DoColumnReorder()
 		{
-			if (_columnDown != CurrentCell.Column)
+			if (_columnDown! != CurrentCell.Column!)
 			{
 				var oldIndex = _columns.IndexOf(_columnDown);
 				var newIndex = _columns.IndexOf(CurrentCell.Column);
 
 				ColumnReordered?.Invoke(this, new ColumnReorderedEventArgs(oldIndex, newIndex, _columnDown));
 
+				//TODO surely this only works properly in one direction?
+				// also the event is "...Reordered"--past tense--so it should be called AFTER the change --yoshi
 				_columns.Remove(_columnDown);
 				_columns.Insert(newIndex, _columnDown);
 			}
@@ -1883,7 +1890,7 @@ namespace BizHawk.Client.EmuHawk
 		/// </summary>
 		/// <param name="pixel">The pixel coordinate.</param>
 		/// <returns>RollColumn object that contains the pixel coordinate or null if none exists.</returns>
-		private RollColumn ColumnAtPixel(int pixel)
+		private RollColumn/*?*/ ColumnAtPixel(int pixel)
 		{
 			if (_horizontalOrientation)
 			{

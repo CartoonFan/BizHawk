@@ -1,6 +1,6 @@
 using System;
 
-using BizHawk.Bizware.BizwareGL;
+using BizHawk.Bizware.Graphics;
 using BizHawk.Client.Common;
 using BizHawk.Emulation.Common;
 
@@ -56,7 +56,7 @@ namespace BizHawk.Client.EmuHawk
 		bool EnsureCoreIsAccurate();
 
 		/// <remarks>only referenced from <see cref="TAStudio"/></remarks>
-		void FrameAdvance();
+		void FrameAdvance(bool discardApiHawkSurfaces = true);
 
 		/// <remarks>only referenced from <see cref="LuaConsole"/></remarks>
 		void FrameBufferResized();
@@ -79,17 +79,11 @@ namespace BizHawk.Client.EmuHawk
 		bool BlockFrameAdvance { get; set; }
 
 		/// <remarks>only referenced from <see cref="TAStudio"/></remarks>
-		void RelinquishControl(IControlMainform master);
-
-		/// <remarks>only referenced from <see cref="TAStudio"/></remarks>
 		void SeekFrameAdvance();
 
 		void SetMainformMovieInfo();
 
 		bool StartNewMovie(IMovie movie, bool record);
-
-		/// <remarks>only referenced from <see cref="TAStudio"/></remarks>
-		void TakeBackControl();
 
 		/// <remarks>only referenced from <see cref="BasicBot"/></remarks>
 		void Throttle();

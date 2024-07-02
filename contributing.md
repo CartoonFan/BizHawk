@@ -68,17 +68,17 @@ It's probably a good idea to get the .NET SDK, even if you're not working on a .
 ## For any: .NET project
 
 - Linux
-	- Install the .NET 6 SDK (package name is usually `dotnet-sdk-6.0`, see [full instructions](https://docs.microsoft.com/en-gb/dotnet/core/install/linux)).
+	- Install the .NET 8 SDK (package name is usually `dotnet-sdk-8.0`, see [full instructions](https://learn.microsoft.com/en-gb/dotnet/core/install/linux)).
 	- VS Community isn't available for Linux, but Rider and VS Code are.
 - macOS
 	- Note that EmuHawk does not currently support macOS.
-	- Install the .NET 6 SDK [manually](https://docs.microsoft.com/en-gb/dotnet/core/install/macos) or with Homebrew.
-	- VS Community isn't available for macOS, but Rider, VS Code, and VS for Mac are.
+	- Install the .NET 8 SDK [manually](https://learn.microsoft.com/en-gb/dotnet/core/install/macos) or with Homebrew.
+	- VS Community isn't available for macOS, but Rider and VS Code are, and [for now](https://learn.microsoft.com/en-us/visualstudio/mac/what-happened-to-vs-for-mac) so is VS for Mac.
 - Windows
-	- The .NET 6 SDK comes with [VS Community 2022](https://visualstudio.microsoft.com/vs/community) (and it can be manually installed beside VS2019, see [full instructions](https://docs.microsoft.com/en-gb/dotnet/core/install/windows)).
+	- The .NET 8 SDK comes with [VS Community 2022](https://visualstudio.microsoft.com/vs/community) (see [full instructions](https://learn.microsoft.com/en-gb/dotnet/core/install/windows)).
 	- You can also use Rider, VS Code, or something else instead of VS Community.
 
-For EmuHawk and libraries in the main solution, which do not target .NET 6, we have [this page](https://github.com/TASEmulators/BizHawk/wiki/Available-C%23-and-.NET-features) documenting which features are actually available to use.
+For EmuHawk and libraries in the main solution, which do not target .NET 8, we have [this page](https://github.com/TASEmulators/BizHawk/wiki/Available-C%23-and-.NET-features) documenting which features are actually available to use.
 
 
 
@@ -120,7 +120,8 @@ The source for EmuHawk, plus DiscoHawk and the supporting libraries, is in `/src
 EmuHawk's project file `/src/BizHawk.Client.EmuHawk/BizHawk.Client.EmuHawk.csproj` includes the other projects [in a tree](https://gitlab.com/TASVideos/BizHawk/snippets/1886666), and they're all included in `/BizHawk.sln`.
 
 In VS2022, open `BizHawk.sln`, then select the "BizHawk.Client.EmuHawk | Release" configuration to build and run.
-On the command-line, from root of the repo run `Dist/BuildRelease.sh` (Unix) or `Dist\QuickTestBuildAndPackage_Release.bat` (Windows). Run EmuHawk from `output` in the repo's root.
+To build from the command-line on Windows, simply run `dotnet build BizHawk.sln` from the repository's root, and then `output\EmuHawk` will be available. Alternatively, you can run one of the existing build scripts that apply additional checks and configurations, such as `Dist\QuickTestBuildAndPackage_Release.bat`.
+To build from the command-line on Unix, run `Dist/BuildRelease.sh`, and then `output/EmuHawkMono.sh` will be available.
 
 There are 2 build configurations. Besides `Release` there is `Debug`, which *does not run* bytecode optimisations, *does not remove* debugging symbols, *enables* additional logging and assertions, and *enables* some features. On Windows, a `Debug` executable will spawn a console window for stdout. Note there is also a "stronger" release build in the form of `VersionInfo.DeveloperBuild == false`, which is only used by GitLab CI for preparing a release (during `Dist/UpdateVersionInfoForRelease.sh`).
 
@@ -321,5 +322,5 @@ See [Waterbox readme](https://github.com/TASEmulators/BizHawk/tree/master/waterb
 By contributing, you declare that any additions or changes either:
 - were authored by you and you are willing to license your contributions to us under the [project's license](https://github.com/TASEmulators/BizHawk/tree/master/LICENSE); or
 - were copied from a compatibly open-source, publicly-licensed source and are properly attributed, including licensing info.
-> **Important**
+> [!IMPORTANT]
 > We will **not** accept any contributions "authored" by GitHub Copilot or similar ML tools.

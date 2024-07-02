@@ -6,24 +6,19 @@ using BizHawk.Common;
 using BizHawk.Emulation.Common;
 using Newtonsoft.Json;
 
-
 namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 {
 	public partial class GPGX : ISettable<GPGX.GPGXSettings, GPGX.GPGXSyncSettings>
 	{
 		public GPGXSettings GetSettings()
-		{
-			return _settings.Clone();
-		}
+			=> _settings.Clone();
 
 		public GPGXSyncSettings GetSyncSettings()
-		{
-			return _syncSettings.Clone();
-		}
+			=> _syncSettings.Clone();
 
 		public PutSettingsDirtyBits PutSettings(GPGXSettings o)
 		{
-			bool ret = GPGXSettings.NeedsReboot(_settings, o);
+			var ret = GPGXSettings.NeedsReboot(_settings, o);
 			_settings = o;
 			Core.gpgx_set_draw_mask(_settings.GetDrawMask());
 			Core.gpgx_set_sprite_limit_enabled(!_settings.NoSpriteLimit);
@@ -32,7 +27,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 		public PutSettingsDirtyBits PutSyncSettings(GPGXSyncSettings o)
 		{
-			bool ret = GPGXSyncSettings.NeedsReboot(_syncSettings, o);
+			var ret = GPGXSyncSettings.NeedsReboot(_syncSettings, o);
 			_syncSettings = o;
 			return ret ? PutSettingsDirtyBits.RebootCore : PutSettingsDirtyBits.None;
 		}
@@ -40,18 +35,14 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 		private class UintToHexConverter : TypeConverter
 		{
 			public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
-			{
-				return sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
-			}
+				=> sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
 
 			public override bool CanConvertTo(ITypeDescriptorContext context, Type destinationType)
-			{
-				return destinationType == typeof(string) || base.CanConvertTo(context, destinationType);
-			}
+				=> destinationType == typeof(string) || base.CanConvertTo(context, destinationType);
 
 			public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
 			{
-				if (destinationType == typeof(string) && value.GetType() == typeof(uint))
+				if (destinationType == typeof(string) && value is uint)
 				{
 					return $"0x{value:x8}";
 				}
@@ -61,13 +52,14 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 			public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
 			{
-				if (value.GetType() == typeof(string))
+				if (value?.GetType() == typeof(string))
 				{
-					string input = (string)value;
+					var input = (string)value;
 					if (input.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
 					{
-						input = input.Substring(2);
+						input = input[2..];
 					}
+
 					return uint.Parse(input, NumberStyles.HexNumber, culture);
 				}
 
@@ -78,18 +70,14 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 		private class UshortToHexConverter : TypeConverter
 		{
 			public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
-			{
-				return sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
-			}
+				=> sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
 
 			public override bool CanConvertTo(ITypeDescriptorContext context, Type destinationType)
-			{
-				return destinationType == typeof(string) || base.CanConvertTo(context, destinationType);
-			}
+				=> destinationType == typeof(string) || base.CanConvertTo(context, destinationType);
 
 			public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
 			{
-				if (destinationType == typeof(string) && value.GetType() == typeof(ushort))
+				if (destinationType == typeof(string) && value is ushort)
 				{
 					return $"0x{value:x4}";
 				}
@@ -99,13 +87,14 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 			public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
 			{
-				if (value.GetType() == typeof(string))
+				if (value?.GetType() == typeof(string))
 				{
-					string input = (string)value;
+					var input = (string)value;
 					if (input.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
 					{
-						input = input.Substring(2);
+						input = input[2..];
 					}
+
 					return ushort.Parse(input, NumberStyles.HexNumber, culture);
 				}
 
@@ -210,16 +199,11 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 				set => _noSpriteLimit = value;
 			}
 
-
 			public GPGXSettings()
-			{
-				SettingsUtil.SetDefaultValues(this);
-			}
+				=> SettingsUtil.SetDefaultValues(this);
 
 			public GPGXSettings Clone()
-			{
-				return (GPGXSettings)MemberwiseClone();
-			}
+				=> (GPGXSettings)MemberwiseClone();
 
 			public LibGPGX.DrawMask GetDrawMask()
 			{
@@ -233,17 +217,13 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 			}
 
 			public static bool NeedsReboot(GPGXSettings x, GPGXSettings y)
-			{
-				return !DeepEquality.DeepEquals(x, y);
-			}
-
-			
+				=> !DeepEquality.DeepEquals(x, y);
 		}
 
 		[CoreSettings]
 		public class GPGXSyncSettings
 		{
-			[DisplayName("Use Six Button Controllers")]
+			[DisplayName("[Genesis/CD] Use Six Button Controllers")]
 			[Description("Controls the type of any attached normal controllers; six button controllers are used if true, otherwise three button controllers.  Some games don't work correctly with six button controllers.  Not relevant if other controller types are connected.")]
 			[DefaultValue(false)]
 			public bool UseSixButton { get; set; }
@@ -263,7 +243,32 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 			[DefaultValue(LibGPGX.Region.Autodetect)]
 			public LibGPGX.Region Region { get; set; }
 
-			[DisplayName("FM Sound Chip Type")]
+			[DisplayName("Force VDP Mode")]
+			[Description("Overrides the VDP mode to force it to run at either 60Hz (NTSC) or 50Hz (PAL), regardless of system region.")]
+			[DefaultValue(LibGPGX.ForceVDP.Disabled)]
+			public LibGPGX.ForceVDP ForceVDP { get; set; }
+
+			[DisplayName("Load BIOS")]
+			[Description("Indicates whether to load the system BIOS rom.")]
+			[DefaultValue(false)]
+			public bool LoadBIOS { get; set; }
+
+			[DisplayName("Overscan")]
+			[Description("Sets overscan borders shown.")]
+			[DefaultValue(LibGPGX.InitSettings.OverscanType.None)]
+			public LibGPGX.InitSettings.OverscanType Overscan { get; set; }
+
+			[DisplayName("[GG] Display Extra Area")]
+			[Description("Enables displaying extended Game Gear screen (256x192).")]
+			[DefaultValue(false)]
+			public bool GGExtra { get; set; }
+
+			[DisplayName("[SMS] FM Sound Chip Type")]
+			[Description("Sets the method used to emulate the FM Sound Unit of the Sega Mark III/Master System. 'MAME' is fast and runs full speed on most systems.'Nuked' is cycle accurate, very high quality, and have substantial CPU requirements.")]
+			[DefaultValue(LibGPGX.InitSettings.SMSFMSoundChipType.YM2413_MAME)]
+			public LibGPGX.InitSettings.SMSFMSoundChipType SMSFMSoundChip { get; set; }
+
+			[DisplayName("[Genesis/CD] FM Sound Chip Type")]
 			[Description("Sets the method used to emulate the FM synthesizer (main sound generator) of the Mega Drive/Genesis.  'MAME' options are fast, and run full speed on most systems.  'Nuked' options are cycle accurate, very high quality, and have substantial CPU requirements.  The 'YM2612' chip is used by the original Model 1 Mega Drive/Genesis.  The 'YM3438' is used in later Mega Drive/Genesis revisions.")]
 			[DefaultValue(LibGPGX.InitSettings.GenesisFMSoundChipType.MAME_YM2612)]
 			public LibGPGX.InitSettings.GenesisFMSoundChipType GenesisFMSoundChip { get; set; }
@@ -329,26 +334,25 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 					InputSystemA = SystemForSystem(ControlTypeLeft),
 					InputSystemB = SystemForSystem(ControlTypeRight),
 					Region = Region,
+					ForceVDP = ForceVDP,
+					LoadBIOS = LoadBIOS,
 					ForceSram = game["sram"],
-			        GenesisFMSoundChip = GenesisFMSoundChip,
-					SpritesAlwaysOnTop = SpritesAlwaysOnTop
+					SMSFMSoundChip = SMSFMSoundChip,
+					GenesisFMSoundChip = GenesisFMSoundChip,
+					SpritesAlwaysOnTop = SpritesAlwaysOnTop,
+					Overscan = Overscan,
+					GGExtra = GGExtra,
 				};
 			}
 
 			public GPGXSyncSettings()
-			{
-				SettingsUtil.SetDefaultValues(this);
-			}
+				=> SettingsUtil.SetDefaultValues(this);
 
 			public GPGXSyncSettings Clone()
-			{
-				return (GPGXSyncSettings)MemberwiseClone();
-			}
+				=> (GPGXSyncSettings)MemberwiseClone();
 
 			public static bool NeedsReboot(GPGXSyncSettings x, GPGXSyncSettings y)
-			{
-				return !DeepEquality.DeepEquals(x, y);
-			}
+				=> !DeepEquality.DeepEquals(x, y);
 		}
 	}
 }

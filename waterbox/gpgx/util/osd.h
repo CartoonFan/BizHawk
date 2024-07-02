@@ -1,14 +1,11 @@
 #pragma once
 
-#ifdef _MSC_VER
-#include <stdio.h>
-typedef unsigned char bool;
-#define strncasecmp _strnicmp
-#endif
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "scrc32.h"
+#include "cdStream.h"
 
 #define MAX_INPUTS 8
 #define MAX_KEYS 8
@@ -25,6 +22,13 @@ typedef unsigned char bool;
 #ifndef M_PI
 #define M_PI 3.1415926535897932385
 #endif
+
+#define HAVE_NO_SPRITE_LIMIT
+#define MAX_SPRITES_PER_LINE 80
+#define TMS_MAX_SPRITES_PER_LINE (config.no_sprite_limit ? MAX_SPRITES_PER_LINE : 4)
+#define MODE4_MAX_SPRITES_PER_LINE (config.no_sprite_limit ? MAX_SPRITES_PER_LINE : 8)
+#define MODE5_MAX_SPRITES_PER_LINE (config.no_sprite_limit ? MAX_SPRITES_PER_LINE : (bitmap.viewport.w >> 4))
+#define MODE5_MAX_SPRITE_PIXELS (config.no_sprite_limit ? MAX_SPRITES_PER_LINE * 32 : max_sprite_pixels)
 
 typedef struct
 {
@@ -93,7 +97,6 @@ extern char MS_BIOS_US[256];
 extern char MS_BIOS_EU[256];
 extern char MS_BIOS_JP[256];
 
-void osd_input_update(void);
-int load_archive(const char *filename, unsigned char *buffer, int maxsize, char *extension);
-void real_input_callback(void);
-
+extern void osd_input_update(void);
+extern int load_archive(const char *filename, unsigned char *buffer, int maxsize, char *extension);
+extern void real_input_callback(void);

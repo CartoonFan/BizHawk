@@ -386,7 +386,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			while (LuaImp.ScriptList.Count > 0)
 			{
-				RemoveLuaFile(LuaImp.ScriptList[^1]);
+				RemoveLuaFile(LuaImp.ScriptList[LuaImp.ScriptList.Count - 1]);
 			}
 		}
 
@@ -1028,7 +1028,7 @@ namespace BizHawk.Client.EmuHawk
 		{
 			var indices = LuaListView.SelectedRows.ToList();
 			if (indices.Count == 0
-				|| indices[^1] == LuaImp.ScriptList.Count - 1) // at end already
+				|| indices[indices.Count - 1] == LuaImp.ScriptList.Count - 1) // at end already
 			{
 				return;
 			}
@@ -1318,7 +1318,7 @@ namespace BizHawk.Client.EmuHawk
 		/// </summary>
 		private void LuaListView_ColumnClick(object sender, InputRoll.ColumnClickEventArgs e)
 		{
-			var columnToSort = e.Column.Name;
+			var columnToSort = e.Column!.Name;
 			var luaListTemp = new List<LuaFile>();
 			if (columnToSort != _lastColumnSorted)
 			{
@@ -1333,7 +1333,7 @@ namespace BizHawk.Client.EmuHawk
 				var split = words[0].Split(Path.DirectorySeparatorChar);
 
 				luaListTemp.Add(LuaImp.ScriptList[i]);
-				luaListTemp[i].Name = split[^1];
+				luaListTemp[i].Name = split[split.Length - 1];
 			}
 
 			// Script, Path
@@ -1378,11 +1378,13 @@ namespace BizHawk.Client.EmuHawk
 			if (e.KeyCode == Keys.Enter)
 			{
 				string consoleBeforeCall = OutputBox.Text;
-
-				// TODO: Maybe make these try-catches more general
-				if (!string.IsNullOrWhiteSpace(InputBox.Text))
+				var rawCommand = InputBox.Text;
+				InputBox.Clear();
+				InputBox.Refresh(); // if the command is something like `client.seekframe`, the Lua Console (and MainForm) will freeze until it finishes, so at least make it obvious that the Enter press was received
+				// TODO: Maybe make these try-catches more general // what try-catches? LuaSandbox.Sandbox? --yoshi
+				if (!string.IsNullOrWhiteSpace(rawCommand))
 				{
-					if (InputBox.Text.Contains("emu.frameadvance("))
+					if (rawCommand.Contains("emu.frameadvance(")) //TODO this is pitiful; do it properly with a flag like the one we use for rom loads --yoshi
 					{
 						WriteLine("emu.frameadvance() can not be called from the console");
 						return;
@@ -1390,12 +1392,12 @@ namespace BizHawk.Client.EmuHawk
 
 					LuaSandbox.Sandbox(null, () =>
 					{
-						LuaImp.ExecuteString($"console.log({InputBox.Text})");
+						LuaImp.ExecuteString($"console.log({rawCommand})");
 					}, () =>
 					{
 						LuaSandbox.Sandbox(null, () =>
 						{
-							LuaImp.ExecuteString(InputBox.Text);
+							LuaImp.ExecuteString(rawCommand);
 
 							if (OutputBox.Text == consoleBeforeCall)
 							{
@@ -1405,9 +1407,8 @@ namespace BizHawk.Client.EmuHawk
 					});
 
 					_messageCount = 0;
-					_consoleCommandHistory.Insert(0, InputBox.Text);
+					_consoleCommandHistory.Insert(0, rawCommand);
 					_consoleCommandHistoryIndex = -1;
-					InputBox.Clear();
 				}
 			}
 			else if (e.KeyCode == Keys.Up)
