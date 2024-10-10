@@ -46,9 +46,7 @@ namespace BizHawk.Client.EmuHawk
 			SaveRAMSubMenu.Enabled = hasSaveRam;
 			SaveRAMSubMenu.SetStyle(needBold ? FontStyle.Bold : FontStyle.Regular);
 
-			AVSubMenu.Enabled =
-			ScreenshotSubMenu.Enabled =
-				Emulator.HasVideoProvider();
+			AVSubMenu.Enabled = Emulator.HasVideoProvider(); //TODO necessary?
 		}
 
 		private void RecentRomMenuItem_DropDownOpened(object sender, EventArgs e)
@@ -197,7 +195,7 @@ namespace BizHawk.Client.EmuHawk
 		private void AVSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
 			ConfigAndRecordAVMenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Record A/V"];
-			StopAVIMenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Stop A/V"];
+			StopAVMenuItem.ShortcutKeyDisplayString = Config.HotkeyBindings["Stop A/V"];
 			CaptureOSDMenuItem.Checked = Config.AviCaptureOsd;
 			CaptureLuaMenuItem.Checked = Config.AviCaptureLua || Config.AviCaptureOsd; // or with osd is for better compatibility with old config files
 
@@ -206,12 +204,12 @@ namespace BizHawk.Client.EmuHawk
 			if (_currAviWriter == null)
 			{
 				ConfigAndRecordAVMenuItem.Enabled = true;
-				StopAVIMenuItem.Enabled = false;
+				StopAVMenuItem.Enabled = false;
 			}
 			else
 			{
 				ConfigAndRecordAVMenuItem.Enabled = false;
-				StopAVIMenuItem.Enabled = true;
+				StopAVMenuItem.Enabled = true;
 			}
 		}
 
@@ -611,16 +609,27 @@ namespace BizHawk.Client.EmuHawk
 		private void WindowSizeSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
 			var windowScale = Config.GetWindowScaleFor(Emulator.SystemId);
-			foreach (ToolStripMenuItem item in WindowSizeSubMenu.DropDownItems)
+			foreach (var item in WindowSizeSubMenu.DropDownItems)
 			{
-				item.Checked = (int) item.Tag == windowScale;
+				// filter out separators
+				if (item is ToolStripMenuItem menuItem && menuItem.Tag is int itemScale)
+				{
+					menuItem.Checked = itemScale == windowScale && Config.ResizeWithFramebuffer;
+				}
 			}
+			DisableResizeWithFramebufferMenuItem.Checked = !Config.ResizeWithFramebuffer;
+		}
+
+		private void DisableResizeWithFramebufferMenuItem_Click(object sender, EventArgs e)
+		{
+			Config.ResizeWithFramebuffer = !DisableResizeWithFramebufferMenuItem.Checked;
+			FrameBufferResized();
 		}
 
 		private void WindowSize_Click(object sender, EventArgs e)
 		{
 			Config.SetWindowScaleFor(Emulator.SystemId, (int) ((ToolStripMenuItem) sender).Tag);
-			FrameBufferResized();
+			FrameBufferResized(forceWindowResize: true);
 		}
 
 		private void SwitchToFullscreenMenuItem_Click(object sender, EventArgs e)
@@ -823,7 +832,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void AutofireMenuItem_Click(object sender, EventArgs e)
 		{
-			using var form = new AutofireConfig(Config, InputManager.AutoFireController, InputManager.AutofireStickyXorAdapter);
+			using var form = new AutofireConfig(Config, InputManager.AutoFireController, InputManager.StickyAutofireController);
 			if (this.ShowDialogWithTempMute(form).IsOk()) AddOnScreenMessage("Autofire settings saved");
 		}
 
@@ -1503,12 +1512,13 @@ namespace BizHawk.Client.EmuHawk
 
 		private void ProfileFirstBootLabel_Click(object sender, EventArgs e)
 		{
-			// We do not check if the user is actually setting a profile here.
-			// This is intentional.
 			using var profileForm = new ProfileConfig(Config, this);
-			this.ShowDialogWithTempMute(profileForm);
+			_ = this.ShowDialogWithTempMute(profileForm); // interpret Cancel as user acklowledgement (there are instructions for re-opening the dialog anyway)
 			Config.FirstBoot = false;
 			ProfileFirstBootLabel.Visible = false;
+			OSD.ClearRegularMessages();
+			AddOnScreenMessage("You can find that again at Config > Profiles", duration: 10/*seconds*/); // intentionally left off the ellipsis from the menu item's name as it could be misinterpreted as the message being truncated
+			AddOnScreenMessage("All done! Drag+drop a rom to start playing", duration: 10/*seconds*/);
 		}
 
 		private void LinkConnectStatusBarButton_Click(object sender, EventArgs e)
@@ -1574,6 +1584,11 @@ namespace BizHawk.Client.EmuHawk
 		private void MainForm_Resize(object sender, EventArgs e)
 		{
 			_presentationPanel.Resized = true;
+			if (_framebufferResizedPending && WindowState is FormWindowState.Normal)
+			{
+				_framebufferResizedPending = false;
+				FrameBufferResized();
+			}
 		}
 
 		private void MainForm_Shown(object sender, EventArgs e)

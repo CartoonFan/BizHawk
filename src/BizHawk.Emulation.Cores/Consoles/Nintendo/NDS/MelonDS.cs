@@ -18,7 +18,7 @@ using BizHawk.Emulation.Cores.Waterbox;
 namespace BizHawk.Emulation.Cores.Consoles.Nintendo.NDS
 {
 	[PortedCore(CoreNames.MelonDS, "Arisotura", "0.9.5", "https://melonds.kuribo64.net/")]
-	[ServiceNotApplicable(new[] { typeof(IDriveLight), typeof(IRegionable) })]
+	[ServiceNotApplicable(typeof(IRegionable))]
 	public sealed partial class NDS : WaterboxCore
 	{
 		private readonly LibMelonDS _core;
@@ -500,7 +500,15 @@ namespace BizHawk.Emulation.Cores.Consoles.Nintendo.NDS
 		{
 			_isDisposing = true;
 			_frameThreadStartEvent.Release();
-			_frameThread?.Join();
+
+			if (_frameThread != null)
+			{
+				while (_frameThread.IsAlive)
+				{
+					Thread.Sleep(1);
+				}
+			}
+
 			_frameThreadStartEvent.Dispose();
 			_frameThreadEndEvent.Dispose();
 

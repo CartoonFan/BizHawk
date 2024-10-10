@@ -41,11 +41,12 @@ namespace BizHawk.Client.Common
 			_buttonStarts.Clear();
 		}
 
-		/// <exception cref="NotImplementedException">always</exception>
 		public int AxisValue(string name)
-		{
-			throw new NotImplementedException();
-		}
+#if DEBUG
+			=> Definition.Axes[name].Neutral; // throw if no such axis
+#else
+			=> Definition.Axes.TryGetValue(name, out var axisSpec) ? axisSpec.Neutral : default;
+#endif
 
 		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => Array.Empty<(string, int)>();
 

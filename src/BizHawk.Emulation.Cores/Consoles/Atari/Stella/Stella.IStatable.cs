@@ -11,7 +11,9 @@ namespace BizHawk.Emulation.Cores.Atari.Stella
 		{
 			_elf.LoadStateBinary(reader);
 			// other variables
-			_frame = reader.ReadInt32();
+			_leftDifficultyToggled = reader.ReadBoolean();
+			_rightDifficultyToggled = reader.ReadBoolean();
+			Frame = reader.ReadInt32();
 			LagCount = reader.ReadInt32();
 			IsLagFrame = reader.ReadBoolean();
 			// any managed pointers that we sent to the core need to be resent now!
@@ -23,6 +25,8 @@ namespace BizHawk.Emulation.Cores.Atari.Stella
 		{
 			_elf.SaveStateBinary(writer);
 			// other variables
+			writer.Write(_leftDifficultyToggled);
+			writer.Write(_rightDifficultyToggled);
 			writer.Write(Frame);
 			writer.Write(LagCount);
 			writer.Write(IsLagFrame);

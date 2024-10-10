@@ -21,6 +21,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void FileSubMenu_DropDownOpened(object sender, EventArgs e)
 		{
+			SaveBackupMenuItem.Enabled = SaveBk2BackupMenuItem.Enabled = !string.IsNullOrWhiteSpace(CurrentTasMovie.Filename) && CurrentTasMovie.Filename != DefaultTasProjName();
 			saveSelectionToMacroToolStripMenuItem.Enabled =
 				placeMacroAtSelectionToolStripMenuItem.Enabled =
 				recentMacrosToolStripMenuItem.Enabled =
@@ -114,10 +115,17 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SaveTasMenuItem_Click(object sender, EventArgs e)
 		{
-			SaveTas();
+			if (string.IsNullOrEmpty(CurrentTasMovie.Filename) || CurrentTasMovie.Filename == DefaultTasProjName())
+			{
+				SaveAsTas();
+			}
+			else
+			{
+				SaveTas();
+			}
 			if (Settings.BackupPerFileSave)
 			{
-				SaveBackupMenuItem_Click(sender, e);
+				SaveTas(saveBackup: true);
 			}
 		}
 
@@ -126,53 +134,18 @@ namespace BizHawk.Client.EmuHawk
 			SaveAsTas();
 			if (Settings.BackupPerFileSave)
 			{
-				SaveBackupMenuItem_Click(sender, e);
+				SaveTas(saveBackup: true);
 			}
 		}
 
 		private void SaveBackupMenuItem_Click(object sender, EventArgs e)
 		{
-			if (string.IsNullOrEmpty(CurrentTasMovie.Filename)
-				|| CurrentTasMovie.Filename == DefaultTasProjName())
-			{
-				SaveAsTas();
-			}
-			else
-			{
-				_autosaveTimer.Stop();
-				MainForm.DoWithTempMute(() =>
-				{
-					MessageStatusLabel.Text = "Saving...";
-					Cursor = Cursors.WaitCursor;
-					Update();
-					CurrentTasMovie.SaveBackup();
-					if (Settings.AutosaveInterval > 0)
-					{
-						_autosaveTimer.Start();
-					}
-
-					MessageStatusLabel.Text = "Backup .tasproj saved to \"Movie backups\" path.";
-					Settings.RecentTas.Add(CurrentTasMovie.Filename);
-					Cursor = Cursors.Default;
-				});
-			}
+			SaveTas(saveBackup: true);
 		}
 
 		private void SaveBk2BackupMenuItem_Click(object sender, EventArgs e)
 		{
-			_autosaveTimer.Stop();
-			var bk2 = CurrentTasMovie.ToBk2();
-			MessageStatusLabel.Text = "Exporting to .bk2...";
-			Cursor = Cursors.WaitCursor;
-			Update();
-			bk2.SaveBackup();
-			if (Settings.AutosaveInterval > 0)
-			{
-				_autosaveTimer.Start();
-			}
-
-			MessageStatusLabel.Text = "Backup .bk2 saved to \"Movie backups\" path.";
-			Cursor = Cursors.Default;
+			SaveTas(saveAsBk2: true, saveBackup: true);
 		}
 
 		private void SaveSelectionToMacroMenuItem_Click(object sender, EventArgs e)
@@ -234,12 +207,11 @@ namespace BizHawk.Client.EmuHawk
 
 		private void ToBk2MenuItem_Click(object sender, EventArgs e)
 		{
-			// TODO: can we deduplicate this logic somehow? The same code with minimal changes is copy pasted like 4 times
 			_autosaveTimer.Stop();
 
-			if (Emulator.HasCycleTiming())
+			if (Emulator.HasCycleTiming() && !CurrentTasMovie.IsAtEnd())
 			{
-				DialogController.ShowMessageBox("This core requires emulation to be on the last frame when writing the movie, otherwise movie length will appear incorrect.\nTAStudio can't handle this, so Export BK2, play it to the end, and then Save Movie.", "Warning", EMsgBoxIcon.Warning);
+				DialogController.ShowMessageBox("This core requires emulation to be on the last frame when writing the movie, otherwise movie length will appear incorrect.", "Warning", EMsgBoxIcon.Warning);
 			}
 
 			string filename = CurrentTasMovie.Filename;
@@ -257,9 +229,11 @@ namespace BizHawk.Client.EmuHawk
 			if (fileInfo is not null)
 			{
 				MessageStatusLabel.Text = "Exporting to .bk2...";
+				MessageStatusLabel.Owner.Update();
 				Cursor = Cursors.WaitCursor;
 				var bk2 = CurrentTasMovie.ToBk2();
 				bk2.Filename = fileInfo.FullName;
+				bk2.Attach(Emulator); // required to be able to save the cycle count for ICycleTiming emulators
 				bk2.Save();
 				MessageStatusLabel.Text = $"{bk2.Name} exported.";
 				Cursor = Cursors.Default;
@@ -821,7 +795,7 @@ namespace BizHawk.Client.EmuHawk
 
 				if (val > 0)
 				{
-					CurrentTasMovie.ChangeLog.MaxSteps = val;
+					Settings.MaxUndoSteps = CurrentTasMovie.ChangeLog.MaxSteps = val;
 				}
 			}
 		}
@@ -1308,16 +1282,14 @@ namespace BizHawk.Client.EmuHawk
 					ColumnsSubMenu.DropDownItems.Add(item);
 				}
 			}
-
-			TasView.AllColumns.ColumnsChanged();
 		}
 
 		// ReSharper disable once UnusedMember.Local
 		[RestoreDefaults]
 		private void RestoreDefaults()
 		{
-			TasView.AllColumns.Clear();
 			SetUpColumns();
+			SetUpToolStripColumns();
 			TasView.Refresh();
 			CurrentTasMovie.FlagChanges();
 

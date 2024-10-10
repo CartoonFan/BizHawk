@@ -18,9 +18,11 @@ namespace BizHawk.Client.Common
 			return false;
 		}
 
-		// pass axes solely from the original source
-		// this works in the code because SourceOr is the autofire controller
-		public int AxisValue(string name) => Source.AxisValue(name);
+		public int AxisValue(string name)
+		{
+			int neutralValue = Source.Definition.Axes[name].Neutral;
+			return SourceAnd.AxisValue(name) != neutralValue ? Source.AxisValue(name) : neutralValue;
+		}
 
 		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => Source.GetHapticsSnapshot();
 
@@ -44,9 +46,24 @@ namespace BizHawk.Client.Common
 			return false;
 		}
 
-		// pass axes solely from the original source
-		// this works in the code because SourceOr is the autofire controller
-		public int AxisValue(string name) => Source.AxisValue(name);
+		// xor logic for axes: xor the logical state of axes (not neutral vs. neutral) and return the result
+		public int AxisValue(string name)
+		{
+			int sourceAxisValue = Source.AxisValue(name);
+			int sourceXorAxisValue = SourceXor.AxisValue(name);
+#if DEBUG
+			var neutral = Definition.Axes[name].Neutral; // throw if no such axis
+#else
+			var neutral = Definition.Axes.TryGetValue(name, out var axisSpec) ? axisSpec.Neutral : default;
+#endif
+
+			if (sourceAxisValue == neutral)
+			{
+				return sourceXorAxisValue;
+			}
+
+			return sourceXorAxisValue == neutral ? sourceAxisValue : neutral;
+		}
 
 		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => Source.GetHapticsSnapshot();
 
@@ -66,9 +83,18 @@ namespace BizHawk.Client.Common
 					| (SourceOr?.IsPressed(button) ?? false);
 		}
 
-		// pass axes solely from the original source
-		// this works in the code because SourceOr is the autofire controller
-		public int AxisValue(string name) => Source.AxisValue(name);
+		public int AxisValue(string name)
+		{
+			int sourceValue = Source.AxisValue(name);
+#if DEBUG
+			var neutralValue = Source.Definition.Axes[name].Neutral; // throw if no such axis
+#else
+			var neutralValue = Source.Definition.Axes.TryGetValue(name, out var axisSpec) ? axisSpec.Neutral : default;
+#endif
+			return sourceValue != neutralValue
+				? sourceValue
+				: SourceOr.AxisValue(name);
+		}
 
 		public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => Source.GetHapticsSnapshot();
 

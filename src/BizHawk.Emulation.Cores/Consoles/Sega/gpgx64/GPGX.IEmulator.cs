@@ -51,7 +51,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 				if (newDisk != _discIndex)
 				{
 					_discIndex = newDisk;
-					Core.gpgx_swap_disc(_discIndex == -1 ? null : GetCDDataStruct(_cds[_discIndex]));
+					Core.gpgx_swap_disc(_discIndex == -1 ? null : GetCDDataStruct(_cds[_discIndex]), (sbyte)_discIndex);
 				}
 			}
 

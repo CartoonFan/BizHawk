@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 
 using BizHawk.Bizware.Graphics;
@@ -26,7 +27,7 @@ namespace BizHawk.Client.Common
 		public static readonly IReadOnlyList<(string[] AppliesTo, string[] CoreNames)> CorePickerUIData = new List<(string[], string[])>
 		{
 			([ VSystemID.Raw.A26 ],
-				[ CoreNames.Stella, CoreNames.Atari2600Hawk ]),
+				[ CoreNames.Atari2600Hawk, CoreNames.Stella ]),
 			([ VSystemID.Raw.Satellaview ],
 				[ CoreNames.Bsnes115, CoreNames.SubBsnes115 ]),
 			([ VSystemID.Raw.GB, VSystemID.Raw.GBC ],
@@ -51,7 +52,6 @@ namespace BizHawk.Client.Common
 				[ CoreNames.Snes9X, CoreNames.Bsnes115, CoreNames.SubBsnes115, CoreNames.Faust, CoreNames.Bsnes ]),
 			([ VSystemID.Raw.TI83 ],
 				[ CoreNames.Emu83, CoreNames.TI83Hawk ]),
-
 		};
 
 		public static Dictionary<string, string> GenDefaultCorePreferences()
@@ -139,8 +139,9 @@ namespace BizHawk.Client.Common
 		public bool MainFormStayOnTop { get; set; }
 		public bool StartPaused { get; set; }
 		public bool StartFullscreen { get; set; }
-		public int MainWndx { get; set; } = -1; // Negative numbers will be ignored
-		public int MainWndy { get; set; } = -1;
+		public Point? MainWindowPosition { get; set; }
+		public Size? MainWindowSize { get; set; }
+		public bool MainWindowMaximized { get; set; }
 		public bool RunInBackground { get; set; } = true;
 		public bool AcceptBackgroundInput { get; set; }
 		public bool AcceptBackgroundInputControllerOnly { get; set; }
@@ -163,7 +164,7 @@ namespace BizHawk.Client.Common
 		public bool AviCaptureLua { get; set; }
 		public bool ScreenshotCaptureOsd { get; set; }
 		public bool FirstBoot { get; set; } = true;
-		public bool UpdateAutoCheckEnabled { get; set; }
+		public bool UpdateAutoCheckEnabled { get; set; } = true;
 		public DateTime? UpdateLastCheckTimeUtc { get; set; }
 		public string UpdateLatestVersion { get; set; } = "";
 		public string UpdateIgnoreVersion { get; set; } = "";
@@ -246,7 +247,7 @@ namespace BizHawk.Client.Common
 		public int MessagesColor { get; set; } = DefaultMessagePositions.MessagesColor;
 		public int AlertMessageColor { get; set; } = DefaultMessagePositions.AlertMessageColor;
 		public int LastInputColor { get; set; } = DefaultMessagePositions.LastInputColor;
-		public int MovieInput { get; set; } = DefaultMessagePositions.MovieInput;
+		public int MovieInputColor { get; set; } = DefaultMessagePositions.MovieInputColor;
 
 		public int DispPrescale { get; set; } = 1;
 
@@ -276,6 +277,11 @@ namespace BizHawk.Client.Common
 		public int DispCropTop { get; set; } = 0;
 		public int DispCropRight { get; set; } = 0;
 		public int DispCropBottom { get; set; } = 0;
+
+		/// <summary>
+		/// Automatically resize main window when framebuffer size changes (default behavior)
+		/// </summary>
+		public bool ResizeWithFramebuffer { get; set; } = true;
 
 		// Sound options
 		public ESoundOutputMethod SoundOutputMethod { get; set; } = HostCapabilityDetector.HasXAudio2 ? ESoundOutputMethod.XAudio2 : ESoundOutputMethod.OpenAL;

@@ -13,7 +13,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 	[PortedCore(
 		name: CoreNames.Gpgx,
 		author: "Eke-Eke",
-		portedVersion: "0c45a8a",
+		portedVersion: "a6002bb",
 		portedUrl: "https://github.com/ekeeke/Genesis-Plus-GX")]
 	public partial class GPGX : IEmulator, IVideoProvider, ISaveRam, IStatable, IRegionable,
 		IInputPollable, IDebuggable, IDriveLight, ICodeDataLogger, IDisassemblable
@@ -89,7 +89,7 @@ namespace BizHawk.Emulation.Cores.Consoles.Sega.gpgx
 
 				if (lp.Discs.Count > 0)
 				{
-					if (lp.Discs.Count > 128)
+					if (lp.Discs.Count > sbyte.MaxValue)
 					{
 						throw new ArgumentException(paramName: nameof(lp), message: "Too many discs loaded at once!");
 					}

@@ -48,9 +48,9 @@ namespace BizHawk.Client.Common
 
 		public IDictionary<string, object> UserBag { get; set; } = new Dictionary<string, object>();
 
-		public IInputAdapter MovieIn { get; set; }
+		public IController MovieIn { get; set; }
 		public IInputAdapter MovieOut { get; } = new CopyControllerAdapter();
-		public IStickyAdapter StickySource { get; set; }
+		public IController StickySource { get; set; }
 
 		public IMovieController MovieController { get; private set; } = new Bk2Controller(NullController.Instance.Definition);
 
@@ -325,7 +325,7 @@ namespace BizHawk.Client.Common
 		{
 			var input = Movie.GetInputState(Movie.Emulator.Frame);
 
-			MovieController.SetFrom(input ?? GenerateMovieController());
+			MovieController.SetFrom(input ?? StickySource);
 			MovieOut.Source = MovieController;
 		}
 
@@ -335,6 +335,7 @@ namespace BizHawk.Client.Common
 			Debug.Assert(Movie.IsPlaying());
 			Debug.Assert(Movie.Emulator.Frame >= Movie.InputLogLength);
 #endif
+#if false // code below doesn't actually do anything as the cycle count is indiscriminately overwritten (or removed) on save anyway.
 			if (Movie.IsAtEnd() && Movie.Emulator.HasCycleTiming())
 			{
 				const string WINDOW_TITLE_MISMATCH = "Cycle count mismatch";
@@ -384,6 +385,7 @@ namespace BizHawk.Client.Common
 					}
 				}
 			}
+#endif
 			switch (Settings.MovieEndAction)
 			{
 				case MovieEndAction.Stop:

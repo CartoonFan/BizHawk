@@ -140,7 +140,8 @@ namespace BizHawk.Client.EmuHawk
 
 		private WatchSize WatchSize => (WatchSize)DataSize;
 
-		private readonly Pen _blackPen = new Pen(Color.Black);
+		private readonly Pen _blackPen = Pens.Black;
+
 		private SolidBrush _freezeBrush;
 		private SolidBrush _freezeHighlightBrush;
 		private SolidBrush _highlightBrush;
@@ -1638,7 +1639,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void UnfreezeAllMenuItem_Click(object sender, EventArgs e)
 		{
-			MainForm.CheatList.RemoveAll();
+			MainForm.CheatList.Clear();
 		}
 
 		private void PokeAddressMenuItem_Click(object sender, EventArgs e)
@@ -1884,7 +1885,7 @@ namespace BizHawk.Client.EmuHawk
 				case Keys.Delete:
 					if (e.Modifiers == Keys.Shift)
 					{
-						MainForm.CheatList.RemoveAll();
+						MainForm.CheatList.Clear();
 					}
 					else
 					{

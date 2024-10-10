@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Drawing;
+using System.Numerics;
 
 namespace BizHawk.Bizware.Graphics
 {
@@ -13,7 +14,8 @@ namespace BizHawk.Bizware.Graphics
 
 		internal readonly IPipeline Pipeline;
 		internal readonly Dictionary<Bitmap, ITexture2D> TextureCache = [ ];
-		internal readonly Dictionary<Color, SolidBrush> BrushCache = [ ];
+
+		internal readonly SolidBrush CachedBrush = new(default);
 
 		public ImGuiResourceCache(IGL igl)
 		{
@@ -51,6 +53,7 @@ namespace BizHawk.Bizware.Graphics
 
 				igl.BindPipeline(Pipeline);
 				SetTexture(null);
+				SetBlendingParamters(null, true);
 				igl.BindPipeline(null);
 			}
 		}
@@ -67,20 +70,26 @@ namespace BizHawk.Bizware.Graphics
 			Pipeline.SetUniformSampler("uSampler0", texture2D);
 		}
 
+		internal void SetBlendingParamters(ITexture2D secondaryTexture, bool doBlendPass)
+		{
+			Pipeline.SetUniformSampler("uSampler1", secondaryTexture);
+			Pipeline.SetUniform("uBlendEnable", secondaryTexture != null);
+			Pipeline.SetUniform("uBlendPass", doBlendPass);
+
+			if (secondaryTexture != null)
+			{
+				Pipeline.SetUniform("uSamplerSize", new Vector2(secondaryTexture.Width, secondaryTexture.Height));
+			}
+		}
+
 		public void Dispose()
 		{
 			foreach (var cachedTex in TextureCache.Values)
 			{
 				cachedTex.Dispose();
 			}
-
-			foreach (var cachedBrush in BrushCache.Values)
-			{
-				cachedBrush.Dispose();
-			}
-
+			CachedBrush.Dispose();
 			TextureCache.Clear();
-			BrushCache.Clear();
 			Pipeline?.Dispose();
 		}
 
@@ -93,6 +102,8 @@ namespace BizHawk.Bizware.Graphics
 
 			TextureCache.Clear();
 		}
+
+		// ReSharper disable UseRawString
 
 		public const string ImGuiVertexShader_d3d11 = @"
 //vertex shader uniforms
@@ -125,9 +136,10 @@ VS_OUTPUT vsmain(VS_INPUT src)
 
 		public const string ImGuiPixelShader_d3d11 = @"
 //pixel shader uniforms
-bool uSamplerEnable;
-Texture2D uTexture0;
-sampler uSampler0;
+bool uSamplerEnable, uBlendPass, uBlendEnable;
+float2 uSamplerSize;
+Texture2D uTexture0, uTexture1;
+sampler uSampler0, uSampler1;
 
 struct PS_INPUT
 {
@@ -138,9 +150,37 @@ struct PS_INPUT
 
 float4 psmain(PS_INPUT src) : SV_Target
 {
-	float4 temp = src.vColor0;
-	if(uSamplerEnable) temp *= uTexture0.Sample(uSampler0,src.vTexcoord0);
-	return temp;
+	if (uBlendPass)
+	{
+		float4 temp = src.vColor0;
+		if(uSamplerEnable) temp *= uTexture0.Sample(uSampler0, src.vTexcoord0);
+
+		if (uBlendEnable)
+		{
+			if (temp.a != 1.0)
+			{
+				float4 prev = uTexture1.Sample(uSampler1, src.vPosition.xy / uSamplerSize);
+				if (temp.a == 0.0)
+				{
+					temp = prev;
+				}
+				else
+				{
+					float alpha = prev.a + temp.a - (prev.a * temp.a);
+					temp.r = ((temp.r * temp.a) + (prev.r * prev.a * (1.0 - temp.a))) / alpha;
+					temp.g = ((temp.g * temp.a) + (prev.g * prev.a * (1.0 - temp.a))) / alpha;
+					temp.b = ((temp.b * temp.a) + (prev.b * prev.a * (1.0 - temp.a))) / alpha;
+					temp.a = alpha;
+				}
+			}
+		}
+
+		return temp;
+	}
+	else
+	{
+		return uTexture1.Sample(uSampler1, src.vPosition.xy / uSamplerSize);
+	}
 }
 ";
 
@@ -167,8 +207,9 @@ void main()
 		public const string ImGuiPixelShader_gl = @"
 //opengl 3.2
 #version 150
-uniform bool uSamplerEnable;
-uniform sampler2D uSampler0;
+uniform bool uSamplerEnable, uBlendPass, uBlendEnable;
+uniform vec2 uSamplerSize;
+uniform sampler2D uSampler0, uSampler1;
 
 in vec2 vTexcoord0;
 in vec4 vColor0;
@@ -177,9 +218,37 @@ out vec4 FragColor;
 
 void main()
 {
-	vec4 temp = vColor0;
-	if(uSamplerEnable) temp *= texture(uSampler0, vTexcoord0);
-	FragColor = temp;
+	if (uBlendPass)
+	{
+		vec4 temp = vColor0;
+		if(uSamplerEnable) temp *= texture(uSampler0, vTexcoord0);
+
+		if (uBlendEnable)
+		{
+			if (temp.a != 1.0)
+			{
+				vec4 prev = texture(uSampler1, gl_FragCoord.xy / uSamplerSize);
+				if (temp.a == 0.0)
+				{
+					temp = prev;
+				}
+				else
+				{
+					float alpha = prev.a + temp.a - (prev.a * temp.a);
+					temp.r = ((temp.r * temp.a) + (prev.r * prev.a * (1.0 - temp.a))) / alpha;
+					temp.g = ((temp.g * temp.a) + (prev.g * prev.a * (1.0 - temp.a))) / alpha;
+					temp.b = ((temp.b * temp.a) + (prev.b * prev.a * (1.0 - temp.a))) / alpha;
+					temp.a = alpha;
+				}
+			}
+		}
+
+		FragColor = temp;
+	}
+	else
+	{
+		FragColor = texture(uSampler1, gl_FragCoord.xy / uSamplerSize);
+	}
 }";
 	}
 }

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 
+using BizHawk.Common.NumberExtensions;
 using BizHawk.Common.StringExtensions;
 using BizHawk.Emulation.Common;
 
@@ -71,12 +72,10 @@ namespace BizHawk.Client.Common
 					const decimal attosInSec = 1_000_000_000_000_000_000.0M;
 					var m = attosInSec;
 					m /= ulong.Parse(vsyncAttoStr);
-					return checked((double) m);
+					return m.ConvertToF64();
 				}
-				else
-				{
-					return PlatformFrameRates.GetFrameRate(SystemID, IsPal);
-				}
+
+				return PlatformFrameRates.GetFrameRate(SystemID, IsPal);
 			}
 		}
 

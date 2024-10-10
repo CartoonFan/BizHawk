@@ -3,6 +3,7 @@ using System.Linq;
 
 using BizHawk.Common;
 using BizHawk.Common.CollectionExtensions;
+using BizHawk.Common.NumberExtensions;
 using BizHawk.Emulation.Common;
 
 namespace BizHawk.Client.Common
@@ -103,7 +104,7 @@ namespace BizHawk.Client.Common
 				value += range.Neutral;
 
 				// finally, constrain to range
-				_axes[k] = ((int) value).ConstrainWithin(range.Range);
+				_axes[k] = ((int)Math.Round(value)).ConstrainWithin(range.Range);
 			}
 		}
 
@@ -115,7 +116,10 @@ namespace BizHawk.Client.Common
 				{
 					foreach (var hostChannel in v.Channels!.Split('+'))
 					{
-						finalHostController.SetHapticChannelStrength(v.GamepadPrefix + hostChannel, (int) ((double) strength * v.Prescale));
+						const double S32_MAX_AS_F64 = int.MaxValue;
+						finalHostController.SetHapticChannelStrength(
+							v.GamepadPrefix + hostChannel,
+							(v.Prescale * (double) strength).Clamp(min: 0.0, max: S32_MAX_AS_F64).RoundToInt());
 					}
 				}
 			}
