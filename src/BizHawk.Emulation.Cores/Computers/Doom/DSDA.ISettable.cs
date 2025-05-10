@@ -72,6 +72,21 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			None = 2
 		}
 
+		public enum MapDetail : int
+		{
+			Normal = 0,
+			Linedefs = 1,
+			[Display(Name = "Linedefs and things")]
+			Everything = 2
+		}
+
+		public enum MapOverlays : int
+		{
+			Disabled = 0,
+			Enabled = 1,
+			Dark = 2
+		}
+
 		public enum TurningResolution : int
 		{
 			[Display(Name = "16 bits (longtics)")]
@@ -80,13 +95,19 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			Shorttics = 2,
 		}
 
+		public enum Strafe50Turning : int
+		{
+			Ignore = 0,
+			Allow = 1,
+		}
+
 		public enum MultiplayerMode : int
 		{
-			[Display(Name = "0 - Single Player / Coop")]
+			[Display(Name = "Single Player / Coop")]
 			Single_Coop = 0,
-			[Display(Name = "1 - Deathmatch")]
+			[Display(Name = "Deathmatch")]
 			Deathmatch = 1,
-			[Display(Name = "2 - Altdeath")]
+			[Display(Name = "Altdeath")]
 			Altdeath = 2
 		}
 
@@ -126,58 +147,100 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 		public class DoomSettings
 		{
 			[DisplayName("Internal Resolution Scale Factor")]
-			[Description("Which factor to increase internal resolution by [1 - 12]. Affects \"quality\" of rendered image at the cost of accuracy. Native resolution is 320x200 resized to 4:3 DAR on a CRT monitor.")]
+			[Description("Which factor to increase internal resolution by [1 - 12]. Improves \"quality\" of the rendered image at the cost of accuracy.\n\nVanilla resolution is 320x200 resized to 4:3 DAR on a CRT monitor.\n\nRequires restart.")]
 			[Range(1, 12)]
 			[DefaultValue(1)]
 			[TypeConverter(typeof(ConstrainedIntConverter))]
 			public int ScaleFactor { get; set; }
-			
+
+			[JsonIgnore]
+			[DisplayName("Sfx Volume")]
+			[Description("Sound effects volume [0 - 15].")]
+			[Range(0, 15)]
+			[DefaultValue(8)]
+			public int SfxVolume { get; set; }
+
+			[JsonIgnore]
+			[DisplayName("Music Volume")]
+			[Description("[0 - 15]")]
+			[Range(0, 15)]
+			[DefaultValue(8)]
+			public int MusicVolume { get; set; }
+
+			[JsonIgnore]
 			[DisplayName("Gamma Correction Level")]
-			[Description("Increases brightness [0 - 4]. Default value in vanilla Doom is 0 (\"OFF\").")]
+			[Description("Increases brightness [0 - 4].\n\nDefault value in vanilla is \"OFF\" (0).")]
 			[Range(0, 4)]
 			[DefaultValue(0)]
 			[TypeConverter(typeof(ConstrainedIntConverter))]
 			public int Gamma { get; set; }
-			
+
+			[JsonIgnore]
 			[DisplayName("Show Messages")]
-			[Description("Displays messages about items you pick up.")]
+			[Description("Displays messages about items you pick up.\n\nDefault value in vanilla is \"ON\".")]
 			[DefaultValue(true)]
 			public bool ShowMessages { get; set; }
-			
+
+			[JsonIgnore]
 			[DisplayName("Report Revealed Secrets")]
 			[Description("Shows an on-screen notification when revealing a secret.")]
 			[DefaultValue(false)]
 			public bool ReportSecrets { get; set; }
-			
+
+			[JsonIgnore]
 			[DisplayName("HUD Mode")]
 			[Description("Sets heads-up display mode.")]
 			[DefaultValue(HudMode.Vanilla)]
 			public HudMode HeadsUpMode { get; set; }
-			
+
+			[JsonIgnore]
 			[DisplayName("Extended HUD")]
 			[Description("Shows DSDA-Doom-specific information above vanilla heads-up-display.")]
 			[DefaultValue(false)]
 			public bool DsdaExHud { get; set; }
-			
+
+			[JsonIgnore]
+			[DisplayName("Display Coordinates")]
+			[Description("Shows player position, angle, velocity, and distance travelled per frame. Color indicates movement tiers: green - SR40, blue - SR50, red - turbo/wallrun.\n\nAvailable in vanilla via the IDMYPOS cheat code, however vanilla only shows angle, X, and Y.")]
+			[DefaultValue(false)]
+			public bool DisplayCoordinates { get; set; }
+
+			[JsonIgnore]
 			[DisplayName("Display Commands")]
 			[Description("Shows input history on the screen. History size is 10, empty commands are excluded.")]
 			[DefaultValue(false)]
 			public bool DisplayCommands { get; set; }
-			
+
+			[JsonIgnore]
 			[DisplayName("Automap Totals")]
 			[Description("Shows counts for kills, items, and secrets on automap.")]
-			[DefaultValue(true)]
+			[DefaultValue(false)]
 			public bool MapTotals { get; set; }
-			
+
+			[JsonIgnore]
 			[DisplayName("Automap Time")]
 			[Description("Shows elapsed time on automap.")]
-			[DefaultValue(true)]
+			[DefaultValue(false)]
 			public bool MapTime { get; set; }
-			
+
+			[JsonIgnore]
 			[DisplayName("Automap Coordinates")]
 			[Description("Shows in-level coordinates on automap.")]
-			[DefaultValue(true)]
+			[DefaultValue(false)]
 			public bool MapCoordinates { get; set; }
+
+			[JsonIgnore]
+			[DisplayName("Automap Overlay")]
+			[Description("Shows automap on top of gameplay.")]
+			[DefaultValue(MapOverlays.Disabled)]
+			public MapOverlays MapOverlay { get; set; }
+
+			[JsonIgnore]
+			[DisplayName("Automap Details")]
+			[Description("Exposes all linedefs and things.\n\nAvailable in vanilla via the IDDT cheat code.")]
+			[DefaultValue(MapDetail.Normal)]
+			[TypeConverter(typeof(DescribableEnumConverter))]
+			public MapDetail MapDetails { get; set; }
 
 			[JsonIgnore]
 			[DisplayName("Player Point of View")]
@@ -192,19 +255,18 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 
 			public DoomSettings Clone()
 				=> (DoomSettings)MemberwiseClone();
-
-			public static bool NeedsReboot(DoomSettings x, DoomSettings y)
-				=> !DeepEquality.DeepEquals(x, y);
 		}
 		public PutSettingsDirtyBits PutSettings(DoomSettings o)
 		{
-			var ret = DoomSettings.NeedsReboot(_settings, o);
+			var ret = _settings.ScaleFactor == o.ScaleFactor
+				? PutSettingsDirtyBits.None
+				: PutSettingsDirtyBits.RebootCore;
 			_settings = o;
 			if (_settings.DisplayPlayer == 1 && !_syncSettings.Player1Present) throw new Exception($"Trying to set display player '{_settings.DisplayPlayer}' but it is not active in this movie.");
 			if (_settings.DisplayPlayer == 2 && !_syncSettings.Player2Present) throw new Exception($"Trying to set display player '{_settings.DisplayPlayer}' but it is not active in this movie.");
 			if (_settings.DisplayPlayer == 3 && !_syncSettings.Player3Present) throw new Exception($"Trying to set display player '{_settings.DisplayPlayer}' but it is not active in this movie.");
 			if (_settings.DisplayPlayer == 4 && !_syncSettings.Player4Present) throw new Exception($"Trying to set display player '{_settings.DisplayPlayer}' but it is not active in this movie.");
-			return ret ? PutSettingsDirtyBits.RebootCore : PutSettingsDirtyBits.None;
+			return ret;
 		}
 
 		[CoreSettings]
@@ -300,22 +362,27 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			[Description("Sets strict mode restrictions, preventing TAS-only inputs.")]
 			[DefaultValue(true)]
 			public bool StrictMode { get; set; }
-			
+
 			[DisplayName("Always Run")]
 			[Description("Toggles whether the player is permanently in the running state, without the slower walking speed available. This emulates a bug in vanilla Doom: setting the joystick run button to an invalid high number causes the game to always have it enabled.")]
 			[DefaultValue(true)]
 			public bool AlwaysRun { get; set; }
-			
+
 			[DisplayName("Render Wipescreen")]
 			[Description("Enables screen melt - an effect seen when Doom changes scene, for example, when starting or exiting a level.")]
 			[DefaultValue(true)]
 			public bool RenderWipescreen { get; set; }
-			
+
 			[DisplayName("Turning Resolution")]
-			[Description("\"Shorttics\" refers to decreased turning resolution used for demos. \"Longtics\" refers to the regular turning resolution outside of a demo-recording environment.")]
+			[Description("\"Shorttics\" refers to decreased turning resolution normally used for demos. \"Longtics\" refers to the regular turning resolution outside of a demo-recording environment. Newer demo formats support both.")]
 			[DefaultValue(TurningResolution.Longtics)]
 			[TypeConverter(typeof(DescribableEnumConverter))]
 			public TurningResolution TurningResolution { get; set; }
+
+			[DisplayName("Turning During Strafe50")]
+			[Description("\"Strafe\" key is required to convert angular movement into strafe50, without it maximum strafe value is 40. So using keyboard and mouse, it's impossible to turn during strafe50. But if strafe50+turning appears in a demo, the game will process it fine, which makes it a TAS-only feature. This setting allows disabling it for maximum authenticity.")]
+			[DefaultValue(Strafe50Turning.Allow)]
+			public Strafe50Turning Strafe50Turns { get; set; }
 
 			[DisplayName("Prevent Level Exit")]
 			[Description("Level exit triggers won't have an effect. This is useful for debugging / optimizing / botting purposes.")]
@@ -361,9 +428,9 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			[TypeConverter(typeof(DescribableEnumConverter))]
 			public HexenClass Player4Class { get; set; }
 
-			public CInterface.InitSettings GetNativeSettings(GameInfo game)
+			public LibDSDA.InitSettings GetNativeSettings(GameInfo game)
 			{
-				return new CInterface.InitSettings
+				return new LibDSDA.InitSettings
 				{
 					Player1Present = Player1Present ? 1 : 0,
 					Player2Present = Player2Present ? 1 : 0,

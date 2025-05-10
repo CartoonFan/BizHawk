@@ -75,7 +75,6 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			Console.WriteLine($"Reserving {totalWadSizeKb}kb for WAD file memory");
 
 			string hudMode = "";
-
 			switch (_settings.HeadsUpMode)
 			{
 				case HudMode.Vanilla:
@@ -92,18 +91,23 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			_configFile = Encoding.ASCII.GetBytes(
 				hudMode
 				+ $"screen_resolution \"{
-					_nativeResolution.X *  _settings.ScaleFactor}x{
-					_nativeResolution.Y *  _settings.ScaleFactor}\"\n"
-				+ $"usegamma {             _settings.Gamma}\n"
-				+ $"dsda_exhud {          (_settings.DsdaExHud            ? 1 : 0)}\n"
-				+ $"map_totals {          (_settings.MapTotals            ? 1 : 0)}\n"
-				+ $"map_time {            (_settings.MapTime              ? 1 : 0)}\n"
-				+ $"map_coordinates {     (_settings.MapCoordinates       ? 1 : 0)}\n"
-				+ $"hudadd_secretarea {   (_settings.ReportSecrets        ? 1 : 0)}\n"
-				+ $"show_messages {       (_settings.ShowMessages         ? 1 : 0)}\n"
-				+ $"dsda_command_display {(_settings.DisplayCommands      ? 1 : 0)}\n"
-				+ $"render_wipescreen {   (_syncSettings.RenderWipescreen ? 1 : 0)}\n"
+					_nativeResolution.X *     _settings.ScaleFactor}x{
+					_nativeResolution.Y *     _settings.ScaleFactor}\"\n"
+				+ $"usegamma {                _settings.Gamma}\n"
+				+ $"sfx_volume {              _settings.SfxVolume}\n"
+				+ $"music_volume {            _settings.MusicVolume}\n"
+				+ $"automap_overlay {    (int)_settings.MapOverlay}\n"
+				+ $"dsda_exhud {             (_settings.DsdaExHud            ? 1 : 0)}\n"
+				+ $"map_totals {             (_settings.MapTotals            ? 1 : 0)}\n"
+				+ $"map_time {               (_settings.MapTime              ? 1 : 0)}\n"
+				+ $"map_coordinates {        (_settings.MapCoordinates       ? 1 : 0)}\n"
+				+ $"hudadd_secretarea {      (_settings.ReportSecrets        ? 1 : 0)}\n"
+				+ $"show_messages {          (_settings.ShowMessages         ? 1 : 0)}\n"
+				+ $"dsda_coordinate_display {(_settings.DisplayCoordinates   ? 1 : 0)}\n"
+				+ $"dsda_command_display {   (_settings.DisplayCommands      ? 1 : 0)}\n"
+				+ $"render_wipescreen {      (_syncSettings.RenderWipescreen ? 1 : 0)}\n"
 				+ "render_stretchsky 0\n"
+				+ "boom_translucent_sprites 0\n"
 				+ "render_doom_lightmaps 1\n"
 				+ "render_aspect 3\n" // 4:3, controls FOV on higher resolutions (see SetRatio() in the core)
 				+ "render_stretch_hud 0\n"
@@ -133,7 +137,7 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 
 				using (_elf.EnterExit())
 				{
-					_core = BizInvoker.GetInvoker<CInterface>(_elf, _elf, callingConventionAdapter);
+					_core = BizInvoker.GetInvoker<LibDSDA>(_elf, _elf, callingConventionAdapter);
 
 					// Adding dsda-doom wad file
 					_core.dsda_add_wad_file(_dsdaWadFileName, _dsdaWadFileData.Length, _loadCallback);
@@ -143,7 +147,7 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 					{
 						var loadWadResult = _core.dsda_add_wad_file(wadFile.RomPath, wadFile.RomData.Length, _loadCallback);
 						if (loadWadResult is 0) throw new Exception($"Could not load WAD file: '{wadFile.RomPath}'");
-						_gameMode = (CInterface.GameMode)loadWadResult;
+						_gameMode = (LibDSDA.GameMode)loadWadResult;
 					}
 
 					_elf.AddReadonlyFile(_configFile, "dsda-doom.cfg");
@@ -175,7 +179,7 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			}
 		}
 
-		private void CreateArguments(CInterface.InitSettings initSettings)
+		private void CreateArguments(LibDSDA.InitSettings initSettings)
 		{
 			_args = new List<string>
 			{
@@ -184,7 +188,7 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 
 			_args.Add("-warp");
 			ConditionalArg(_syncSettings.InitialEpisode is not 0
-				&& _gameMode != CInterface.GameMode.Commercial,
+				&& _gameMode != LibDSDA.GameMode.Commercial,
 				$"{_syncSettings.InitialEpisode}");
 			_args.Add($"{_syncSettings.InitialMap}");
 			_args.AddRange([ "-skill",     $"{(int)_syncSettings.SkillLevel}" ]);
@@ -213,8 +217,8 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 
 		// ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
 		private readonly WaterboxHost _elf;
-		private readonly CInterface _core;
-		private readonly CInterface.load_archive_cb _loadCallback;
+		private readonly LibDSDA _core;
+		private readonly LibDSDA.load_archive_cb _loadCallback;
 		private readonly DoomControllerDeck _controllerDeck;
 		private readonly Point _nativeResolution = new(320, 200);
 		private readonly int[] _runSpeeds = [ 25, 50 ];
@@ -225,9 +229,10 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 		private readonly byte[] _configFile;
 		private int[] _turnHeld = [ 0, 0, 0, 0 ];
 		private int _turnCarry = 0; // Chocolate Doom mouse behaviour (enabled in upstream by default)
+		private bool _lastGammaInput = false;
 		private List<string> _args;
 		private List<IRomAsset> _wadFiles;
-		private CInterface.GameMode _gameMode;
+		private LibDSDA.GameMode _gameMode;
 		public string RomDetails { get; } // IRomInfo
 
 		/// <summary>

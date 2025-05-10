@@ -1,6 +1,5 @@
 ﻿using BizHawk.Common.NumberExtensions;
 using BizHawk.Emulation.Common;
-using static BizHawk.Emulation.Cores.Computers.Doom.CInterface;
 
 namespace BizHawk.Emulation.Cores.Computers.Doom
 {
@@ -17,11 +16,11 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 		public bool FrameAdvance(IController controller, bool renderVideo, bool renderAudio)
 		{
 			// Declaring inputs
-			PackedPlayerInput[] players = [
-				new PackedPlayerInput(),
-				new PackedPlayerInput(),
-				new PackedPlayerInput(),
-				new PackedPlayerInput()
+			LibDSDA.PackedPlayerInput[] players = [
+				new LibDSDA.PackedPlayerInput(),
+				new LibDSDA.PackedPlayerInput(),
+				new LibDSDA.PackedPlayerInput(),
+				new LibDSDA.PackedPlayerInput()
 			];
 
 			ReadAxis[] axisReaders =
@@ -46,20 +45,26 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 				| Convert.ToInt32(_syncSettings.Player2Present) << 1
 				| Convert.ToInt32(_syncSettings.Player3Present) << 2
 				| Convert.ToInt32(_syncSettings.Player4Present) << 3;
-			
-			if (controller.IsPressed("Change Gamma"))        commonButtons |= (1 << 0);
-			if (controller.IsPressed("Automap Toggle"))      commonButtons |= (1 << 1);
-			if (controller.IsPressed("Automap +"))           commonButtons |= (1 << 2);
-			if (controller.IsPressed("Automap -"))           commonButtons |= (1 << 3);
-			if (controller.IsPressed("Automap Full/Zoom"))   commonButtons |= (1 << 4);
-			if (controller.IsPressed("Automap Follow"))      commonButtons |= (1 << 5);
-			if (controller.IsPressed("Automap Up"))          commonButtons |= (1 << 6);
-			if (controller.IsPressed("Automap Down"))        commonButtons |= (1 << 7);
-			if (controller.IsPressed("Automap Right"))       commonButtons |= (1 << 8);
-			if (controller.IsPressed("Automap Left"))        commonButtons |= (1 << 9);
-			if (controller.IsPressed("Automap Grid"))        commonButtons |= (1 << 10);
-			if (controller.IsPressed("Automap Mark"))        commonButtons |= (1 << 11);
-			if (controller.IsPressed("Automap Clear Marks")) commonButtons |= (1 << 12);
+
+			if (controller.IsPressed("Change Gamma") && !_lastGammaInput)
+			{
+				// cycle through [0 - 4]
+				_settings.Gamma++;
+				_settings.Gamma %= 5;
+			}
+
+			if (controller.IsPressed("Automap Toggle"))      commonButtons |= (1 << 0);
+			if (controller.IsPressed("Automap +"))           commonButtons |= (1 << 1);
+			if (controller.IsPressed("Automap -"))           commonButtons |= (1 << 2);
+			if (controller.IsPressed("Automap Full/Zoom"))   commonButtons |= (1 << 3);
+			if (controller.IsPressed("Automap Follow"))      commonButtons |= (1 << 4);
+			if (controller.IsPressed("Automap Up"))          commonButtons |= (1 << 5);
+			if (controller.IsPressed("Automap Down"))        commonButtons |= (1 << 6);
+			if (controller.IsPressed("Automap Right"))       commonButtons |= (1 << 7);
+			if (controller.IsPressed("Automap Left"))        commonButtons |= (1 << 8);
+			if (controller.IsPressed("Automap Grid"))        commonButtons |= (1 << 9);
+			if (controller.IsPressed("Automap Mark"))        commonButtons |= (1 << 10);
+			if (controller.IsPressed("Automap Clear Marks")) commonButtons |= (1 << 11);
 
 			for (int i = 0; i < 4; i++)
 			{
@@ -84,8 +89,14 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 					// initial axis read
 					players[i].RunSpeed      = axisReaders[i](controller, (int)AxisType.RunSpeed);
 					players[i].StrafingSpeed = axisReaders[i](controller, (int)AxisType.StrafingSpeed);
-					players[i].TurningSpeed  = axisReaders[i](controller, (int)AxisType.TurningSpeed);
 					players[i].WeaponSelect  = axisReaders[i](controller, (int)AxisType.WeaponSelect);
+					// core counts left angle as positive, so turning direction is "reversed"
+					players[i].TurningSpeed  = axisReaders[i](controller, (int)AxisType.TurningSpeed) << 8;
+
+					if (_syncSettings.TurningResolution == TurningResolution.Longtics)
+					{
+						players[i].TurningSpeed += axisReaders[i](controller, (int) AxisType.TurningSpeedFrac);
+					}
 
 					// override axis based on movement buttons (turning is reversed upstream)
 					if (controller.IsPressed($"P{i + 1} Forward"))      players[i].RunSpeed      =  _runSpeeds   [speedIndex];
@@ -131,6 +142,12 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 						players[i].TurningSpeed = ((players[i].TurningSpeed + 128) >> 8) << 8;
 					}
 
+					if (_syncSettings.Strafe50Turns == Strafe50Turning.Ignore
+						&& Math.Abs(players[i].StrafingSpeed) > _strafeSpeeds[1])
+					{
+						players[i].TurningSpeed = 0;
+					}
+
 					// bool buttons
 					var actionsBitfield = buttonsReaders[i](controller);
 					players[i].Buttons = actionsBitfield;
@@ -149,10 +166,26 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 				}
 			}
 
-			PackedRenderInfo renderInfo = new PackedRenderInfo();
-			renderInfo.RenderVideo = renderVideo ? 1 : 0;
-			renderInfo.RenderAudio = renderAudio ? 1 : 0;
-			renderInfo.PlayerPointOfView = _settings.DisplayPlayer - 1;
+			LibDSDA.PackedRenderInfo renderInfo = new LibDSDA.PackedRenderInfo()
+			{
+				SfxVolume          = _settings.SfxVolume,
+				MusicVolume        = _settings.MusicVolume,
+				Gamma              = _settings.Gamma,
+				HeadsUpMode        = (int)_settings.HeadsUpMode,
+				MapDetails         = (int)_settings.MapDetails,
+				MapOverlay         = (int)_settings.MapOverlay,
+				RenderVideo        = renderVideo                  ? 1 : 0,
+				RenderAudio        = renderAudio                  ? 1 : 0,
+				ShowMessages       = _settings.ShowMessages       ? 1 : 0,
+				ReportSecrets      = _settings.ReportSecrets      ? 1 : 0,
+				DsdaExHud          = _settings.DsdaExHud          ? 1 : 0,
+				DisplayCoordinates = _settings.DisplayCoordinates ? 1 : 0,
+				DisplayCommands    = _settings.DisplayCommands    ? 1 : 0,
+				MapTotals          = _settings.MapTotals          ? 1 : 0,
+				MapTime            = _settings.MapTime            ? 1 : 0,
+				MapCoordinates     = _settings.MapCoordinates     ? 1 : 0,
+				PlayerPointOfView  = _settings.DisplayPlayer - 1,
+			};
 
 			IsLagFrame = _core.dsda_frame_advance(
 				commonButtons,
@@ -174,6 +207,8 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			{
 				LagCount++;
 			}
+
+			_lastGammaInput = controller.IsPressed("Change Gamma");
 
 			return true;
 		}
