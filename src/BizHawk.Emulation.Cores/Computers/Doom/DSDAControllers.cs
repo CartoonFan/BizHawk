@@ -12,23 +12,10 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 		Hexen
 	}
 
-	// must match the order of axes added
-	public enum AxisType : int
-	{
-		RunSpeed,
-		StrafingSpeed,
-		TurningSpeed,
-		WeaponSelect,
-		MouseRunning,
-		MouseTurning,
-		FlyLook,
-		UseArtifact
-	}
-
 	public interface IPort
 	{
 		int ReadButtons(IController c);
-		int ReadAxis(IController c, int axis);
+		int ReadAxis(IController c, string axis);
 		ControllerDefinition Definition { get; }
 		int PortNum { get; }
 	}
@@ -46,12 +33,20 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 					.ToList()
 			}.AddAxis($"P{PortNum} Run Speed", (-50).RangeTo(50), 0)
 				.AddAxis($"P{PortNum} Strafing Speed", (-50).RangeTo(50), 0)
-				.AddAxis($"P{PortNum} Turning Speed", (-128).RangeTo(127), 0)
+				.AddAxis($"P{PortNum} Turning Speed", (-128).RangeTo(127), 0);
+
+			// editing a short in tastudio would be a nightmare, so we split it:
+			// high byte represents shorttics mode and whole angle values
+			// low byte is fractional part only available with longtics
+			if (longtics)
+			{
+				Definition.AddAxis($"P{PortNum} Turning Speed Frac.", (-255).RangeTo(255), 0);
+			}
+
+			Definition
 				.AddAxis($"P{PortNum} Weapon Select", (0).RangeTo(7), 0)
 				.AddAxis($"P{PortNum} Mouse Running", (-128).RangeTo(127), 0)
-				// max raw mouse delta seems to be 180
-				// higher range results in higher minimal movement value (above 1)
-				// which then has to be divided to get a usable value
+				// current max raw mouse delta is 180
 				.AddAxis($"P{PortNum} Mouse Turning", (longtics ? -180 : -128).RangeTo(longtics ? 180 : 127), 0)
 				.MakeImmutable();
 		}
@@ -91,23 +86,9 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			return result;
 		}
 
-		public int ReadAxis(IController c, int axis)
+		public int ReadAxis(IController c, string axis)
 		{
-			int x = c.AxisValue(Definition.Axes[axis]);
-
-			// Handling weapon select keys overriding axes values
-			if (Definition.Axes[axis] == $"P{PortNum} Weapon Select")
-			{
-				if (c.IsPressed($"P{PortNum} Weapon Select 1")) x = 1;
-				if (c.IsPressed($"P{PortNum} Weapon Select 2")) x = 2;
-				if (c.IsPressed($"P{PortNum} Weapon Select 3")) x = 3;
-				if (c.IsPressed($"P{PortNum} Weapon Select 4")) x = 4;
-				if (c.IsPressed($"P{PortNum} Weapon Select 5")) x = 5;
-				if (c.IsPressed($"P{PortNum} Weapon Select 6")) x = 6;
-				if (c.IsPressed($"P{PortNum} Weapon Select 7")) x = 7;
-			}
-
-			return x;
+			return c.AxisValue(axis);
 		}
 	}
 
@@ -165,65 +146,9 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			return result;
 		}
 
-		public int ReadAxis(IController c, int axis)
+		public int ReadAxis(IController c, string axis)
 		{
-			int x = c.AxisValue(Definition.Axes[axis]);
-
-			// Handling running keys overriding axes values
-			if (Definition.Axes[axis] == $"P{PortNum} Run Speed")
-			{
-				if (c.IsPressed($"P{PortNum} Forward"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? 50 : 25;
-				}
-
-				if (c.IsPressed($"P{PortNum} Backward"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? -50 : -25;
-				}
-			}
-
-			// Handling strafing keys overriding axes values
-			if (Definition.Axes[axis] == $"P{PortNum} Strafing Speed")
-			{
-				if (c.IsPressed($"P{PortNum} Strafe Right"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? 40 : 24;
-				}
-
-				if (c.IsPressed($"P{PortNum} Strafe Left"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? -40 : -24;
-				}
-			}
-
-			// Handling turning keys overriding axes values
-			if (Definition.Axes[axis] == $"P{PortNum} Turning Speed")
-			{
-				if (c.IsPressed($"P{PortNum} Turn Left"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? 5 : 2;
-				}
-
-				if (c.IsPressed($"P{PortNum} Turn Right"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? -5 : -2;
-				}
-			}
-
-			// Handling weapon select keys overriding axes values
-			if (Definition.Axes[axis] == $"P{PortNum} Weapon Select")
-			{
-				if (c.IsPressed($"P{PortNum} Weapon Select 1")) x = 1;
-				if (c.IsPressed($"P{PortNum} Weapon Select 2")) x = 2;
-				if (c.IsPressed($"P{PortNum} Weapon Select 3")) x = 3;
-				if (c.IsPressed($"P{PortNum} Weapon Select 4")) x = 4;
-				if (c.IsPressed($"P{PortNum} Weapon Select 5")) x = 5;
-				if (c.IsPressed($"P{PortNum} Weapon Select 6")) x = 6;
-				if (c.IsPressed($"P{PortNum} Weapon Select 7")) x = 7;
-			}
-
-			return x;
+			return c.AxisValue(axis);
 		}
 	}
 
@@ -283,62 +208,9 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			return result;
 		}
 
-		public int ReadAxis(IController c, int axis)
+		public int ReadAxis(IController c, string axis)
 		{
-			int x = c.AxisValue(Definition.Axes[axis]);
-
-			// Handling running keys overriding axes values
-			if (Definition.Axes[axis] == $"P{PortNum} Run Speed")
-			{
-				if (c.IsPressed($"P{PortNum} Forward"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? 50 : 25;
-				}
-
-				if (c.IsPressed($"P{PortNum} Backward"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? -50 : -25;
-				}
-			}
-
-			// Handling strafing keys overriding axes values
-			if (Definition.Axes[axis] == $"P{PortNum} Strafing Speed")
-			{
-				if (c.IsPressed($"P{PortNum} Strafe Right"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? 40 : 24;
-				}
-
-				if (c.IsPressed($"P{PortNum} Strafe Left"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? -40 : -24;
-				}
-			}
-
-			// Handling turning keys overriding axes values
-			if (Definition.Axes[axis] == $"P{PortNum} Turning Speed")
-			{
-				if (c.IsPressed($"P{PortNum} Turn Left"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? 5 : 2;
-				}
-
-				if (c.IsPressed($"P{PortNum} Turn Right"))
-				{
-					x = c.IsPressed($"P{PortNum} Run") ? -5 : -2;
-				}
-			}
-
-			// Handling weapon select keys overriding axes values
-			if (Definition.Axes[axis] == $"P{PortNum} Weapon Select")
-			{
-				if (c.IsPressed($"P{PortNum} Weapon Select 1")) x = 1;
-				if (c.IsPressed($"P{PortNum} Weapon Select 2")) x = 2;
-				if (c.IsPressed($"P{PortNum} Weapon Select 3")) x = 3;
-				if (c.IsPressed($"P{PortNum} Weapon Select 4")) x = 4;
-			}
-
-			return x;
+			return c.AxisValue(axis);
 		}
 	}
 }

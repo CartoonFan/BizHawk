@@ -28,6 +28,7 @@ using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores;
 using BizHawk.Emulation.Cores.Computers.AppleII;
 using BizHawk.Emulation.Cores.Computers.Commodore64;
+using BizHawk.Emulation.Cores.Computers.DOS;
 using BizHawk.Emulation.Cores.Consoles.Nintendo.QuickNES;
 using BizHawk.Emulation.Cores.Consoles.SNK;
 using BizHawk.Emulation.Cores.Nintendo.GBA;
@@ -52,6 +53,8 @@ namespace BizHawk.Client.EmuHawk
 		};
 
 		private const int WINDOW_SCALE_MAX = 10;
+
+		private readonly ToolStripMenuItemEx DOSSubMenu = new() { Text = "&DOS" };
 
 		private readonly ToolStripMenuItemEx NullHawkVSysSubmenu = new() { Enabled = false, Text = "—" };
 
@@ -190,6 +193,15 @@ namespace BizHawk.Client.EmuHawk
 				});
 
 			_ = MainformMenu.Items.InsertAfter(ToolsSubMenu, insert: NullHawkVSysSubmenu);
+
+			ToolStripMenuItemEx DOSSettingsToolStripMenuItem = new() { Text = "Settings..." };
+			DOSSettingsToolStripMenuItem.Click += (_, _) => _ = OpenDOSBoxSettingsDialog();
+			DOSSubMenu.DropDownItems.Add(DOSSettingsToolStripMenuItem);
+			ToolStripMenuItemEx DOSExportHDDImageToolStripMenuItem = new() { Text = "Export Hard Disk Drive..." };
+			DOSExportHDDImageToolStripMenuItem.Click += DOSSExportHddMenuItem_Click;
+			DOSSubMenu.DropDownItems.Add(DOSExportHDDImageToolStripMenuItem);
+			DOSSubMenu.DropDownOpened += (_, _) => DOSExportHDDImageToolStripMenuItem.Enabled = Emulator is DOSBox dosbox && dosbox.HasValidHDD();
+			_ = MainformMenu.Items.InsertAfter(NullHawkVSysSubmenu, insert: DOSSubMenu);
 
 			// Hide Status bar icons and general StatusBar prep
 			MainStatusBar.Padding = new Padding(MainStatusBar.Padding.Left, MainStatusBar.Padding.Top, MainStatusBar.Padding.Left, MainStatusBar.Padding.Bottom); // Workaround to remove extra padding on right
@@ -2024,7 +2036,7 @@ namespace BizHawk.Client.EmuHawk
 					byte[] sram;
 
 					// some cores might not know how big the saveram ought to be, so just send it the whole file
-					if (Emulator is AppleII or C64 or MGBAHawk or NeoGeoPort or NES { BoardName: "FDS" })
+					if (Emulator is AppleII or C64 or DOSBox or MGBAHawk or NeoGeoPort or NES { BoardName: "FDS" })
 					{
 						sram = File.ReadAllBytes(saveRamPath);
 					}

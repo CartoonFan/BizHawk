@@ -251,11 +251,18 @@ namespace BizHawk.Client.Common
 			}
 			switch (discType)
 			{
+				case DiscType.DOS:
+					game.System = VSystemID.Raw.DOS;
+					break;
+
 				case DiscType.SegaSaturn:
 					game.System = VSystemID.Raw.SAT;
 					break;
 				case DiscType.MegaCD:
 					game.System = VSystemID.Raw.GEN;
+					break;
+				case DiscType.Panasonic3DO:
+					game.System = VSystemID.Raw.Panasonic3DO;
 					break;
 				case DiscType.PCFX:
 					game.System = VSystemID.Raw.PCFX;
@@ -284,9 +291,6 @@ namespace BizHawk.Client.Common
 					break;
 				case DiscType.NeoGeoCD:
 					NoCoreForSystem(VSystemID.Raw.NeoGeoCD);
-					break;
-				case DiscType.Panasonic3DO:
-					NoCoreForSystem(VSystemID.Raw.Panasonic3DO);
 					break;
 				case DiscType.Playdia:
 					NoCoreForSystem(VSystemID.Raw.Playdia);
@@ -450,6 +454,7 @@ namespace BizHawk.Client.Common
 				".exe" => VSystemID.Raw.PSX,
 				".nsf" => VSystemID.Raw.NES,
 				".gbs" => VSystemID.Raw.GB,
+				".hdd" => VSystemID.Raw.DOS,
 				_ => rom.GameInfo.System,
 			};
 
@@ -998,6 +1003,8 @@ namespace BizHawk.Client.Common
 
 			public static readonly IReadOnlyCollection<string> Doom = new[] { "wad" };
 
+			public static readonly IReadOnlyCollection<string> DOS = new[] { "ima", "img", "xdf", "dmf", "fdd", "fdi", "nfd", "d88", "hdd" };
+
 			public static readonly IReadOnlyCollection<string> GB = new[] { "gb", "gbc", "sgb" };
 
 			public static readonly IReadOnlyCollection<string> GBA = new[] { "gba" };
@@ -1056,6 +1063,7 @@ namespace BizHawk.Client.Common
 				.Concat(C64)
 				.Concat(Coleco)
 				.Concat(Doom)
+				.Concat(DOS)
 				.Concat(GB)
 				.Concat(GBA)
 				.Concat(GEN)
@@ -1099,6 +1107,7 @@ namespace BizHawk.Client.Common
 			new FilesystemFilter(/*VSystemID.Raw.C64*/"SID Commodore 64 Music File", Array.Empty<string>(), devBuildExtraExts: new[] { "sid" }, devBuildAddArchiveExts: true),
 			new FilesystemFilter(/*VSystemID.Raw.Coleco*/"ColecoVision", RomFileExtensions.Coleco, addArchiveExts: true),
 			new FilesystemFilter(/*VSystemID.Raw.Doom*/"Doom / Hexen / Heretic WAD File", RomFileExtensions.Doom),
+			new FilesystemFilter(/*VSystemID.Raw.DOS*/"DOS", RomFileExtensions.DOS),
 			new FilesystemFilter(/*VSystemID.Raw.GB*/"Gameboy", RomFileExtensions.GB.Concat(new[] { "gbs" }).ToList(), addArchiveExts: true),
 			new FilesystemFilter(/*VSystemID.Raw.GBA*/"Gameboy Advance", RomFileExtensions.GBA, addArchiveExts: true),
 			new FilesystemFilter(/*VSystemID.Raw.GEN*/"Genesis", RomFileExtensions.GEN.Concat(FilesystemFilter.DiscExtensions).ToList(), addArchiveExts: true),
