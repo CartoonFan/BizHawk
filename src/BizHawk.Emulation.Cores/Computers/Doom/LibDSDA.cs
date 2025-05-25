@@ -4,12 +4,12 @@ using BizHawk.BizInvoke;
 
 namespace BizHawk.Emulation.Cores.Computers.Doom
 {
-	public abstract class CInterface
+	public abstract class LibDSDA
 	{
 		public enum MemoryArrayType : int
 		{
-			Things = 0,
-			Lines = 1,
+			Things  = 0,
+			Lines   = 1,
 			Sectors = 2
 		}
 
@@ -36,6 +36,7 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			public int Player4Class;
 			public int PreventLevelExit;
 			public int PreventGameEnd;
+			//public uint RNGSeed;
 		}
 
 		[StructLayout(LayoutKind.Sequential)]
@@ -61,6 +62,20 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 		{
 			public int RenderVideo;
 			public int RenderAudio;
+			public int SfxVolume;
+			public int MusicVolume;
+			public int Gamma;
+			public int ShowMessages;
+			public int ReportSecrets;
+			public int HeadsUpMode;
+			public int DsdaExHud;
+			public int DisplayCoordinates;
+			public int DisplayCommands;
+			public int MapTotals;
+			public int MapTime;
+			public int MapCoordinates;
+			public int MapDetails;
+			public int MapOverlay;
 			public int PlayerPointOfView;
 		}
 
@@ -77,7 +92,7 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 		public delegate int load_archive_cb(string filename, IntPtr buffer, int maxsize);
 		[BizImport(CallingConvention.Cdecl)]
 		public abstract int dsda_add_wad_file(string fileName, int fileSize, load_archive_cb feload_archive_cb);
-		
+
 		[BizImport(CallingConvention.Cdecl)]
 		public abstract byte dsda_read_memory_array(MemoryArrayType type, uint addr);
 

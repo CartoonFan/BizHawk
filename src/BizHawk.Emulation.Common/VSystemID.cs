@@ -25,6 +25,7 @@ namespace BizHawk.Emulation.Common
 			public const string Coleco = "Coleco";
 			public const string DEBUG = "DEBUG";
 			public const string Doom = "Doom";
+			public const string DOS = "DOS";
 			public const string Dreamcast = "Dreamcast";
 			public const string GameCube = "GameCube";
 			public const string GB = "GB";
@@ -47,7 +48,7 @@ namespace BizHawk.Emulation.Common
 			public const string NGP = "NGP";
 			public const string NULL = "NULL";
 			public const string O2 = "O2";
-			public const string Panasonic3DO = "Panasonic3DO";
+			public const string Panasonic3DO = "3DO";
 			public const string PCE = "PCE";
 			public const string PCECD = "PCECD";
 			public const string PCFX = "PCFX";

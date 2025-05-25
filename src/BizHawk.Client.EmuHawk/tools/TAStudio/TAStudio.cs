@@ -375,7 +375,9 @@ namespace BizHawk.Client.EmuHawk
 					|| c.Name.EndsWithOrdinal("Tape")
 					|| c.Name.EndsWithOrdinal("Disk")
 					|| c.Name.EndsWithOrdinal("Block")
-					|| c.Name.EndsWithOrdinal("Status"));
+					|| c.Name.EndsWithOrdinal("Status")
+					|| c.Name.Contains("Automap")
+					|| c.Name.Contains("Gamma"));
 
 			if (Emulator.SystemId is VSystemID.Raw.N64)
 			{
@@ -688,7 +690,11 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SaveTas(bool saveAsBk2 = false, bool saveBackup = false)
 		{
-			if (string.IsNullOrEmpty(CurrentTasMovie.Filename) || CurrentTasMovie.Filename == DefaultTasProjName()) return;
+			if (string.IsNullOrEmpty(CurrentTasMovie.Filename) || CurrentTasMovie.Filename == DefaultTasProjName())
+			{
+				SaveAsTas();
+				return;
+			}
 
 			_autosaveTimer.Stop();
 			MessageStatusLabel.Text = saveBackup

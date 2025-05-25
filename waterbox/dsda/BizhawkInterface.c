@@ -2,23 +2,31 @@
 
 bool foundIWAD = false;
 bool wipeDone = true;
-CommonButtons last_buttons = { 0 };
+AutomapButtons last_buttons = { 0 };
 
-void common_input(CommonButtons buttons)
+void render_updates(struct PackedRenderInfo *renderInfo)
+{
+  dsda_UpdateIntConfig(dsda_config_usegamma,           renderInfo->Gamma,              true);
+  dsda_UpdateIntConfig(dsda_config_automap_overlay,    renderInfo->MapOverlay,         true);
+  dsda_UpdateIntConfig(dsda_config_show_messages,      renderInfo->ShowMessages,       true);
+  dsda_UpdateIntConfig(dsda_config_sfx_volume,         renderInfo->SfxVolume,          true);
+  dsda_UpdateIntConfig(dsda_config_music_volume,       renderInfo->MusicVolume,        true);
+  dsda_UpdateIntConfig(dsda_config_hudadd_secretarea,  renderInfo->ReportSecrets,      true);
+  dsda_UpdateIntConfig(dsda_config_exhud,              renderInfo->DsdaExHud,          true);
+  dsda_UpdateIntConfig(dsda_config_coordinate_display, renderInfo->DisplayCoordinates, true);
+  dsda_UpdateIntConfig(dsda_config_command_display,    renderInfo->DisplayCommands,    true);
+  dsda_UpdateIntConfig(dsda_config_map_totals,         renderInfo->MapTotals,          true);
+  dsda_UpdateIntConfig(dsda_config_map_time,           renderInfo->MapTime,            true);
+  dsda_UpdateIntConfig(dsda_config_map_coordinates,    renderInfo->MapCoordinates,     true);
+  dsda_UpdateIntConfig(dsda_config_screenblocks,       renderInfo->HeadsUpMode != HUD_VANILLA ? 11 : 10, true);
+  dsda_UpdateIntConfig(dsda_config_hud_displayed,      renderInfo->HeadsUpMode == HUD_NONE    ?  0 :  1, true);
+}
+
+void automap_inputs(AutomapButtons buttons)
 {
   static int bigstate = 0;
   m_paninc.y = 0;
   m_paninc.x = 0;
-
-  if (buttons.ChangeGamma && !last_buttons.ChangeGamma)
-  {
-    dsda_CycleConfig(dsda_config_usegamma, true);
-    dsda_AddMessage(usegamma == 0 ? GAMMALVL0 :
-                    usegamma == 1 ? GAMMALVL1 :
-                    usegamma == 2 ? GAMMALVL2 :
-                    usegamma == 3 ? GAMMALVL3 :
-                    GAMMALVL4);
-  }
 
   if (buttons.AutomapToggle && !last_buttons.AutomapToggle)
   {
@@ -157,11 +165,19 @@ ECL_EXPORT void dsda_get_video(int *w, int *h, int *pitch, uint8_t **buffer, int
   *paletteBuffer = _convertedPaletteBuffer;
 }
 
-ECL_EXPORT bool dsda_frame_advance(CommonButtons commonButtons, struct PackedPlayerInput *player1Inputs, struct PackedPlayerInput *player2Inputs, struct PackedPlayerInput *player3Inputs, struct PackedPlayerInput *player4Inputs, struct PackedRenderInfo *renderInfo)
+ECL_EXPORT bool dsda_frame_advance(AutomapButtons buttons, struct PackedPlayerInput *player1Inputs, struct PackedPlayerInput *player2Inputs, struct PackedPlayerInput *player3Inputs, struct PackedPlayerInput *player4Inputs, struct PackedRenderInfo *renderInfo)
 {
+  // Live render changes
+  if (renderInfo->RenderVideo)
+    render_updates(renderInfo);
+
   // Setting inputs
   headlessClearTickCommand();
-  common_input(commonButtons);
+
+  if (renderInfo->RenderVideo)
+    automap_inputs(buttons);
+
+  dsda_reveal_map = renderInfo->MapDetails;
 
   // Setting Players inputs
   player_input(player1Inputs, 0);
@@ -186,7 +202,8 @@ ECL_EXPORT bool dsda_frame_advance(CommonButtons commonButtons, struct PackedPla
     headlessRunSingleTick();
 
     // Move positional sounds
-    headlessUpdateSounds();
+    if (renderInfo->RenderAudio)
+      headlessUpdateSounds();
 
     // Updating video
     if (renderInfo->RenderVideo)
@@ -233,7 +250,7 @@ ECL_EXPORT int dsda_init(struct InitSettings *settings, int argc, char **argv)
 
   // Initializing DSDA core
   headlessMain(argc, argv);
-  printf("DSDA Initialized\n");  
+  printf("DSDA Initialized\n");
 
   switch(compatibility_level) {
   case prboom_6_compatibility:
@@ -248,6 +265,9 @@ ECL_EXPORT int dsda_init(struct InitSettings *settings, int argc, char **argv)
     break;
   }
 
+  //if (compatibility_level >= boom_202_compatibility)
+  //  rngseed = settings->RNGSeed;
+
   // Initializing audio
   I_SetSoundCap();
   I_InitSound();
@@ -255,10 +275,11 @@ ECL_EXPORT int dsda_init(struct InitSettings *settings, int argc, char **argv)
 
   // If required, prevent level exit and game end triggers
   preventLevelExit = settings->PreventLevelExit;
-  preventGameEnd = settings->PreventGameEnd;
+  preventGameEnd   = settings->PreventGameEnd;
 
-  printf("Prevent Level Exit: %d\n", preventLevelExit);
-  printf("Prevent Game End:   %d\n", preventGameEnd);
+  printf("Prevent Level Exit:  %d\n", preventLevelExit);
+  printf("Prevent Game End:    %d\n", preventGameEnd);
+  printf("Compatibility Level: %d\n", compatibility_level);
 
   // Enabling DSDA output, for debugging
   enableOutput = 1;

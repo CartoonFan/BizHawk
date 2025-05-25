@@ -4,10 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using BizHawk.Analyzers;
+
 [Generator]
-public sealed class ReflectionCacheGenerator : ISourceGenerator
+public sealed class ReflectionCacheGenerator : IIncrementalGenerator
 {
-	private sealed class ReflectionCacheGenSyntaxReceiver : ISyntaxReceiver
+	private sealed class NamespaceInferrer
 	{
 		/// <remarks>
 		/// I may have just added RNG to the build process...
@@ -25,6 +27,7 @@ public sealed class ReflectionCacheGenerator : ISourceGenerator
 
 		private string CalcNamespace()
 		{
+			if (_namespaces.Count is 0) return string.Empty; // this can happen if the Analyzer is applied to a project with no source files
 			// black magic wizardry to find common prefix https://stackoverflow.com/a/35081977
 			var ns = new string(_namespaces[0]
 				.Substring(0, _namespaces.Min(s => s.Length))
@@ -33,29 +36,35 @@ public sealed class ReflectionCacheGenerator : ISourceGenerator
 			return ns[ns.Length - 1] == '.' ? ns.Substring(0, ns.Length - 1) : ns; // trim trailing '.' (can't use BizHawk.Common from Source Generators)
 		}
 
-		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
+		public void AddSample(NamespaceDeclarationSyntax syn)
 		{
-			static string Ser(NameSyntax nameSyn) => nameSyn switch
-			{
-				SimpleNameSyntax simple => simple.Identifier.ValueText,
-				QualifiedNameSyntax qual => $"{Ser(qual.Left)}.{Ser(qual.Right)}",
-				_ => throw new InvalidOperationException(),
-			};
-			if (_namespace != null || syntaxNode is not NamespaceDeclarationSyntax syn) return;
-			var newNS = Ser(syn.Name);
+			if (_namespace is not null) return;
+			var newNS = syn.Name.ToMetadataNameStr();
 			if (!newNS.StartsWith("BizHawk.", StringComparison.Ordinal)) return;
 			_namespaces.Add(newNS);
 			if (_namespaces.Count == SAMPLE_SIZE) _namespace = CalcNamespace();
 		}
 	}
 
-	public void Initialize(GeneratorInitializationContext context)
-		=> context.RegisterForSyntaxNotifications(() => new ReflectionCacheGenSyntaxReceiver());
-
-	public void Execute(GeneratorExecutionContext context)
+	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
-		if (context.SyntaxReceiver is not ReflectionCacheGenSyntaxReceiver receiver) return;
-		var nSpace = receiver.Namespace;
+		var nSpace = context.SyntaxProvider
+			.CreateSyntaxProvider(
+				predicate: static (syntaxNode, _) => syntaxNode is NamespaceDeclarationSyntax,
+				transform: static (ctx, _) => (NamespaceDeclarationSyntax) ctx.Node)
+			.Collect()
+			.Select((nsSyns, _) =>
+			{
+				NamespaceInferrer shim = new();
+				foreach (var syn in nsSyns) shim.AddSample(syn);
+				return shim.Namespace;
+			});
+		context.RegisterSourceOutput(nSpace, Execute);
+	}
+
+	public void Execute(SourceProductionContext context, string nSpace)
+	{
+		if (string.IsNullOrWhiteSpace(nSpace)) return; // see note in `CalcNamespace`
 		var src = $@"#nullable enable
 
 using System;

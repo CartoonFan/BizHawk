@@ -27,6 +27,7 @@ namespace BizHawk.Emulation.Common
 			[VSystemID.Raw.Coleco] = "ColecoVision",
 			// DEBUG
 			[VSystemID.Raw.Doom] = "Doom",
+			[VSystemID.Raw.DOS] = "DOS",
 			[VSystemID.Raw.GBL] = "Game Boy Link",
 			[VSystemID.Raw.GB] = "GB",
 			[VSystemID.Raw.SGB] = "SGB",
@@ -47,6 +48,7 @@ namespace BizHawk.Emulation.Common
 			[VSystemID.Raw.NGP] = "Neo-Geo Pocket",
 			// NULL
 			[VSystemID.Raw.O2] = "Odyssey2",
+			[VSystemID.Raw.Panasonic3DO] = "3DO",
 			[VSystemID.Raw.PCE] = "TurboGrafx-16",
 			[VSystemID.Raw.PCECD] = "TurboGrafx - 16(CD)",
 			[VSystemID.Raw.PCFX] = "PCFX",

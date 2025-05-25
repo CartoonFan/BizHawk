@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 using BizHawk.Common;
@@ -182,6 +182,25 @@ namespace BizHawk.Emulation.Common
 
 		private static readonly Dictionary<string, Dictionary<string, char>> SystemOverrides = new Dictionary<string, Dictionary<string, char>>
 		{
+			[VSystemID.Raw.Panasonic3DO] = new()
+			{
+				["LT"] = 'l',
+				["RT"] = 'r',
+				["P"] = 'P',
+				["Trigger"] = 'T',
+				["Reload"] = 'R',
+				["Is Off-Screen"] = 'O',
+				["Aux A"] = 'A',
+				["Start P1"] = '1',
+				["Start P2"] = '2',
+				["Coin P1"] = 'C',
+				["Coin P2"] = 'c',
+				["Service"] = 'S',
+				["Fourth Button"] = '4',
+				["Next Disc"] = '>',
+				["Prev Disc"] = '<',
+			},
+
 			[VSystemID.Raw.NES] = new()
 			{
 				["FDS Eject"] = 'E',
@@ -518,7 +537,7 @@ namespace BizHawk.Emulation.Common
 			},
 			[VSystemID.Raw.O2] = new()
 			{
-				["PERIOD"] = '.',
+				["PERIOD"] = 'p',
 				["SPC"] = 's',
 				["YES"] = 'y',
 				["NO"] = 'n',
@@ -856,6 +875,90 @@ namespace BizHawk.Emulation.Common
 				["Weapon Select 6"] = '6',
 				["Weapon Select 7"] = '7',
 			},
+			[VSystemID.Raw.DOS] = new()
+			{
+				["Joystick Button 1"] = '1',
+				["Joystick Button 2"] = '2',
+				["Joystick Up"] = 'U',
+				["Joystick Down"] = 'D',
+				["Joystick Left"] = 'L',
+				["Joystick Right"] = 'R',
+				["Mouse Left Button"] = 'l',
+				["Mouse Middle Button"] = 'm',
+				["Mouse Right Button"] = 'r',
+				["Previous Floppy Disk"] = '<',
+				["Next Floppy Disk"] = '>',
+				["Swap Floppy Disk"] = 'v',
+				["Previous CDROM"] = '{',
+				["Next CDROM"] = '}',
+				["Swap CDROM"] = 'w',
+				["F1"] = '1',
+				["F2"] = '2',
+				["F3"] = '3',
+				["F4"] = '4',
+				["F5"] = '5',
+				["F6"] = '6',
+				["F7"] = '7',
+				["F8"] = '8',
+				["F9"] = '9',
+				["F10"] = '0',
+				["F11"] = '1',
+				["F12"] = '2',
+				["Escape"] = 'e',
+				["Tab"] = 't',
+				["Backspace"] = 'b',
+				["Enter"] = 'e',
+				["Space"] = 's',
+				["LeftAlt"] = 'a',
+				["RightAlt"] = 'a',
+				["LeftCtrl"] = 'c',
+				["RightCtrl"] = 'c',
+				["LeftShift"] = 's',
+				["RightShift"] = 's',
+				["CapsLock"] = 'C',
+				["ScrollLock"] = 'S',
+				["NumLock"] = 'N',
+				["Grave"] = '`',
+				["Minus"] = '-',
+				["Equals"] = '=',
+				["Backslash"] = 'b',
+				["LeftBracket"] = '[',
+				["RightBracket"] = ']',
+				["Semicolon"] = ';',
+				["Quote"] = '\'',
+				["Period"] = 'p', // because '.' represents no input
+				["Comma"] = ',',
+				["Slash"] = '/',
+				["ExtraLtGt"] = '>',
+				["PrintScreen"] = 'p',
+				["Pause"] = 'P',
+				["Insert"] = 'i',
+				["Home"] = 'h',
+				["Pageup"] = 'p',
+				["Delete"] = 'd',
+				["End"] = 'e',
+				["Pagedown"] = 'p',
+				["Left"] = '<',
+				["Up"] = '^',
+				["Down"] = 'v',
+				["Right"] = '>',
+				["KeyPad1"] = '1',
+				["KeyPad2"] = '2',
+				["KeyPad3"] = '3',
+				["KeyPad4"] = '4',
+				["KeyPad5"] = '5',
+				["KeyPad6"] = '6',
+				["KeyPad7"] = '7',
+				["KeyPad8"] = '8',
+				["KeyPad9"] = '9',
+				["KeyPad0"] = '0',
+				["KeyPadDivide"] = '/',
+				["KeyPadMultiply"] = '*',
+				["KeyPadMinus"] = '-',
+				["keyPadPlus"] = '+',
+				["KeyPadEnter"] = 'e',
+				["KeyPadPeriod"] = 'p',
+			},
 		};
 
 		private static readonly Dictionary<string, string> BaseAxisLookupTable = new Dictionary<string, string>
@@ -880,6 +983,16 @@ namespace BizHawk.Emulation.Common
 
 		private static readonly Dictionary<string, Dictionary<string, string>> AxisSystemOverrides = new Dictionary<string, Dictionary<string, string>>
 		{
+			[VSystemID.Raw.Panasonic3DO] = new()
+			{
+				["Flight Stick Horizontal Axis"] = "fsX",
+				["Flight Stick Vertical Axis"] = "fsY",
+				["Flight Stick Altitude Axis"] = "fsZ",
+				["Light Gun Screen X"] = "lgX",
+				["Light Gun Screen Y"] = "lgY",
+				["Trackball X"] = "tX",
+				["Trackball Y"] = "tY",
+			},
 			[VSystemID.Raw.A78] = new()
 			{
 				["VPos"] = "X",
@@ -914,8 +1027,16 @@ namespace BizHawk.Emulation.Common
 				["Run Speed"] = "R",
 				["Strafing Speed"] = "S",
 				["Turning Speed"] = "T",
+				["Turning Speed Frac."] = "t",
 				["Use Artifact"] = "U",
 				["Weapon Select"] = "W",
+			},
+			[VSystemID.Raw.DOS] = new()
+			{
+				["Mouse Position X"] = "mpX",
+				["Mouse Position Y"] = "mpY",
+				["Mouse Speed X"] = "msX",
+				["Mouse Speed Y"] = "msY",
 			},
 		};
 

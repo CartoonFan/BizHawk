@@ -115,14 +115,7 @@ namespace BizHawk.Client.EmuHawk
 
 		private void SaveTasMenuItem_Click(object sender, EventArgs e)
 		{
-			if (string.IsNullOrEmpty(CurrentTasMovie.Filename) || CurrentTasMovie.Filename == DefaultTasProjName())
-			{
-				SaveAsTas();
-			}
-			else
-			{
-				SaveTas();
-			}
+			SaveTas();
 			if (Settings.BackupPerFileSave)
 			{
 				SaveTas(saveBackup: true);
@@ -1030,17 +1023,17 @@ namespace BizHawk.Client.EmuHawk
 
 		private void HideWasLagFramesMenuItem_Click(object sender, EventArgs e)
 			=> TasView.HideWasLagFrames = !TasView.HideWasLagFrames;
-		
+
 		private void AlwaysScrollMenuItem_Click(object sender, EventArgs e)
 		{
 			TasView.AlwaysScroll = Settings.FollowCursorAlwaysScroll = alwaysScrollToolStripMenuItem.Checked;
 		}
-		
+
 		private void ScrollToViewMenuItem_Click(object sender, EventArgs e)
 		{
 			TasView.ScrollMethod = Settings.FollowCursorScrollMethod = "near";
 		}
-		
+
 		private void ScrollToTopMenuItem_Click(object sender, EventArgs e)
 		{
 			TasView.ScrollMethod = Settings.FollowCursorScrollMethod = "top";
@@ -1212,12 +1205,11 @@ namespace BizHawk.Client.EmuHawk
 
 				foreach (var menu in keysMenus)
 				{
-					var dummyObject1 = menu;
 					item.CheckedChanged += (o, ev) =>
 					{
-						foreach (ToolStripMenuItem menuItem in dummyObject1.DropDownItems)
+						foreach (ToolStripMenuItem menuItem in menu.DropDownItems)
 						{
-							menuItem.Checked = !menuItem.Checked;
+							menuItem.Checked = item.Checked;
 						}
 
 						CurrentTasMovie.FlagChanges();

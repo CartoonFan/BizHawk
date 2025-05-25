@@ -26,6 +26,7 @@ extern void headlessSetTickCommand(int playerId, int forwardSpeed, int strafingS
 extern void headlessGetMapName(char *outString);
 extern void headlessSetSaveStatePointer(void *savePtr, int saveStateSize);
 extern size_t headlessGetEffectiveSaveSize();
+extern unsigned int rngseed;
 
 // Video
 extern void headlessUpdateVideo();
@@ -59,6 +60,7 @@ extern void AM_StopZooming();
 extern void AM_saveScaleAndLoc();
 extern int AM_minOutWindowScale();
 extern int AM_restoreScaleAndLoc();
+extern int dsda_reveal_map;
 extern int automap_active;
 extern int automap_follow;
 extern int automap_grid;
@@ -83,10 +85,17 @@ extern fixed_t scale_ftom;
 #define PALETTE_SIZE 256
 uint32_t _convertedPaletteBuffer[PALETTE_SIZE];
 
+enum HudMode
+{
+  HUD_VANILLA = 0,
+  HUD_DSDA    = 1,
+  HUD_NONE    = 2
+};
+
 enum MemoryArrayType
 {
-  ARRAY_THINGS = 0,
-  ARRAY_LINES = 1,
+  ARRAY_THINGS  = 0,
+  ARRAY_LINES   = 1,
   ARRAY_SECTORS = 2
 };
 
@@ -104,7 +113,6 @@ typedef union
 {
     struct
     {
-        bool ChangeGamma:1;
         bool AutomapToggle:1;
         bool AutomapZoomIn:1;
         bool AutomapZoomOut:1;
@@ -119,7 +127,7 @@ typedef union
         bool AutomapClearMarks:1;
     };
     uint32_t data;
-} CommonButtons;
+} AutomapButtons;
 
 struct InitSettings
 {
@@ -133,6 +141,7 @@ struct InitSettings
   int Player4Class;
   int PreventLevelExit;
   int PreventGameEnd;
+  //unsigned int RNGSeed;
 } __attribute__((packed));
 
 struct PackedPlayerInput
@@ -152,6 +161,20 @@ struct PackedRenderInfo
 {
   int RenderVideo;
   int RenderAudio;
+  int SfxVolume;
+  int MusicVolume;
+  int Gamma;
+  int ShowMessages;
+  int ReportSecrets;
+  int HeadsUpMode;
+  int DsdaExHud;
+  int DisplayCoordinates;
+  int DisplayCommands;
+  int MapTotals;
+  int MapTime;
+  int MapCoordinates;
+  int MapDetails;
+  int MapOverlay;
   int PlayerPointOfView;
 } __attribute__((packed));
 

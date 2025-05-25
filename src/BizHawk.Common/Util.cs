@@ -12,7 +12,7 @@ using BizHawk.Common.StringExtensions;
 
 namespace BizHawk.Common
 {
-	public static unsafe class Util
+	public static class Util
 	{
 		[Conditional("DEBUG")]
 		public static void BreakDebuggerIfAttached()
@@ -145,26 +145,6 @@ namespace BizHawk.Common
 			using var ms = new MemoryStream();
 			for (int i = 0, l = str.Length / 2; i != l; i++) ms.WriteByte((byte) ((CharToNybble(str[2 * i]) << 4) + CharToNybble(str[2 * i + 1])));
 			return ms.ToArray();
-		}
-
-		public static int Memcmp(void* a, void* b, int len)
-		{
-			var ba = (byte*) a;
-			var bb = (byte*) b;
-			for (var i = 0; i != len; i++)
-			{
-				var _a = ba[i];
-				var _b = bb[i];
-				var c = _a - _b;
-				if (c != 0) return c;
-			}
-			return 0;
-		}
-
-		public static void Memset(void* ptr, int val, int len)
-		{
-			var bptr = (byte*) ptr;
-			for (var i = 0; i != len; i++) bptr[i] = (byte) val;
 		}
 
 		public static byte[]? ReadByteBuffer(this BinaryReader br, bool returnNull)
@@ -307,23 +287,25 @@ namespace BizHawk.Common
 		}
 
 		/// <summary>creates span over <paramref name="length"/> octets starting at <paramref name="ptr"/></summary>
+		/// <remarks>returns empty span if <paramref name="ptr"/> is the null pointer (<see cref="IntPtr.Zero"/>)</remarks>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static Span<byte> UnsafeSpanFromPointer(IntPtr ptr, int length)
-		{
-			return new(pointer: ptr.ToPointer(), length: length);
-		}
+		public static unsafe Span<byte> UnsafeSpanFromPointer(IntPtr ptr, int length)
+			=> ptr == IntPtr.Zero ? [ ] : new(pointer: ptr.ToPointer(), length: length);
 
+#if false // unused
 		/// <summary>
 		/// creates span over <paramref name="count"/><c> * sizeof(</c><typeparamref name="T"/><c>)</c> octets
 		/// starting at <paramref name="ptr"/>
 		/// </summary>
-		/// <remarks>uses native endianness</remarks>
+		/// <remarks>
+		/// uses native endianness and <paramref name="ptr"/> must be aligned (else UB);
+		/// returns empty span if <paramref name="ptr"/> is the null pointer (<see cref="IntPtr.Zero"/>)
+		/// </remarks>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static Span<T> UnsafeSpanFromPointer<T>(IntPtr ptr, int count)
+		public static unsafe Span<T> UnsafeSpanFromPointerAligned<T>(IntPtr ptr, int count)
 			where T : unmanaged
-		{
-			return new(pointer: ptr.ToPointer(), length: count * sizeof(T));
-		}
+			=> ptr == IntPtr.Zero ? [ ] : new(pointer: ptr.ToPointer(), length: count * sizeof(T));
+#endif
 
 		public static void WriteByteBuffer(this BinaryWriter bw, byte[]? data)
 		{

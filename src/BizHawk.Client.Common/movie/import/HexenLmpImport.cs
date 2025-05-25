@@ -9,7 +9,7 @@ namespace BizHawk.Client.Common
 	// In better detail, from archive.org: http://web.archive.org/web/20070630072856/http://demospecs.planetquake.gamespy.com/lmp/lmp.html
 	[ImporterFor("Hexen", ".hexenlmp")]
 	internal class HexenLmpImport : MovieImporter
-	{ 
+	{
 		protected override void RunImport()
 		{
 			var input = SourceFile.OpenRead().ReadAllBytes();
@@ -18,12 +18,12 @@ namespace BizHawk.Client.Common
 			Result.Movie.SystemID = VSystemID.Raw.Doom;
 			DSDA.DoomSyncSettings syncSettings = new()
 			{
-				InputFormat = DoomControllerTypes.Hexen,
+				InputFormat = DSDA.ControllerTypes.Hexen,
 				MultiplayerMode = DSDA.MultiplayerMode.Single_Coop,
 				MonstersRespawn = false,
 				FastMonsters = false,
 				NoMonsters = false,
-				CompatibilityLevel = DSDA.CompatibilityLevel.C0,
+				CompatibilityLevel = DSDA.CompatibilityLevel.Doom_12,
 				SkillLevel = (DSDA.SkillLevel) (1 + input[i++]),
 				InitialEpisode = input[i++],
 				InitialMap = input[i++],
@@ -48,8 +48,7 @@ namespace BizHawk.Client.Common
 			_ = input[i++]; // player 8 class
 			Result.Movie.SyncSettingsJson = ConfigService.SaveWithType(syncSettings);
 
-			var hexenController = new HexenController(1, false);
-			var controller = new SimpleController(hexenController.Definition);
+			var controller = new SimpleController(DSDA.CreateControllerDefinition(syncSettings));
 			controller.Definition.BuildMnemonicsCache(Result.Movie.SystemID);
 			void ParsePlayer(string playerPfx)
 			{

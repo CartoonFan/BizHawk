@@ -32,6 +32,12 @@ namespace BizHawk.Client.EmuHawk
 		{
 			InitializeComponent();
 			Icon = ToolIcon;
+			SystemDropDown.Format += (_, formatArgs) =>
+			{
+				var sysID = (string) formatArgs.ListItem;
+				var dispName = EmulatorExtensions.SystemIDToDisplayName(sysID);
+				formatArgs.Value = string.IsNullOrEmpty(dispName) ? sysID : dispName;
+			};
 			SystemDropDown.Items.AddRange([
 				VSystemID.Raw.Amiga,
 				VSystemID.Raw.AmstradCPC,
@@ -39,6 +45,7 @@ namespace BizHawk.Client.EmuHawk
 				VSystemID.Raw.Arcade,
 				VSystemID.Raw.C64,
 				VSystemID.Raw.Doom,
+				VSystemID.Raw.DOS,
 				VSystemID.Raw.GBL,
 				VSystemID.Raw.GEN,
 				VSystemID.Raw.GGL,
@@ -46,6 +53,7 @@ namespace BizHawk.Client.EmuHawk
 				VSystemID.Raw.N3DS,
 				VSystemID.Raw.N64,
 				VSystemID.Raw.NDS,
+				VSystemID.Raw.Panasonic3DO,
 				VSystemID.Raw.PCFX,
 				VSystemID.Raw.PSX,
 				VSystemID.Raw.SAT,
