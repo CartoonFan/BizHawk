@@ -3982,6 +3982,7 @@ namespace BizHawk.Client.EmuHawk
 			Emulator = new NullEmulator();
 			Game = GameInfo.NullInstance;
 			InputManager.SyncControls(Emulator, MovieSession, Config);
+			InputManager.ControllerInputCoalescer.ResetHaptics();
 			RewireSound();
 			RebootStatusBarIcon.Visible = false;
 
